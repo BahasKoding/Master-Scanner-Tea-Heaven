@@ -4,7 +4,7 @@
         <div class="m-header">
             <a href="/dashboard" class="b-brand text-primary">
                 <!-- ========   Change your logo from here   ============ -->
-                <img src="{{ URL::asset('build/images/logo-dark.svg') }}" alt="logo image" class="logo-lg">
+                <img src="{{ asset('img/tea-heaven.png') }}" width="100px" alt="">
                 <span class="badge bg-brand-color-2 rounded-pill ms-2 theme-version">v1.0</span>
             </a>
         </div>
@@ -30,7 +30,8 @@
                     </div>
                     <div class="flex-grow-1 ms-3">
                         <div class="dropdown">
-                            <a href="#" class="arrow-none dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false" data-bs-offset="0,20">
+                            <a href="#" class="arrow-none dropdown-toggle" data-bs-toggle="dropdown"
+                                aria-expanded="false" data-bs-offset="0,20">
                                 <div class="d-flex align-items-center">
                                     <div class="flex-grow-1 me-2">
                                         <h6 class="mb-0">{{ Auth::user()->name }}</h6>

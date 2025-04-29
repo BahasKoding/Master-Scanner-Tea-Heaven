@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 
-<title>@yield('title') | ERP INDO AGAR FOOD</title>
+<title>@yield('title') | Sistem Informasi Tea Heaven</title>
 <!-- [Meta] -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=0, minimal-ui">
