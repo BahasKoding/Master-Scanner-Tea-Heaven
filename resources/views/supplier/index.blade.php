@@ -2,15 +2,19 @@
 
 @section('title', 'Supplier Management')
 @section('breadcrumb-item', 'Supplier')
-@section('breadcrumb-item-active', 'List')
 
 @section('css')
+    <!-- [Page specific CSS] start -->
     <!-- data tables css -->
-    <link rel="stylesheet" href="{{ URL::asset('build/css/plugins/dataTables.bootstrap5.min.css') }}">
+    <link rel="stylesheet" href="{{ URL::asset('build/css/plugins/datatables/dataTables.bootstrap5.min.css') }}">
+    <link rel="stylesheet" href="{{ URL::asset('build/css/plugins/datatables/buttons.bootstrap5.min.css') }}">
+    <!-- [Page specific CSS] end -->
     <style>
-        .form-select {
-            width: 100%;
-            padding: 0.375rem 0.75rem;
+        .form-section {
+            background-color: #f8f9fa;
+            padding: 20px;
+            border-radius: 5px;
+            margin-bottom: 20px;
         }
     </style>
 @endsection
@@ -18,15 +22,15 @@
 @section('content')
     <!-- [ Main Content ] start -->
     <div class="row">
-        <!-- DOM/Jquery table start -->
+        <!-- Supplier Table start -->
         <div class="col-sm-12">
             <div class="card">
                 <div class="card-header">
-                    <h5>Supplier Management</h5>
-                    <div class="float-end">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5>Supplier List</h5>
                         <button type="button" class="btn btn-primary" data-bs-toggle="modal"
                             data-bs-target="#addSupplierModal">
-                            Add New Supplier
+                            <i class="fas fa-plus"></i> Add New Supplier
                         </button>
                     </div>
                 </div>
@@ -35,38 +39,41 @@
                         <table id="supplier-table" class="table table-striped table-bordered nowrap">
                             <thead>
                                 <tr>
-                                    <th>ID</th>
+                                    <th>No</th>
                                     <th>Category</th>
                                     <th>Code</th>
                                     <th>Product Name</th>
                                     <th>Unit</th>
+                                    <th>Created At</th>
                                     <th>Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
+                                <!-- Data will be loaded via AJAX -->
                             </tbody>
                         </table>
                     </div>
                 </div>
             </div>
         </div>
+        <!-- Supplier Table end -->
     </div>
     <!-- [ Main Content ] end -->
 
     <!-- Add Supplier Modal -->
-    <div class="modal fade" id="addSupplierModal" tabindex="-1" aria-labelledby="addSupplierModalLabel" aria-hidden="true">
+    <div class="modal fade" id="addSupplierModal" tabindex="-1">
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="addSupplierModalLabel">Add New Supplier</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    <h5 class="modal-title">Add New Supplier</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <form id="addSupplierForm">
                     @csrf
                     <div class="modal-body">
                         <div class="mb-3">
-                            <label for="category" class="form-label">Category</label>
-                            <select class="form-select" id="category" name="category" required>
+                            <label class="form-label">Category <span class="text-danger">*</span></label>
+                            <select class="form-select" name="category" required>
                                 <option value="">Select Category</option>
                                 <option value="CRAFTED TEAS">CRAFTED TEAS</option>
                                 <option value="LOOSE LEAF TEA">LOOSE LEAF TEA</option>
@@ -90,20 +97,20 @@
                             </select>
                         </div>
                         <div class="mb-3">
-                            <label for="code" class="form-label">Code</label>
-                            <input type="text" class="form-control" id="code" name="code" required>
+                            <label class="form-label">Code <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" name="code" required>
                         </div>
                         <div class="mb-3">
-                            <label for="product_name" class="form-label">Product Name</label>
-                            <input type="text" class="form-control" id="product_name" name="product_name" required>
+                            <label class="form-label">Product Name <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" name="product_name" required>
                         </div>
                         <div class="mb-3">
-                            <label for="unit" class="form-label">Unit</label>
-                            <select class="form-select" id="unit" name="unit" required>
+                            <label class="form-label">Unit <span class="text-danger">*</span></label>
+                            <select class="form-select" name="unit" required>
                                 <option value="">Select Unit</option>
-                                <option value="pcs">pcs</option>
-                                <option value="kg">kg</option>
-                                <option value="gram">gram</option>
+                                <option value="PCS">PCS</option>
+                                <option value="GRAM">GRAM</option>
+                                <option value="KG">KG</option>
                             </select>
                         </div>
                     </div>
@@ -117,22 +124,21 @@
     </div>
 
     <!-- Edit Supplier Modal -->
-    <div class="modal fade" id="editSupplierModal" tabindex="-1" aria-labelledby="editSupplierModalLabel"
-        aria-hidden="true">
+    <div class="modal fade" id="editSupplierModal" tabindex="-1">
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="editSupplierModalLabel">Edit Supplier</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    <h5 class="modal-title">Edit Supplier</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <form id="editSupplierForm">
                     @csrf
                     @method('PUT')
-                    <input type="hidden" id="edit_id" name="id">
+                    <input type="hidden" id="edit_supplier_id">
                     <div class="modal-body">
                         <div class="mb-3">
-                            <label for="edit_category" class="form-label">Category</label>
-                            <select class="form-select" id="edit_category" name="category" required>
+                            <label class="form-label">Category <span class="text-danger">*</span></label>
+                            <select class="form-select" name="category" required>
                                 <option value="">Select Category</option>
                                 <option value="CRAFTED TEAS">CRAFTED TEAS</option>
                                 <option value="LOOSE LEAF TEA">LOOSE LEAF TEA</option>
@@ -156,21 +162,21 @@
                             </select>
                         </div>
                         <div class="mb-3">
-                            <label for="edit_code" class="form-label">Code</label>
-                            <input type="text" class="form-control" id="edit_code" name="code" required>
+                            <label class="form-label">Code <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" name="code" id="edit_code" required>
                         </div>
                         <div class="mb-3">
-                            <label for="edit_product_name" class="form-label">Product Name</label>
-                            <input type="text" class="form-control" id="edit_product_name" name="product_name"
+                            <label class="form-label">Product Name <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" name="product_name" id="edit_product_name"
                                 required>
                         </div>
                         <div class="mb-3">
-                            <label for="edit_unit" class="form-label">Unit</label>
-                            <select class="form-select" id="edit_unit" name="unit" required>
+                            <label class="form-label">Unit <span class="text-danger">*</span></label>
+                            <select class="form-select" name="unit" required>
                                 <option value="">Select Unit</option>
-                                <option value="pcs">pcs</option>
-                                <option value="kg">kg</option>
-                                <option value="gram">gram</option>
+                                <option value="PCS">PCS</option>
+                                <option value="GRAM">GRAM</option>
+                                <option value="KG">KG</option>
                             </select>
                         </div>
                     </div>
@@ -185,20 +191,39 @@
 @endsection
 
 @section('scripts')
-    <!-- datatable Js -->
-    <script src="{{ URL::asset('build/libs/jquery/jquery.min.js') }}"></script>
+    <!-- Core JS files -->
+    <script src="{{ URL::asset('build/js/plugins/jquery-3.6.0.min.js') }}"></script>
+    <script src="{{ URL::asset('build/js/plugins/bootstrap.min.js') }}"></script>
+
+    <!-- DataTables Core -->
     <script src="{{ URL::asset('build/js/plugins/dataTables.min.js') }}"></script>
     <script src="{{ URL::asset('build/js/plugins/dataTables.bootstrap5.min.js') }}"></script>
-    <script>
+
+    <!-- DataTables Buttons and Extensions -->
+    <script src="{{ URL::asset('build/js/plugins/dataTables.buttons.min.js') }}"></script>
+    <script src="{{ URL::asset('build/js/plugins/buttons.bootstrap5.min.js') }}"></script>
+    <script src="{{ URL::asset('build/js/plugins/jszip.min.js') }}"></script>
+    <script src="{{ URL::asset('build/js/plugins/pdfmake.min.js') }}"></script>
+    <script src="{{ URL::asset('build/js/plugins/vfs_fonts.js') }}"></script>
+    <script src="{{ URL::asset('build/js/plugins/buttons.html5.min.js') }}"></script>
+    <script src="{{ URL::asset('build/js/plugins/buttons.print.min.js') }}"></script>
+    <script src="{{ URL::asset('build/js/plugins/buttons.colVis.min.js') }}"></script>
+
+    <script type="text/javascript">
         $(document).ready(function() {
             // Initialize DataTable
             var table = $('#supplier-table').DataTable({
                 processing: true,
                 serverSide: true,
-                ajax: "{{ route('suppliers.index') }}",
+                ajax: {
+                    url: "{{ route('suppliers.index') }}",
+                    type: "GET"
+                },
                 columns: [{
-                        data: 'id',
-                        name: 'id'
+                        data: 'DT_RowIndex',
+                        name: 'DT_RowIndex',
+                        orderable: false,
+                        searchable: false
                     },
                     {
                         data: 'category',
@@ -217,22 +242,45 @@
                         name: 'unit'
                     },
                     {
+                        data: 'created_at',
+                        name: 'created_at'
+                    },
+                    {
                         data: 'action',
                         name: 'action',
                         orderable: false,
                         searchable: false,
                         render: function(data, type, row) {
                             return `
-                                <div class="d-flex gap-2">
-                                    <button type="button" class="btn btn-sm btn-warning edit-btn" data-id="${row.id}">
-                                        <i class="fas fa-edit"></i>
-                                    </button>
-                                    <button type="button" class="btn btn-sm btn-danger delete-btn" data-id="${row.id}">
-                                        <i class="fas fa-trash"></i>
-                                    </button>
-                                </div>
+                                <button type="button" class="btn btn-sm btn-warning edit-btn" data-id="${row.id}">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button type="button" class="btn btn-sm btn-danger delete-btn" data-id="${row.id}">
+                                    <i class="fas fa-trash"></i>
+                                </button>
                             `;
                         }
+                    }
+                ],
+                order: [
+                    [5, 'desc']
+                ],
+                pageLength: 25,
+                dom: 'Bfrtip',
+                buttons: [{
+                        extend: 'copy',
+                        text: '<i class="fas fa-copy"></i> Copy',
+                        className: 'btn btn-secondary'
+                    },
+                    {
+                        extend: 'excel',
+                        text: '<i class="fas fa-file-excel"></i> Excel',
+                        className: 'btn btn-success'
+                    },
+                    {
+                        extend: 'print',
+                        text: '<i class="fas fa-print"></i> Print',
+                        className: 'btn btn-info'
                     }
                 ]
             });
@@ -240,75 +288,254 @@
             // Add Supplier Form Submit
             $('#addSupplierForm').on('submit', function(e) {
                 e.preventDefault();
+                var form = $(this);
+                var submitButton = form.find('button[type="submit"]');
+
+                // Disable submit button to prevent double submission
+                submitButton.prop('disabled', true);
+
+                var formData = new FormData(this);
+
                 $.ajax({
                     url: "{{ route('suppliers.store') }}",
                     method: 'POST',
-                    data: $(this).serialize(),
-                    success: function(response) {
-                        $('#addSupplierModal').modal('hide');
-                        $('#addSupplierForm')[0].reset();
-                        table.ajax.reload();
-                        alert('Supplier added successfully!');
+                    data: formData,
+                    processData: false,
+                    contentType: false,
+                    success: function(data) {
+                        if (data.success) {
+                            // Reset form first
+                            form[0].reset();
+                            submitButton.prop('disabled', false);
+
+                            // Properly hide modal and remove backdrop
+                            $('#addSupplierModal').modal('hide');
+                            $('body').removeClass('modal-open');
+                            $('.modal-backdrop').remove();
+
+                            // Reload table
+                            table.ajax.reload(null, false);
+
+                            // Show success message
+                            Swal.fire({
+                                title: 'Success!',
+                                text: data.message,
+                                icon: 'success',
+                                timer: 1500,
+                                showConfirmButton: false,
+                                toast: true,
+                                position: 'top-end'
+                            });
+                        }
                     },
-                    error: function(error) {
-                        alert('Error adding supplier!');
-                        console.log(error);
+                    error: function(xhr) {
+                        // Re-enable submit button on error
+                        submitButton.prop('disabled', false);
+
+                        if (xhr.status === 422) {
+                            // Validation errors
+                            const errors = xhr.responseJSON.errors;
+                            const errorMessages = Object.values(errors).flat();
+
+                            Swal.fire({
+                                title: 'Please Check Your Input',
+                                html: errorMessages.join('<br>'),
+                                icon: 'warning',
+                                confirmButtonText: 'I\'ll Fix It',
+                                confirmButtonColor: '#3085d6'
+                            });
+                        } else {
+                            // Other errors
+                            Swal.fire({
+                                title: 'Oops...',
+                                text: xhr.responseJSON?.message ||
+                                    'Something went wrong with the request.',
+                                icon: 'error',
+                                confirmButtonText: 'Try Again',
+                                confirmButtonColor: '#3085d6'
+                            });
+                        }
+                    },
+                    complete: function() {
+                        // Always ensure the UI is restored
+                        submitButton.prop('disabled', false);
+                        $('body').removeClass('modal-open');
+                        $('.modal-backdrop').remove();
                     }
                 });
             });
 
-            // Edit Supplier Button Click
-            $('#supplier-table').on('click', '.edit-btn', function() {
+            // Edit Button Click
+            $(document).on('click', '.edit-btn', function() {
                 var id = $(this).data('id');
-                $.get("{{ route('suppliers.index') }}/" + id + "/edit", function(data) {
-                    $('#edit_id').val(data.id);
-                    $('#edit_category').val(data.category);
+                $.get(`/suppliers/${id}/edit`, function(data) {
+                    $('#edit_supplier_id').val(data.id);
+                    $('#editSupplierModal select[name="category"]').val(data.category);
                     $('#edit_code').val(data.code);
                     $('#edit_product_name').val(data.product_name);
-                    $('#edit_unit').val(data.unit);
-                    $('#editSupplierModal').modal('show');
+                    $('#editSupplierModal select[name="unit"]').val(data.unit);
+
+                    var modal = new bootstrap.Modal(document.getElementById('editSupplierModal'));
+                    modal.show();
                 });
             });
 
-            // Update Supplier Form Submit
+            // Edit Supplier Form Submit
             $('#editSupplierForm').on('submit', function(e) {
                 e.preventDefault();
-                var id = $('#edit_id').val();
+                var form = $(this);
+                var submitButton = form.find('button[type="submit"]');
+
+                // Disable submit button to prevent double submission
+                submitButton.prop('disabled', true);
+
+                var id = $('#edit_supplier_id').val();
+                var formData = new FormData(this);
+                formData.append('_method', 'PUT');
+
                 $.ajax({
-                    url: "{{ route('suppliers.index') }}/" + id,
-                    method: 'PUT',
-                    data: $(this).serialize(),
-                    success: function(response) {
-                        $('#editSupplierModal').modal('hide');
-                        table.ajax.reload();
-                        alert('Supplier updated successfully!');
+                    url: `/suppliers/${id}`,
+                    method: 'POST',
+                    data: formData,
+                    processData: false,
+                    contentType: false,
+                    success: function(data) {
+                        if (data.success) {
+                            // Reset form first
+                            form[0].reset();
+                            submitButton.prop('disabled', false);
+
+                            // Properly hide modal and remove backdrop
+                            $('#editSupplierModal').modal('hide');
+                            $('body').removeClass('modal-open');
+                            $('.modal-backdrop').remove();
+
+                            // Reload table
+                            table.ajax.reload(null, false);
+
+                            // Show success message
+                            Swal.fire({
+                                title: 'Success!',
+                                text: data.message,
+                                icon: 'success',
+                                timer: 1500,
+                                showConfirmButton: false,
+                                toast: true,
+                                position: 'top-end'
+                            });
+                        }
                     },
-                    error: function(error) {
-                        alert('Error updating supplier!');
-                        console.log(error);
+                    error: function(xhr) {
+                        // Re-enable submit button on error
+                        submitButton.prop('disabled', false);
+
+                        if (xhr.status === 422) {
+                            // Validation errors
+                            const errors = xhr.responseJSON.errors;
+                            const errorMessages = Object.values(errors).flat();
+
+                            Swal.fire({
+                                title: 'Please Check Your Input',
+                                html: errorMessages.join('<br>'),
+                                icon: 'warning',
+                                confirmButtonText: 'I\'ll Fix It',
+                                confirmButtonColor: '#3085d6'
+                            });
+                        } else {
+                            // Other errors
+                            Swal.fire({
+                                title: 'Oops...',
+                                text: xhr.responseJSON?.message ||
+                                    'Something went wrong with the request.',
+                                icon: 'error',
+                                confirmButtonText: 'Try Again',
+                                confirmButtonColor: '#3085d6'
+                            });
+                        }
+                    },
+                    complete: function() {
+                        // Always ensure the UI is restored
+                        submitButton.prop('disabled', false);
+                        $('body').removeClass('modal-open');
+                        $('.modal-backdrop').remove();
                     }
                 });
             });
 
-            // Delete Supplier Button Click
-            $('#supplier-table').on('click', '.delete-btn', function() {
-                if (confirm('Are you sure you want to delete this supplier?')) {
-                    var id = $(this).data('id');
-                    $.ajax({
-                        url: "{{ route('suppliers.index') }}/" + id,
-                        method: 'DELETE',
-                        data: {
-                            _token: "{{ csrf_token() }}"
-                        },
-                        success: function(response) {
-                            table.ajax.reload();
-                            alert('Supplier deleted successfully!');
-                        },
-                        error: function(error) {
-                            alert('Error deleting supplier!');
-                            console.log(error);
-                        }
-                    });
+            // Delete Button Click
+            $(document).on('click', '.delete-btn', function() {
+                var id = $(this).data('id');
+                Swal.fire({
+                    title: 'Delete Confirmation',
+                    text: "Are you sure you want to remove this supplier? This action cannot be undone.",
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#3085d6',
+                    cancelButtonColor: '#d33',
+                    confirmButtonText: 'Yes, delete it!',
+                    cancelButtonText: 'No, keep it'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        $.ajax({
+                            url: `/suppliers/${id}`,
+                            method: 'DELETE',
+                            headers: {
+                                'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                            },
+                            success: function(data) {
+                                if (data.success) {
+                                    table.ajax.reload();
+                                    Swal.fire({
+                                        title: 'Deleted!',
+                                        text: data.message,
+                                        icon: 'success',
+                                        timer: 1500,
+                                        showConfirmButton: false,
+                                        toast: true,
+                                        position: 'top-end'
+                                    });
+                                }
+                            },
+                            error: function(xhr) {
+                                Swal.fire({
+                                    title: 'Delete Failed',
+                                    text: xhr.responseJSON?.message ||
+                                        'Could not delete the supplier at this time.',
+                                    icon: 'error',
+                                    confirmButtonText: 'OK',
+                                    confirmButtonColor: '#3085d6'
+                                });
+                            }
+                        });
+                    }
+                });
+            });
+
+            // Modal cleanup when hidden
+            $('.modal').on('hidden.bs.modal', function() {
+                // Remove any leftover backdrop and modal-open class
+                $('body').removeClass('modal-open');
+                $('.modal-backdrop').remove();
+
+                // Reset the form inside this modal
+                var form = $(this).find('form');
+                if (form.length) {
+                    form[0].reset();
+                    form.find('button[type="submit"]').prop('disabled', false);
+                }
+            });
+
+            // Ensure clean state when showing modal
+            $('.modal').on('show.bs.modal', function() {
+                // Remove any existing backdrop and modal-open class
+                $('body').removeClass('modal-open');
+                $('.modal-backdrop').remove();
+
+                // Reset the form inside this modal
+                var form = $(this).find('form');
+                if (form.length) {
+                    form[0].reset();
+                    form.find('button[type="submit"]').prop('disabled', false);
                 }
             });
         });

@@ -1,4 +1,5 @@
 <!-- Required Js -->
+<script src="{{ URL::asset('build/js/plugins/jquery.min.js') }}"></script>
 <script src="{{ URL::asset('build/js/plugins/popper.min.js') }}"></script>
 <script src="{{ URL::asset('build/js/plugins/simplebar.min.js') }}"></script>
 <script src="{{ URL::asset('build/js/plugins/bootstrap.min.js') }}"></script>
@@ -7,19 +8,19 @@
 <script src="{{ URL::asset('build/js/plugins/feather.min.js') }}"></script>
 
 @if (env('APP_DARK_LAYOUT') == 'default')
-<script>
-    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-        dark_layout = 'true';
-    } else {
-        dark_layout = 'false';
-    }
-    layout_change_default();
-    if (dark_layout == 'true') {
-        layout_change('dark');
-    } else {
-        layout_change('light');
-    }
-</script>
+    <script>
+        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            dark_layout = 'true';
+        } else {
+            dark_layout = 'false';
+        }
+        layout_change_default();
+        if (dark_layout == 'true') {
+            layout_change('dark');
+        } else {
+            layout_change('light');
+        }
+    </script>
 @endif
 
 @if (env('APP_DARK_LAYOUT') != 'default')
@@ -86,6 +87,6 @@
 
 @if (env('APP_PRESET_THEME') != '')
     <script>
-        preset_change("{{env('APP_PRESET_THEME')}}");
+        preset_change("{{ env('APP_PRESET_THEME') }}");
     </script>
 @endif
