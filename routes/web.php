@@ -9,6 +9,7 @@ use App\Http\Controllers\Backend\PermissionController;
 use App\Http\Controllers\Backend\ActivityController;
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\HistorySaleController;
+use App\Http\Controllers\SupplierController;
 use Illuminate\Support\Facades\Auth;
 
 Auth::routes();
@@ -98,13 +99,16 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::get('/alerts', function () {
         // Return a view named 'index' when accessing the root URL
-        return view('elements.ac_alert');
+        // return view('elements.ac_alert');
+        return view('table.dt_advance');
     });
 
+    Route::resource('suppliers', SupplierController::class);
 
     // Define a GET route with dynamic placeholders for route parameters.
     Route::get('{routeName}/{name?}', [HomeController::class, 'pageView']);
 
     // Define a GET route with dynamic placeholders for route parameters.
     Route::get('{routeName}/{name?}', [HomeController::class, 'pageView']);
+
 });
