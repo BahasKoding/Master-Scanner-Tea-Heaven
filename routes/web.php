@@ -85,6 +85,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('history-sales', [HistorySaleController::class, 'index'])->name('history-sales.index');
     Route::post('history-sales', [HistorySaleController::class, 'store'])->name('history-sales.store');
     Route::get('history-sales/create', [HistorySaleController::class, 'create'])->name('history-sales.create');
+    Route::get('history-sales/report', [HistorySaleController::class, 'report'])->name('history-sales.report');
+    Route::post('history-sales/export', [HistorySaleController::class, 'export'])->name('history-sales.export');
     Route::get('history-sales/{historySale}', [HistorySaleController::class, 'show'])->name('history-sales.show');
     Route::get('history-sales/{historySale}/edit', [HistorySaleController::class, 'edit'])->name('history-sales.edit');
     Route::put('history-sales/{historySale}', [HistorySaleController::class, 'update'])->name('history-sales.update');

@@ -12,7 +12,6 @@
     <!-- [Page specific CSS] start -->
     <!-- data tables css -->
     <link rel="stylesheet" href="{{ URL::asset('build/css/plugins/datatables/dataTables.bootstrap5.min.css') }}">
-    <link rel="stylesheet" href="{{ URL::asset('build/css/plugins/datatables/buttons.bootstrap5.min.css') }}">
     <!-- [Page specific CSS] end -->
     <style>
         /* Mobile-first responsive styles */
@@ -407,6 +406,54 @@
                 display: block;
             }
         }
+
+        /* Styling untuk action buttons dengan icon */
+        .btn-icon {
+            width: 36px;
+            height: 36px;
+            padding: 0;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            margin: 0 3px;
+            transition: all 0.2s ease;
+        }
+
+        .btn-icon i {
+            font-size: 1rem;
+        }
+
+        .btn-icon:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 3px 5px rgba(0, 0, 0, 0.2);
+        }
+
+        /* Pastikan tidak ada shadow atau efek hover yang berlebihan untuk tampilan mobile */
+        @media (max-width: 768px) {
+            .btn-icon {
+                width: 32px;
+                height: 32px;
+            }
+
+            .btn-icon i {
+                font-size: 0.875rem;
+            }
+
+            /* Untuk mobile, tampilkan button dalam baris tanpa stack */
+            #history-sales-table .btn {
+                display: inline-flex;
+                width: auto;
+                margin: 0 3px;
+            }
+
+            /* Perbaiki styling container actions */
+            .d-flex.justify-content-center {
+                display: flex !important;
+                justify-content: center !important;
+                gap: 8px;
+            }
+        }
     </style>
 @endsection
 
@@ -502,17 +549,20 @@
                     </div>
                     <div class="table-wrapper">
                         <table id="history-sales-table" class="table table-striped table-bordered">
-                            <thead>
+                            <thead id="main-table-header">
                                 <tr>
-                                    <th style="width: 50px;">No</th>
-                                    <th style="width: 120px;">No Resi</th>
+                                    <th style="width: 50px;">NO</th>
+                                    <th style="width: 120px;">NO RESI</th>
                                     <th>SKU</th>
-                                    <th style="width: 80px;">Qty</th>
-                                    <th style="width: 150px;">Created At</th>
-                                    <th style="width: 150px;">Updated At</th>
-                                    <th style="width: 120px;">Actions</th>
+                                    <th style="width: 80px;">QTY</th>
+                                    <th style="width: 150px;">CREATED AT</th>
+                                    <th style="width: 150px;">UPDATED AT</th>
+                                    <th style="width: 100px;">ACTIONS</th>
                                 </tr>
                             </thead>
+                            <tbody>
+                                <!-- Data akan diisi oleh DataTables -->
+                            </tbody>
                         </table>
                     </div>
                 </div>
@@ -568,16 +618,6 @@
     <script src="{{ URL::asset('build/js/plugins/dataTables.min.js') }}"></script>
     <script src="{{ URL::asset('build/js/plugins/dataTables.bootstrap5.min.js') }}"></script>
 
-    <!-- DataTables Buttons and Extensions -->
-    <script src="{{ URL::asset('build/js/plugins/dataTables.buttons.min.js') }}"></script>
-    <script src="{{ URL::asset('build/js/plugins/buttons.bootstrap5.min.js') }}"></script>
-    <script src="{{ URL::asset('build/js/plugins/jszip.min.js') }}"></script>
-    <script src="{{ URL::asset('build/js/plugins/pdfmake.min.js') }}"></script>
-    <script src="{{ URL::asset('build/js/plugins/vfs_fonts.js') }}"></script>
-    <script src="{{ URL::asset('build/js/plugins/buttons.html5.min.js') }}"></script>
-    <script src="{{ URL::asset('build/js/plugins/buttons.print.min.js') }}"></script>
-    <script src="{{ URL::asset('build/js/plugins/buttons.colVis.min.js') }}"></script>
-
     <!-- Custom JS -->
     <script src="{{ URL::asset('js/history-sales-edit.js') }}"></script>
 
@@ -611,6 +651,9 @@
          *    - Resets form on completion
          */
         $(document).ready(function() {
+            // Prevent DataTables from showing error messages in console
+            $.fn.dataTable.ext.errMode = 'none';
+
             // Constants for timing and validation
             const SUBMIT_TIMEOUT = 10000; // 10s auto-submit delay
             const RESET_TIMEOUT = 3000; // 3s reset delay
@@ -628,12 +671,48 @@
             let countdownSeconds = 10;
             let isAddingNewField = false; // New flag to prevent multiple field additions
 
+            // Check and remove duplicate thead elements that might already exist
+            if ($('#history-sales-table thead').length > 1) {
+                $('#history-sales-table thead:gt(0)').remove();
+            }
+
             // Initialize DataTable with standard configuration
             var table = $('#history-sales-table').DataTable({
                 processing: true,
                 serverSide: true,
                 responsive: true,
                 scrollX: true,
+                dom: 'frtip',
+                bAutoWidth: false,
+                ordering: true,
+                searching: true,
+                stateSave: false,
+                paging: true,
+                fixedHeader: false,
+                headerCallback: function() {
+                    // Hapus header yang duplikat segera setelah header dibuat
+                    if ($('#history-sales-table thead').length > 1) {
+                        $('#history-sales-table thead:not(#main-table-header)').remove();
+                    }
+                },
+                initComplete: function() {
+                    // Check for duplicate headers after initialization
+                    if ($('#history-sales-table thead').length > 1) {
+                        $('#history-sales-table thead:not(#main-table-header)').remove();
+                    }
+
+                    // Tambahkan observer untuk mendeteksi perubahan DOM
+                    const observer = new MutationObserver(function(mutations) {
+                        if ($('#history-sales-table thead').length > 1) {
+                            $('#history-sales-table thead:not(#main-table-header)').remove();
+                        }
+                    });
+
+                    observer.observe(document.getElementById('history-sales-table'), {
+                        childList: true,
+                        subtree: true
+                    });
+                },
                 ajax: {
                     url: "{{ route('history-sales.data') }}",
                     type: "POST",
@@ -701,7 +780,28 @@
                         next: "Selanjutnya",
                         previous: "Sebelumnya"
                     }
+                },
+                drawCallback: function(settings) {
+                    // Ensure no duplicate headers by removing any extra thead elements
+                    if ($('#history-sales-table thead').length > 1) {
+                        $('#history-sales-table thead:not(#main-table-header)').remove();
+                    }
+
+                    // Remove any DataTables generated header
+                    $('.dataTable > thead:gt(0)').remove();
+
+                    // Make sure tooltip works for action buttons
+                    $('[title]').tooltip();
                 }
+            });
+
+            // Clean up any duplicate headers after Ajax calls
+            table.on('xhr.dt', function() {
+                setTimeout(function() {
+                    if ($('#history-sales-table thead').length > 1) {
+                        $('#history-sales-table thead:not(#main-table-header)').remove();
+                    }
+                }, 100);
             });
 
             // Initialize edit functionality

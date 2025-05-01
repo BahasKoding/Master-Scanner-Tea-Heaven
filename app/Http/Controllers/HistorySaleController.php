@@ -206,12 +206,28 @@ class HistorySaleController extends Controller
     }
 
     /**
+     * Display the report view.
+     */
+    public function report()
+    {
+        return view('backend.sales.report')
+            ->with('item', $this->item);
+    }
+
+    /**
      * Get data for DataTables.
      */
     public function data(Request $request)
     {
         try {
             $query = HistorySale::query();
+
+            // Handle date range filter
+            if ($request->filled(['start_date', 'end_date'])) {
+                $startDate = $request->input('start_date') . ' 00:00:00';
+                $endDate = $request->input('end_date') . ' 23:59:59';
+                $query->whereBetween('created_at', [$startDate, $endDate]);
+            }
 
             // Handle trashed records based on request
             if ($request->boolean('only_trashed')) {
@@ -220,8 +236,23 @@ class HistorySaleController extends Controller
                 $query->whereNull('deleted_at');
             }
 
-            // Get total records count
+            // Get total records count (cap at a reasonable number to prevent timeouts)
             $totalRecords = $query->count();
+            $maxRecordsForExport = 10000; // Set a reasonable limit
+
+            // Handling pagination for normal view, but allowing all data for exports
+            $start = $request->input('start', 0);
+            $length = $request->input('length', 25);
+
+            // Check if we're requesting all records
+            $requestingAllRecords = $length == -1;
+
+            // If requesting all records but there are too many, limit it
+            if ($requestingAllRecords && $totalRecords > $maxRecordsForExport) {
+                Log::warning("Large data export attempted. Total records: {$totalRecords}, limiting to {$maxRecordsForExport}");
+                $length = $maxRecordsForExport;
+                $requestingAllRecords = false;
+            }
 
             // Handle search
             if ($searchValue = $request->input('search.value')) {
@@ -243,55 +274,23 @@ class HistorySaleController extends Controller
                 $query->orderBy($columns[$orderColumn], $orderDir);
             }
 
-            // Handle pagination
-            $start = $request->input('start', 0);
-            $length = $request->input('length', 25);
-            $historySales = $query->skip($start)->take($length)->get();
-
+            // Process data in chunks to avoid memory issues
             $data = [];
-            foreach ($historySales as $key => $historySale) {
-                // Decode JSON data
-                $skus = is_string($historySale->no_sku) ? json_decode($historySale->no_sku, true) : $historySale->no_sku;
-                $quantities = is_string($historySale->qty) ? json_decode($historySale->qty, true) : $historySale->qty;
+            $counter = $start + 1;
 
-                if (!is_array($skus)) {
-                    Log::warning('Invalid SKU data for ID ' . $historySale->id, [
-                        'skus' => $skus,
-                        'raw_data' => $historySale->no_sku
-                    ]);
-                    continue;
+            if ($requestingAllRecords) {
+                // For export all records, process in chunks
+                $query->chunk(500, function ($historySales) use (&$data, &$counter, $request) {
+                    foreach ($historySales as $historySale) {
+                        $data[] = $this->formatHistorySaleForDataTable($historySale, $counter++, $request);
+                    }
+                });
+            } else {
+                // For regular pagination
+                $historySales = $query->skip($start)->take($length)->get();
+                foreach ($historySales as $key => $historySale) {
+                    $data[] = $this->formatHistorySaleForDataTable($historySale, $start + $key + 1, $request);
                 }
-
-                // Format SKUs and quantities for display
-                $skuDisplay = [];
-                $qtyDisplay = [];
-                foreach ($skus as $index => $sku) {
-                    $skuDisplay[] = $sku;
-                    $qtyDisplay[] = $quantities[$index] ?? 1;
-                }
-
-                // Add restore button for trashed records
-                $actions = '';
-                if ($historySale->trashed()) {
-                    $actions .= '<button onclick="restoreHistorySale(' . $historySale->id . ')" class="btn btn-sm btn-success">Restore</button> ';
-                    $actions .= '<button onclick="forceDeleteHistorySale(' . $historySale->id . ')" class="btn btn-sm btn-danger">Delete Permanently</button>';
-                } else {
-                    $actions .= '<button onclick="editHistorySale(' . $historySale->id . ')" class="btn btn-sm btn-primary">Edit</button> ';
-                    $actions .= '<button onclick="deleteHistorySale(' . $historySale->id . ')" class="btn btn-sm btn-danger">Delete</button>';
-                }
-
-                $data[] = [
-                    'DT_RowId' => 'row_' . $historySale->id,
-                    'no' => $start + $key + 1, // Nomor urut yang benar sesuai pagination
-                    'id' => $historySale->id,
-                    'no_resi' => $historySale->no_resi,
-                    'no_sku' => implode('<br>', $skuDisplay),
-                    'qty' => implode('<br>', $qtyDisplay),
-                    'created_at' => $historySale->created_at->format('Y-m-d H:i:s'),
-                    'updated_at' => $historySale->updated_at->format('Y-m-d H:i:s'),
-                    'deleted_at' => $historySale->deleted_at ? $historySale->deleted_at->format('Y-m-d H:i:s') : null,
-                    'actions' => $actions
-                ];
             }
 
             return response()->json([
@@ -302,12 +301,105 @@ class HistorySaleController extends Controller
             ]);
         } catch (\Exception $e) {
             Log::error('Error in data method: ' . $e->getMessage(), [
-                'exception' => $e
+                'exception' => $e,
+                'trace' => $e->getTraceAsString(),
+                'request' => $request->all()
             ]);
             return response()->json([
-                'error' => 'Terjadi kesalahan: ' . $e->getMessage()
+                'error' => 'Terjadi kesalahan: ' . $e->getMessage(),
+                'details' => config('app.debug') ? $e->getTraceAsString() : null
             ], 500);
         }
+    }
+
+    /**
+     * Format a history sale record for DataTable display.
+     */
+    private function formatHistorySaleForDataTable($historySale, $counter, $request)
+    {
+        try {
+            // Decode JSON data
+            $skus = is_string($historySale->no_sku) ? json_decode($historySale->no_sku, true) : $historySale->no_sku;
+            $quantities = is_string($historySale->qty) ? json_decode($historySale->qty, true) : $historySale->qty;
+
+            if (!is_array($skus)) {
+                Log::warning('Invalid SKU data for ID ' . $historySale->id, [
+                    'skus' => $skus,
+                    'raw_data' => $historySale->no_sku
+                ]);
+                $skus = [];
+            }
+
+            if (!is_array($quantities)) {
+                $quantities = [];
+            }
+
+            // Format SKUs and quantities for display
+            $skuDisplay = [];
+            $qtyDisplay = [];
+            foreach ($skus as $index => $sku) {
+                $skuDisplay[] = $sku;
+                $qtyDisplay[] = isset($quantities[$index]) ? $quantities[$index] : 1;
+            }
+
+            return [
+                'DT_RowId' => 'row_' . $historySale->id,
+                'no' => $counter,
+                'id' => $historySale->id,
+                'no_resi' => $historySale->no_resi,
+                'no_sku' => implode('<br>', $skuDisplay),
+                'qty' => implode('<br>', $qtyDisplay),
+                'created_at' => $historySale->created_at->format('Y-m-d H:i:s'),
+                'updated_at' => $historySale->updated_at->format('Y-m-d H:i:s'),
+                'deleted_at' => $historySale->deleted_at ? $historySale->deleted_at->format('Y-m-d H:i:s') : null,
+                'actions' => $request->routeIs('history-sales.report') ? '' : $this->getActionButtons($historySale)
+            ];
+        } catch (\Exception $e) {
+            Log::error('Error formatting history sale: ' . $e->getMessage(), [
+                'history_sale_id' => $historySale->id ?? 'unknown',
+                'exception' => $e
+            ]);
+
+            // Return a fallback record with error indication
+            return [
+                'DT_RowId' => 'row_error',
+                'no' => $counter,
+                'id' => $historySale->id ?? 'ERROR',
+                'no_resi' => $historySale->no_resi ?? 'Error loading data',
+                'no_sku' => 'Error: Could not load SKUs',
+                'qty' => 'Error',
+                'created_at' => $historySale->created_at ? $historySale->created_at->format('Y-m-d H:i:s') : '',
+                'updated_at' => $historySale->updated_at ? $historySale->updated_at->format('Y-m-d H:i:s') : '',
+                'deleted_at' => null,
+                'actions' => ''
+            ];
+        }
+    }
+
+    /**
+     * Get action buttons HTML for a history sale record.
+     */
+    private function getActionButtons($historySale)
+    {
+        if ($historySale->trashed()) {
+            return '<div class="d-flex justify-content-center">
+                        <button onclick="restoreHistorySale(' . $historySale->id . ')" class="btn btn-icon btn-success mx-1" title="Restore">
+                            <i class="fas fa-trash-restore"></i>
+                        </button>
+                        <button onclick="forceDeleteHistorySale(' . $historySale->id . ')" class="btn btn-icon btn-danger mx-1" title="Delete Permanently">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>';
+        }
+
+        return '<div class="d-flex justify-content-center">
+                    <button onclick="editHistorySale(' . $historySale->id . ')" class="btn btn-icon btn-primary mx-1" title="Edit">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button onclick="deleteHistorySale(' . $historySale->id . ')" class="btn btn-icon btn-danger mx-1" title="Delete">
+                        <i class="fas fa-trash-alt"></i>
+                    </button>
+                </div>';
     }
 
     /**
