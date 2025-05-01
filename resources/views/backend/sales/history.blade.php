@@ -4,18 +4,13 @@
 @section('breadcrumb-item', $item)
 
 @section('css')
+    <!-- CSRF Token -->
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+
     <!-- [Page specific CSS] start -->
     <!-- data tables css -->
-    <link rel="stylesheet" href="{{ URL::asset('build/css/plugins/dataTables.bootstrap5.min.css') }}">
-    <link rel="stylesheet" href="{{ URL::asset('build/css/plugins/select.bootstrap5.min.css') }}">
-    <link rel="stylesheet" href="{{ URL::asset('build/css/plugins/autoFill.bootstrap5.min.css') }}">
-    <link rel="stylesheet" href="{{ URL::asset('build/css/plugins/keyTable.bootstrap5.min.css') }}">
-    <link rel="stylesheet" href="{{ URL::asset('build/css/plugins/buttons.bootstrap5.min.css') }}">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jquery-toast-plugin/1.3.2/jquery.toast.min.css">
-    <!-- Date picker -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
-    <!-- Sweet Alert -->
-    <link href="{{ URL::asset('build/css/plugins/animate.min.css') }}" rel="stylesheet" type="text/css">
+    <link rel="stylesheet" href="{{ URL::asset('build/css/plugins/datatables/dataTables.bootstrap5.min.css') }}">
+    <link rel="stylesheet" href="{{ URL::asset('build/css/plugins/datatables/buttons.bootstrap5.min.css') }}">
     <!-- [Page specific CSS] end -->
     <style>
         .scanner-active {
@@ -43,6 +38,7 @@
             margin-bottom: 10px;
             display: flex;
             gap: 10px;
+            align-items: center;
         }
 
         .sku-input {
@@ -74,6 +70,24 @@
         .btn-export {
             margin-left: 10px;
         }
+
+        .scanning-indicator {
+            display: none;
+            color: #4CAF50;
+            margin-left: 10px;
+            font-size: 0.9em;
+        }
+
+        .scanning-indicator.active {
+            display: inline-block;
+        }
+
+        .error-feedback {
+            color: #dc3545;
+            font-size: 0.875em;
+            margin-top: 0.25rem;
+            display: none;
+        }
     </style>
 @endsection
 
@@ -93,27 +107,39 @@
                         <div class="row">
                             <div class="col-md-6 mb-3">
                                 <label for="no_resi" class="form-label">No Resi <span class="text-danger">*</span></label>
-                                <input type="text" class="form-control scanner-input scanner-active" id="no_resi"
-                                    name="no_resi" required autofocus>
+                                <div class="input-group">
+                                    <input type="text" class="form-control scanner-input scanner-active" id="no_resi"
+                                        name="no_resi" required autofocus>
+                                    <span class="scanning-indicator" id="resiScanningIndicator">
+                                        <i class="fas fa-circle-notch fa-spin"></i> Scanning...
+                                    </span>
+                                </div>
+                                <div class="error-feedback" id="resiError"></div>
                             </div>
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">No SKU <span class="text-danger">*</span></label>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-12 mb-3">
+                                <label class="form-label">No SKU & Quantity <span class="text-danger">*</span></label>
                                 <div id="sku-container">
                                     <div class="sku-input-container">
                                         <input type="text" class="form-control scanner-input sku-input" name="no_sku[]"
-                                            required>
-                                        <input type="hidden" class="qty-input" name="qty[]" value="1">
-                                        <button type="button" class="btn btn-outline-secondary add-sku-btn"><i
-                                                class="fas fa-plus"></i></button>
+                                            required disabled>
+                                        <input type="number" class="form-control qty-input" name="qty[]" value="1"
+                                            min="1">
+                                        <span class="scanning-indicator" id="skuScanningIndicator">
+                                            <i class="fas fa-circle-notch fa-spin"></i> Scanning...
+                                        </span>
                                     </div>
                                 </div>
+                                <div class="error-feedback" id="skuError"></div>
                             </div>
                         </div>
                         <div class="row">
                             <div class="col-12">
-                                <button type="button" id="saveHistorySaleBtn" class="btn btn-primary">Save History
-                                    Sale</button>
                                 <button type="button" id="resetScannerBtn" class="btn btn-warning">Reset Scanner</button>
+                                <span id="autoSubmitTimer" class="text-muted ms-2" style="display: none;">
+                                    Auto-submitting in <span id="submitCountdown">10</span>s...
+                                </span>
                             </div>
                         </div>
                     </form>
@@ -190,27 +216,29 @@
 @endsection
 
 @section('scripts')
-    <!-- [Page Specific JS] start -->
-    <!-- jQuery -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
-    <!-- jQuery Toast Plugin -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-toast-plugin/1.3.2/jquery.toast.min.js"></script>
-    <!-- DataTables -->
-    <script src="https://cdn.datatables.net/1.11.5/js/jquery.dataTables.min.js"></script>
-    <script src="https://cdn.datatables.net/1.11.5/js/dataTables.bootstrap5.min.js"></script>
-    <!-- DataTables Buttons -->
-    <script src="https://cdn.datatables.net/buttons/2.2.2/js/dataTables.buttons.min.js"></script>
-    <script src="https://cdn.datatables.net/buttons/2.2.2/js/buttons.bootstrap5.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.1.3/jszip.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.53/pdfmake.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.53/vfs_fonts.js"></script>
-    <script src="https://cdn.datatables.net/buttons/2.2.2/js/buttons.html5.min.js"></script>
-    <script src="https://cdn.datatables.net/buttons/2.2.2/js/buttons.print.min.js"></script>
-    <script src="https://cdn.datatables.net/buttons/2.2.2/js/buttons.colVis.min.js"></script>
-    <!-- Date picker -->
-    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <!-- Core JS files -->
+    <script src="{{ URL::asset('build/js/plugins/jquery-3.6.0.min.js') }}"></script>
+    <script src="{{ URL::asset('build/js/plugins/bootstrap.min.js') }}"></script>
+
+    <!-- DataTables Core -->
+    <script src="{{ URL::asset('build/js/plugins/dataTables.min.js') }}"></script>
+    <script src="{{ URL::asset('build/js/plugins/dataTables.bootstrap5.min.js') }}"></script>
+
+    <!-- DataTables Buttons and Extensions -->
+    <script src="{{ URL::asset('build/js/plugins/dataTables.buttons.min.js') }}"></script>
+    <script src="{{ URL::asset('build/js/plugins/buttons.bootstrap5.min.js') }}"></script>
+    <script src="{{ URL::asset('build/js/plugins/jszip.min.js') }}"></script>
+    <script src="{{ URL::asset('build/js/plugins/pdfmake.min.js') }}"></script>
+    <script src="{{ URL::asset('build/js/plugins/vfs_fonts.js') }}"></script>
+    <script src="{{ URL::asset('build/js/plugins/buttons.html5.min.js') }}"></script>
+    <script src="{{ URL::asset('build/js/plugins/buttons.print.min.js') }}"></script>
+    <script src="{{ URL::asset('build/js/plugins/buttons.colVis.min.js') }}"></script>
+
     <!-- Sweet Alert -->
     <script src="{{ URL::asset('build/js/plugins/sweetalert2.all.min.js') }}"></script>
+
+    <!-- Date picker -->
+    <script src="{{ URL::asset('build/js/plugins/flatpickr.min.js') }}"></script>
 
     <script>
         // Tambahkan fungsi deleteHistorySale di luar $(document).ready
@@ -306,342 +334,116 @@
         }
 
         $(document).ready(function() {
-            // Initialize date pickers
-            const startDatePicker = flatpickr("#start-date", {
-                dateFormat: "Y-m-d",
-                maxDate: "today"
-            });
+            // Constants
+            const SUBMIT_TIMEOUT = 10000; // 10 seconds for auto-submit
+            const RESET_TIMEOUT = 3000; // 3 seconds for form reset
+            const SCAN_DELAY = 200; // 200ms delay between scans
+            const MIN_SKU_LENGTH = 10; // Minimum SKU length
+            const NEW_FIELD_DELAY = 5000; // 5 seconds to wait for new SKU
 
-            const endDatePicker = flatpickr("#end-date", {
-                dateFormat: "Y-m-d",
-                maxDate: "today"
-            });
+            // State variables
+            let submitTimer = null;
+            let newFieldTimer = null;
+            let lastScanTime = Date.now();
+            let isProcessing = false;
+            let hasValidResi = false;
+            let countdownInterval = null;
+            let countdownSeconds = 10;
 
-            // Initialize DataTable with try-catch
-            try {
-                var table = $('#history-sales-table').DataTable({
-                    processing: true,
-                    serverSide: false,
-                    ajax: {
-                        url: "{{ route('history-sales.data') }}",
-                        type: "POST",
-                        data: function(d) {
-                            d._token = "{{ csrf_token() }}";
-                        }
-                    },
-                    columns: [{
-                            data: 'no',
-                            name: 'no'
-                        },
-                        {
-                            data: 'no_resi',
-                            name: 'no_resi'
-                        },
-                        {
-                            data: 'no_sku',
-                            name: 'no_sku'
-                        },
-                        {
-                            data: 'created_at',
-                            name: 'created_at'
-                        },
-                        {
-                            data: 'updated_at',
-                            name: 'updated_at'
-                        },
-                        {
-                            data: 'actions',
-                            name: 'actions',
-                            orderable: false,
-                            searchable: false
-                        }
-                    ],
-                    order: [
-                        [3, 'desc']
-                    ],
-                    pageLength: 25,
-                    dom: 'Blfrtip',
-                    buttons: [{
-                            extend: 'copyHtml5',
-                            text: '<i class="fas fa-copy"></i> Copy',
-                            className: 'btn btn-secondary',
-                            exportOptions: {
-                                columns: [0, 1, 2, 3, 4]
-                            }
-                        },
-                        {
-                            extend: 'csvHtml5',
-                            text: '<i class="fas fa-file-csv"></i> CSV',
-                            className: 'btn btn-primary',
-                            exportOptions: {
-                                columns: [0, 1, 2, 3, 4]
-                            }
-                        },
-                        {
-                            extend: 'excelHtml5',
-                            text: '<i class="fas fa-file-excel"></i> Excel',
-                            className: 'btn btn-success',
-                            exportOptions: {
-                                columns: [0, 1, 2, 3, 4]
-                            }
-                        },
-                        {
-                            extend: 'print',
-                            text: '<i class="fas fa-print"></i> Print',
-                            className: 'btn btn-info',
-                            exportOptions: {
-                                columns: [0, 1, 2, 3, 4]
-                            }
-                        }
-                    ],
-                    drawCallback: function() {
-                        // Reinitialize event handlers jika diperlukan
-                        $('[data-bs-toggle="tooltip"]').tooltip();
-                    }
-                });
+            // Initialize DataTable
+            initializeDataTable();
 
-                // Simpan referensi table ke window object agar bisa diakses global
-                window.historySalesTable = table;
-
-            } catch (e) {
-                console.error('Error initializing DataTable:', e);
-                $('#history-sales-table tbody').html(
-                    '<tr><td colspan="6" class="text-center text-danger">Error initializing table. Please try refreshing the page.</td></tr>'
-                );
-            }
-
-            // Setup AJAX untuk include CSRF token
+            // Setup AJAX CSRF
             $.ajaxSetup({
                 headers: {
                     'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
                 }
             });
 
-            // Konstanta untuk timing
-            const SUBMIT_TIMEOUT = 5000; // 5 detik untuk auto-submit
-            const RESET_TIMEOUT = 3000; // 3 detik untuk reset form
-            const SCAN_DELAY = 200; // 200ms delay antar scan
-            const MIN_SKU_LENGTH = 10; // Minimal panjang SKU sebelum bisa tambah field baru
-            const NEW_FIELD_DELAY = 1000; // 1 detik delay sebelum tambah field baru
+            // Focus on no_resi initially
+            resetForm();
 
-            let submitTimer = null;
-            let newFieldTimer = null;
-            let lastScanTime = Date.now();
-            let isProcessing = false;
-            let lastSkuLength = 0; // Untuk track perubahan panjang SKU
-            let hasValidSku = false; // Track apakah ada SKU valid
-
-            // Inisialisasi awal: focus ke no_resi
-            $(document).ready(function() {
-                resetForm();
-            });
-
-            // Handler untuk no_resi input
+            // Handle No Resi input
             $('#no_resi').on('input', function(e) {
                 const noResi = $(this).val().trim();
-
                 clearTimeout(submitTimer);
+                $('#resiScanningIndicator').addClass('active');
 
-                if (!noResi) return;
+                if (!noResi) {
+                    hasValidResi = false;
+                    return;
+                }
 
-                // Setelah no_resi terisi, pindah ke SKU
-                setTimeout(() => {
-                    $('.sku-input:last').focus();
-                }, SCAN_DELAY);
+                // Validate No Resi
+                $.ajax({
+                    url: '/validate-no-resi',
+                    method: 'POST',
+                    data: {
+                        no_resi: noResi
+                    },
+                    success: function(response) {
+                        if (response.valid) {
+                            hasValidResi = true;
+                            $('#resiError').hide();
+                            // Enable first SKU input and focus after delay
+                            setTimeout(() => {
+                                $('.sku-input:first').prop('disabled', false).focus();
+                                $('#resiScanningIndicator').removeClass('active');
+                            }, SCAN_DELAY);
+                        } else {
+                            showError('resiError', 'No Resi already exists');
+                            setTimeout(() => resetForm(), RESET_TIMEOUT);
+                        }
+                    },
+                    error: function() {
+                        showError('resiError', 'Error validating No Resi');
+                        setTimeout(() => resetForm(), RESET_TIMEOUT);
+                    }
+                });
             });
 
-            // Handler untuk SKU inputs
+            // Handle SKU inputs
             $(document).on('input', '.sku-input', function(e) {
-                if (isProcessing) return;
+                if (isProcessing || !hasValidResi) return;
 
                 const input = $(this);
                 const currentSku = input.val().trim();
 
                 clearTimeout(submitTimer);
                 clearTimeout(newFieldTimer);
+                resetCountdown();
 
-                if (!currentSku) {
-                    // Jika field kosong, tetap bisa submit jika ada SKU valid lainnya
-                    if (hasValidSkuInForm()) {
-                        submitTimer = setTimeout(() => {
-                            submitForm();
-                        }, SUBMIT_TIMEOUT);
+                if (!currentSku) return;
+
+                $('#skuScanningIndicator').addClass('active');
+
+                // Validate SKU length
+                if (currentSku.length >= MIN_SKU_LENGTH) {
+                    // Check for duplicates
+                    if (isDuplicateSkuInForm(currentSku, input)) {
+                        showError('skuError', 'Duplicate SKU detected');
+                        setTimeout(() => resetForm(), RESET_TIMEOUT);
+                        return;
                     }
-                    return;
-                }
 
-                // Cek jika panjang SKU bertambah (menandakan masih scanning)
-                if (currentSku.length > lastSkuLength) {
-                    lastSkuLength = currentSku.length;
+                    // Start countdown for auto-submit
+                    startCountdown();
 
-                    // Jika SKU sudah cukup panjang
-                    if (currentSku.length >= MIN_SKU_LENGTH) {
-                        // Cek duplikasi
-                        if (isDuplicateSkuInForm(currentSku, input)) {
-                            showError('SKU sudah ada dalam form ini');
-                            return;
-                        }
-
-                        hasValidSku = true;
-
-                        // Tambah field baru jika ini adalah field terakhir
+                    // Set timer for possible new SKU
+                    newFieldTimer = setTimeout(() => {
                         if (input.closest('.sku-input-container').is(':last-child')) {
                             addNewSkuField();
                         }
+                    }, NEW_FIELD_DELAY);
 
-                        // Set timer untuk submit
-                        submitTimer = setTimeout(() => {
-                            submitForm();
-                        }, SUBMIT_TIMEOUT);
+                    // Set timer for auto-submit
+                    submitTimer = setTimeout(() => {
+                        submitForm();
+                    }, SUBMIT_TIMEOUT);
 
-                        lastScanTime = Date.now();
-                    }
+                    $('#skuScanningIndicator').removeClass('active');
                 }
             });
-
-            // Fungsi untuk cek apakah ada SKU valid dalam form
-            function hasValidSkuInForm() {
-                let valid = false;
-                $('.sku-input').each(function() {
-                    const sku = $(this).val().trim();
-                    if (sku && sku.length >= MIN_SKU_LENGTH) {
-                        valid = true;
-                        return false; // break loop
-                    }
-                });
-                return valid;
-            }
-
-            // Fungsi untuk menampilkan error dan reset form
-            function showError(message) {
-                Swal.fire({
-                    title: 'Error!',
-                    text: message,
-                    icon: 'error',
-                    timer: 2000,
-                    showConfirmButton: false
-                });
-                setTimeout(() => resetForm(), RESET_TIMEOUT);
-            }
-
-            // Fungsi untuk cek duplikasi SKU dalam form yang sama
-            function isDuplicateSkuInForm(sku, currentInput) {
-                let duplicate = false;
-                $('.sku-input').not(currentInput).each(function() {
-                    if ($(this).val().trim() === sku) {
-                        duplicate = true;
-                        return false;
-                    }
-                });
-                return duplicate;
-            }
-
-            // Fungsi untuk submit form
-            async function submitForm() {
-                if (isProcessing) return;
-
-                // Validasi apakah ada minimal satu SKU valid
-                let hasValidData = false;
-                $('.sku-input').each(function() {
-                    const sku = $(this).val().trim();
-                    if (sku && sku.length >= MIN_SKU_LENGTH) {
-                        hasValidData = true;
-                        return false; // break loop
-                    }
-                });
-
-                if (!hasValidData) {
-                    return; // Jangan submit jika tidak ada SKU valid
-                }
-
-                isProcessing = true;
-
-                try {
-                    // Validasi final
-                    const noResi = $('#no_resi').val().trim();
-                    if (!noResi) {
-                        throw new Error('No Resi harus diisi');
-                    }
-
-                    // Submit via AJAX
-                    const response = await $.ajax({
-                        url: "{{ route('history-sales.store') }}",
-                        type: "POST",
-                        data: $('#historySaleForm').serialize(),
-                        dataType: 'json'
-                    });
-
-                    if (response.status === 'success') {
-                        Swal.fire({
-                            title: 'Success!',
-                            text: response.message,
-                            icon: 'success',
-                            timer: 1500,
-                            showConfirmButton: false
-                        });
-
-                        // Reload table dan reset form
-                        $('#history-sales-table').DataTable().ajax.reload(null, false);
-                        setTimeout(() => resetForm(), 1500);
-                    } else {
-                        throw new Error(response.message);
-                    }
-                } catch (error) {
-                    console.error('Submit error:', error);
-                    showError(error.message || 'Gagal menyimpan data');
-                } finally {
-                    isProcessing = false;
-                }
-            }
-
-            // Fungsi untuk reset form
-            function resetForm() {
-                // Clear timer
-                clearTimeout(submitTimer);
-                clearTimeout(newFieldTimer);
-
-                // Reset form fields
-                $('#no_resi').val('');
-                $('.sku-input-container:not(:first)').remove();
-                $('.sku-input:first').val('');
-                $('.qty-input:first').val('1');
-
-                // Reset state
-                isProcessing = false;
-                lastScanTime = Date.now();
-                lastSkuLength = 0;
-                hasValidSku = false;
-
-                // Set focus ke no_resi
-                $('#no_resi').focus();
-            }
-
-            // Fungsi untuk menambah field SKU baru
-            function addNewSkuField() {
-                if (isProcessing) return;
-
-                // Cek apakah field terakhir sudah terisi
-                const lastField = $('.sku-input:last');
-                const lastSku = lastField.val().trim();
-
-                // Hanya tambah field baru jika field terakhir sudah terisi
-                if (lastSku && lastSku.length >= MIN_SKU_LENGTH) {
-                    const newSkuContainer = `
-                        <div class="sku-input-container">
-                            <input type="text" class="form-control scanner-input sku-input" name="no_sku[]" required>
-                            <input type="hidden" class="qty-input" name="qty[]" value="1">
-                        </div>
-                    `;
-                    $('#sku-container').append(newSkuContainer);
-
-                    // Focus ke field baru setelah delay singkat
-                    setTimeout(() => {
-                        $('.sku-input:last').focus();
-                    }, 100);
-                }
-
-                lastSkuLength = 0; // Reset tracking panjang SKU untuk field baru
-            }
 
             // Reset button handler
             $('#resetScannerBtn').on('click', function() {
@@ -653,105 +455,161 @@
                 e.preventDefault();
             });
 
-            // Tambah SKU baru di form edit
-            $('#add-edit-sku-btn').on('click', function() {
-                const newSkuInput = `
+            // Helper Functions
+            function showError(elementId, message) {
+                $(`#${elementId}`).text(message).show();
+            }
+
+            function isDuplicateSkuInForm(sku, currentInput) {
+                let duplicate = false;
+                $('.sku-input').not(currentInput).each(function() {
+                    if ($(this).val().trim() === sku) {
+                        duplicate = true;
+                        return false;
+                    }
+                });
+                return duplicate;
+            }
+
+            function addNewSkuField() {
+                const newSkuContainer = `
                     <div class="sku-input-container">
-                        <input type="text" class="form-control sku-input" name="no_sku[]" required>
-                        <input type="number" class="form-control qty-input" name="qty[]" value="1" required min="1">
-                        <button type="button" class="btn btn-outline-danger remove-edit-sku-btn">
-                            <i class="fas fa-minus"></i>
-                        </button>
+                        <input type="text" class="form-control scanner-input sku-input" name="no_sku[]" required>
+                        <input type="number" class="form-control qty-input" name="qty[]" value="1" min="1">
+                        <span class="scanning-indicator">
+                            <i class="fas fa-circle-notch fa-spin"></i> Scanning...
+                        </span>
                     </div>
                 `;
-                $('#edit-sku-container').append(newSkuInput);
-            });
+                $('#sku-container').append(newSkuContainer);
+                $('.sku-input:last').focus();
+            }
 
-            // Hapus SKU di form edit
-            $(document).on('click', '.remove-edit-sku-btn', function() {
-                if ($('#edit-sku-container .sku-input-container').length > 1) {
-                    $(this).closest('.sku-input-container').remove();
-                } else {
-                    Swal.fire(
-                        'Warning!',
-                        'At least one SKU is required.',
-                        'warning'
-                    );
-                }
-            });
+            function resetForm() {
+                clearTimeout(submitTimer);
+                clearTimeout(newFieldTimer);
+                clearInterval(countdownInterval);
 
-            // Modifikasi fungsi untuk submit form edit
-            $('#updateHistorySaleBtn').on('click', function() {
-                const id = $('#edit-history-sale-id').val();
+                $('#no_resi').val('').prop('disabled', false).focus();
+                $('.sku-input-container:not(:first)').remove();
+                $('.sku-input:first').val('').prop('disabled', true);
+                $('.qty-input:first').val('1');
 
-                // Validasi form
-                if (!$('#edit-no_resi').val()) {
-                    Swal.fire('Error!', 'No Resi is required', 'error');
-                    return;
-                }
+                $('.error-feedback').hide();
+                $('.scanning-indicator').removeClass('active');
+                $('#autoSubmitTimer').hide();
 
-                // Validasi duplikasi SKU di form edit
-                const skus = [];
-                let hasDuplicate = false;
-                let duplicateSku = '';
+                isProcessing = false;
+                hasValidResi = false;
+                lastScanTime = Date.now();
+            }
 
-                $('#edit-sku-container .sku-input').each(function() {
+            function startCountdown() {
+                clearInterval(countdownInterval);
+                countdownSeconds = 10;
+                $('#submitCountdown').text(countdownSeconds);
+                $('#autoSubmitTimer').show();
+
+                countdownInterval = setInterval(() => {
+                    countdownSeconds--;
+                    $('#submitCountdown').text(countdownSeconds);
+                    if (countdownSeconds <= 0) {
+                        clearInterval(countdownInterval);
+                    }
+                }, 1000);
+            }
+
+            function resetCountdown() {
+                clearInterval(countdownInterval);
+                $('#autoSubmitTimer').hide();
+            }
+
+            async function submitForm() {
+                if (isProcessing || !hasValidResi) return;
+
+                // Validate if we have at least one valid SKU
+                let hasValidData = false;
+                $('.sku-input').each(function() {
                     const sku = $(this).val().trim();
-                    if (sku !== '') {
-                        if (skus.includes(sku)) {
-                            hasDuplicate = true;
-                            duplicateSku = sku;
-                            return false;
-                        }
-                        skus.push(sku);
+                    if (sku && sku.length >= MIN_SKU_LENGTH) {
+                        hasValidData = true;
+                        return false;
                     }
                 });
 
-                if (hasDuplicate) {
-                    Swal.fire('Error!', 'Duplicate SKU detected: ' + duplicateSku, 'error');
-                    return;
-                }
+                if (!hasValidData) return;
 
-                if (skus.length === 0) {
-                    Swal.fire('Error!', 'At least one SKU is required', 'error');
-                    return;
-                }
+                isProcessing = true;
 
-                // Submit form via AJAX
-                $.ajax({
-                    url: `/history-sales/${id}`,
-                    type: 'PUT',
-                    data: $('#editHistorySaleForm').serialize(),
-                    success: function(response) {
-                        if (response.status === 'success') {
-                            Swal.fire(
-                                'Success!',
-                                'History sale has been updated.',
-                                'success'
-                            );
+                try {
+                    const response = await $.ajax({
+                        url: "{{ route('history-sales.store') }}",
+                        type: "POST",
+                        data: $('#historySaleForm').serialize(),
+                        dataType: 'json'
+                    });
 
-                            // Tutup modal
-                            $('#editHistorySaleModal').modal('hide');
+                    if (response.status === 'success') {
+                        // Show success message
+                        Swal.fire({
+                            title: 'Success!',
+                            text: response.message,
+                            icon: 'success',
+                            timer: 1500,
+                            showConfirmButton: false
+                        });
 
-                            // Reload DataTable
-                            $('#history-sales-table').DataTable().ajax.reload(null, false);
-                        } else {
-                            Swal.fire(
-                                'Error!',
-                                response.message || 'Failed to update history sale.',
-                                'error'
-                            );
-                        }
-                    },
-                    error: function(xhr) {
-                        Swal.fire(
-                            'Error!',
-                            xhr.responseJSON?.message || 'Failed to update history sale.',
-                            'error'
-                        );
+                        // Reload table and reset form
+                        $('#history-sales-table').DataTable().ajax.reload(null, false);
+                        setTimeout(() => resetForm(), 1500);
+                    } else {
+                        throw new Error(response.message);
                     }
-                });
-            });
+                } catch (error) {
+                    showError('skuError', error.message || 'Failed to save data');
+                    setTimeout(() => resetForm(), RESET_TIMEOUT);
+                } finally {
+                    isProcessing = false;
+                }
+            }
+
+            function initializeDataTable() {
+                try {
+                    $('#history-sales-table').DataTable({
+                        processing: true,
+                        serverSide: false,
+                        ajax: {
+                            url: "{{ route('history-sales.data') }}",
+                            type: "POST"
+                        },
+                        columns: [{
+                                data: 'no'
+                            },
+                            {
+                                data: 'no_resi'
+                            },
+                            {
+                                data: 'no_sku'
+                            },
+                            {
+                                data: 'created_at'
+                            },
+                            {
+                                data: 'updated_at'
+                            },
+                            {
+                                data: 'actions'
+                            }
+                        ],
+                        order: [
+                            [3, 'desc']
+                        ],
+                        pageLength: 25
+                    });
+                } catch (e) {
+                    console.error('Error initializing DataTable:', e);
+                }
+            }
         });
     </script>
-    <!-- [Page Specific JS] end -->
+@endsection

@@ -34,9 +34,9 @@ class HistorySaleController extends Controller
     {
         try {
             $validatedData = $request->validate([
-                'no_resi' => 'required|string',
+                'no_resi' => 'required|string|unique:history_sales,no_resi',
                 'no_sku' => 'required|array',
-                'no_sku.*' => 'nullable|string',
+                'no_sku.*' => 'nullable|string|min:10',
                 'qty' => 'sometimes|array',
                 'qty.*' => 'sometimes|integer|min:1',
             ]);
@@ -52,7 +52,7 @@ class HistorySaleController extends Controller
                     if (in_array($sku, $seenSkus)) {
                         return response()->json([
                             'status' => 'error',
-                            'message' => 'Duplicate SKU in current form: ' . $sku
+                            'message' => 'Duplicate SKU detected: ' . $sku
                         ], 422);
                     }
 
@@ -81,10 +81,15 @@ class HistorySaleController extends Controller
                 'status' => 'success',
                 'message' => 'History Sale added successfully with ' . count($skus) . ' SKU(s)',
             ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => $e->errors()
+            ], 422);
         } catch (\Exception $e) {
             return response()->json([
                 'status' => 'error',
-                'message' => $e->getMessage()
+                'message' => 'An unexpected error occurred: ' . $e->getMessage()
             ], 500);
         }
     }
@@ -304,6 +309,13 @@ class HistorySaleController extends Controller
     {
         try {
             $noResi = $request->input('no_resi');
+
+            if (empty($noResi)) {
+                return response()->json([
+                    'valid' => false,
+                    'message' => 'No Resi is required'
+                ], 422);
+            }
 
             // Check if no_resi already exists
             $exists = HistorySale::where('no_resi', $noResi)->exists();

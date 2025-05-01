@@ -10,6 +10,7 @@
 <meta name="author" content="bahaskoding" />
 <meta name="csrf-token" content="{{ csrf_token() }}">
 
+
 <!-- [Favicon] icon -->
 <link rel="icon" href="{{ URL::asset('build/images/ico32.ico') }}" type="image/x-icon">
 

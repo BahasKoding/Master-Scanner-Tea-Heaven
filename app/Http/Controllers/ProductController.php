@@ -7,7 +7,7 @@ use Illuminate\Http\Request;
 use Yajra\DataTables\Facades\DataTables;
 use Illuminate\Validation\ValidationException;
 
-class SupplierController extends Controller
+class ProductController extends Controller
 {
     /**
      * Custom validation messages
@@ -88,10 +88,10 @@ class SupplierController extends Controller
 
         // Get initial data for the view with pagination
         $items = [
-            'Supplier List' => route('suppliers.index'),
+            'Product List' => route('suppliers.index'),
         ];
 
-        return view('supplier.index', compact('items'));
+        return view('product.index', compact('items'));
     }
 
     /**
@@ -107,12 +107,12 @@ class SupplierController extends Controller
                 'unit'              => 'required|string|max:255',
             ], $this->getValidationMessages());
 
-            $supplier = Supplier::create($validated);
+            $product = Supplier::create($validated);
 
             return response()->json([
                 'success' => true,
                 'message' => 'Great! The supplier has been successfully added to the system.',
-                'data' => $supplier
+                'data' => $product
             ]);
         } catch (ValidationException $e) {
             return response()->json([
@@ -131,18 +131,11 @@ class SupplierController extends Controller
     /**
      * Show the form for editing the specified resource.
      */
-    public function edit(Supplier $supplier)
+    public function edit(Supplier $product)
     {
         try {
-            \Log::info('Edit supplier request received', ['supplier' => $supplier->toArray()]);
-
-            return response()->json([
-                'success' => true,
-                'data' => $supplier
-            ]);
+            return response()->json($product);
         } catch (\Exception $e) {
-            \Log::error('Error in edit supplier', ['error' => $e->getMessage()]);
-
             return response()->json([
                 'success' => false,
                 'message' => 'Sorry! We could not find the supplier information. Please refresh and try again.'
@@ -153,22 +146,22 @@ class SupplierController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, Supplier $supplier)
+    public function update(Request $request, Supplier $product)
     {
         try {
             $validated = $request->validate([
                 'category' => 'required|string|max:255',
-                'code' => 'required|string|max:255|unique:suppliers,code,' . $supplier->id,
+                'code' => 'required|string|max:255|unique:suppliers,code,' . $product->id,
                 'product_name' => 'required|string|max:255',
                 'unit' => 'required|string|max:255',
             ], $this->getValidationMessages());
 
-            $supplier->update($validated);
+            $product->update($validated);
 
             return response()->json([
                 'success' => true,
                 'message' => 'Perfect! The supplier information has been successfully updated.',
-                'data' => $supplier
+                'data' => $product
             ]);
         } catch (ValidationException $e) {
             return response()->json([
@@ -187,10 +180,10 @@ class SupplierController extends Controller
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(Supplier $supplier)
+    public function destroy(Supplier $product)
     {
         try {
-            $supplier->delete();
+            $product->delete();
 
             return response()->json([
                 'success' => true,

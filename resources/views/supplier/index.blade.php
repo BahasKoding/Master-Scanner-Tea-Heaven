@@ -4,6 +4,9 @@
 @section('breadcrumb-item', 'Supplier')
 
 @section('css')
+    <!-- CSRF Token -->
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+
     <!-- [Page specific CSS] start -->
     <!-- data tables css -->
     <link rel="stylesheet" href="{{ URL::asset('build/css/plugins/datatables/dataTables.bootstrap5.min.css') }}">
@@ -44,7 +47,6 @@
                                     <th>Code</th>
                                     <th>Product Name</th>
                                     <th>Unit</th>
-                                    <th>Created At</th>
                                     <th>Actions</th>
                                 </tr>
                             </thead>
@@ -242,10 +244,6 @@
                         name: 'unit'
                     },
                     {
-                        data: 'created_at',
-                        name: 'created_at'
-                    },
-                    {
                         data: 'action',
                         name: 'action',
                         orderable: false,
@@ -368,15 +366,97 @@
             // Edit Button Click
             $(document).on('click', '.edit-btn', function() {
                 var id = $(this).data('id');
-                $.get(`/suppliers/${id}/edit`, function(data) {
-                    $('#edit_supplier_id').val(data.id);
-                    $('#editSupplierModal select[name="category"]').val(data.category);
-                    $('#edit_code').val(data.code);
-                    $('#edit_product_name').val(data.product_name);
-                    $('#editSupplierModal select[name="unit"]').val(data.unit);
+                console.log('Edit button clicked for ID:', id);
 
-                    var modal = new bootstrap.Modal(document.getElementById('editSupplierModal'));
-                    modal.show();
+                // Show loading state
+                Swal.fire({
+                    title: 'Loading...',
+                    text: 'Fetching supplier data',
+                    allowOutsideClick: false,
+                    showConfirmButton: false,
+                    willOpen: () => {
+                        Swal.showLoading();
+                    }
+                });
+
+                $.ajax({
+                    url: "{{ url('suppliers') }}/" + id + "/edit",
+                    method: 'GET',
+                    success: function(response) {
+                        console.log('Server response:', response);
+                        Swal.close();
+
+                        if (response.success) {
+                            const data = response.data;
+                            console.log('Supplier data:', data);
+
+                            // Set hidden ID
+                            $('#edit_supplier_id').val(data.id);
+
+                            // Set category
+                            $('#editSupplierModal select[name="category"]').val(data.category);
+
+                            // Set code
+                            $('#edit_code').val(data.code);
+
+                            // Set product name
+                            $('#edit_product_name').val(data.product_name);
+
+                            // Set unit
+                            $('#editSupplierModal select[name="unit"]').val(data.unit);
+
+                            // Log the current values
+                            console.log('Form values after setting:', {
+                                id: $('#edit_supplier_id').val(),
+                                category: $(
+                                        '#editSupplierModal select[name="category"]')
+                                    .val(),
+                                code: $('#edit_code').val(),
+                                product_name: $('#edit_product_name').val(),
+                                unit: $('#editSupplierModal select[name="unit"]').val()
+                            });
+
+                            // Show the modal
+                            var editModal = new bootstrap.Modal(document.getElementById(
+                                'editSupplierModal'));
+                            editModal.show();
+
+                            // Double check values after modal is shown
+                            setTimeout(() => {
+                                console.log('Values after modal shown:', {
+                                    id: $('#edit_supplier_id').val(),
+                                    category: $(
+                                        '#editSupplierModal select[name="category"]'
+                                    ).val(),
+                                    code: $('#edit_code').val(),
+                                    product_name: $('#edit_product_name').val(),
+                                    unit: $(
+                                            '#editSupplierModal select[name="unit"]'
+                                            )
+                                        .val()
+                                });
+                            }, 500);
+                        } else {
+                            Swal.fire({
+                                title: 'Error',
+                                text: response.message ||
+                                    'Failed to fetch supplier data',
+                                icon: 'error'
+                            });
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        console.error('AJAX Error:', {
+                            xhr: xhr,
+                            status: status,
+                            error: error
+                        });
+                        Swal.fire({
+                            title: 'Error',
+                            text: 'Failed to fetch supplier data. Please try again.',
+                            icon: 'error'
+                        });
+                    }
                 });
             });
 
@@ -385,11 +465,22 @@
                 e.preventDefault();
                 var form = $(this);
                 var submitButton = form.find('button[type="submit"]');
+                var id = $('#edit_supplier_id').val();
 
                 // Disable submit button to prevent double submission
                 submitButton.prop('disabled', true);
 
-                var id = $('#edit_supplier_id').val();
+                // Show loading state
+                Swal.fire({
+                    title: 'Updating...',
+                    text: 'Saving supplier data',
+                    allowOutsideClick: false,
+                    showConfirmButton: false,
+                    willOpen: () => {
+                        Swal.showLoading();
+                    }
+                });
+
                 var formData = new FormData(this);
                 formData.append('_method', 'PUT');
 
@@ -399,16 +490,14 @@
                     data: formData,
                     processData: false,
                     contentType: false,
+                    headers: {
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                    },
                     success: function(data) {
                         if (data.success) {
-                            // Reset form first
+                            // Reset form and close modal
                             form[0].reset();
-                            submitButton.prop('disabled', false);
-
-                            // Properly hide modal and remove backdrop
                             $('#editSupplierModal').modal('hide');
-                            $('body').removeClass('modal-open');
-                            $('.modal-backdrop').remove();
 
                             // Reload table
                             table.ajax.reload(null, false);
@@ -426,7 +515,6 @@
                         }
                     },
                     error: function(xhr) {
-                        // Re-enable submit button on error
                         submitButton.prop('disabled', false);
 
                         if (xhr.status === 422) {
@@ -444,20 +532,17 @@
                         } else {
                             // Other errors
                             Swal.fire({
-                                title: 'Oops...',
+                                title: 'Update Failed',
                                 text: xhr.responseJSON?.message ||
-                                    'Something went wrong with the request.',
+                                    'Could not update the supplier at this time.',
                                 icon: 'error',
-                                confirmButtonText: 'Try Again',
+                                confirmButtonText: 'OK',
                                 confirmButtonColor: '#3085d6'
                             });
                         }
                     },
                     complete: function() {
-                        // Always ensure the UI is restored
                         submitButton.prop('disabled', false);
-                        $('body').removeClass('modal-open');
-                        $('.modal-backdrop').remove();
                     }
                 });
             });
@@ -511,32 +596,16 @@
                 });
             });
 
-            // Modal cleanup when hidden
-            $('.modal').on('hidden.bs.modal', function() {
-                // Remove any leftover backdrop and modal-open class
-                $('body').removeClass('modal-open');
-                $('.modal-backdrop').remove();
-
-                // Reset the form inside this modal
-                var form = $(this).find('form');
-                if (form.length) {
-                    form[0].reset();
-                    form.find('button[type="submit"]').prop('disabled', false);
-                }
+            // Clean up modal when it's hidden
+            $('#editSupplierModal').on('hidden.bs.modal', function() {
+                console.log('Modal hidden - cleaning up');
+                $(this).find('form')[0].reset();
             });
 
-            // Ensure clean state when showing modal
-            $('.modal').on('show.bs.modal', function() {
-                // Remove any existing backdrop and modal-open class
-                $('body').removeClass('modal-open');
-                $('.modal-backdrop').remove();
-
-                // Reset the form inside this modal
-                var form = $(this).find('form');
-                if (form.length) {
-                    form[0].reset();
-                    form.find('button[type="submit"]').prop('disabled', false);
-                }
+            // Prevent form reset when modal is shown
+            $('#editSupplierModal').on('show.bs.modal', function() {
+                console.log('Modal showing - preventing auto reset');
+                return true;
             });
         });
     </script>
