@@ -13,85 +13,78 @@
     <link rel="stylesheet" href="{{ URL::asset('build/css/plugins/flatpickr/flatpickr.min.css') }}">
     <!-- [Page specific CSS] end -->
     <style>
-        /* Base styles with reduced redundancy */
+        /* ========== VARIABEL & ROOT ========== */
         :root {
+            --primary-color: #4CAF50;
+            --primary-light: rgba(76, 175, 80, 0.25);
+            --danger-color: #dc3545;
+            --secondary-color: #6c757d;
+            --light-bg: #f8f9fa;
+            --border-color: #dee2e6;
+            --focus-shadow: 0 0 0 0.2rem rgba(76, 175, 80, 0.25);
+            --card-shadow: 0 0 20px rgba(0, 0, 0, 0.08);
+            --transition-normal: all 0.3s ease;
+            --border-radius-normal: 4px;
+            --border-radius-large: 8px;
+            --form-element-height: 44px;
             --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.05);
             --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.08);
             --shadow-lg: 0 4px 12px rgba(0, 0, 0, 0.12);
-            --border-color: #ced4da;
-            --bg-light: #f8f9fa;
-            --primary-color: #80bdff;
             --text-muted: #6c757d;
             --text-dark: #344767;
-            --transition-fast: all 0.2s ease;
         }
 
-        /* Consolidated and simplified filter section */
-        .filter-section {
-            background-color: var(--bg-light);
-            padding: 20px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            box-shadow: var(--shadow-md);
-            transition: var(--transition-fast);
+        /* ========== UTILITY CLASSES ========== */
+        .transition {
+            transition: var(--transition-normal);
         }
 
-        .filter-section:hover {
-            box-shadow: var(--shadow-lg);
+        /* ========== COMMON ELEMENTS ========== */
+        .card {
+            border: none;
+            border-radius: 10px;
+            box-shadow: var(--card-shadow);
+            margin-bottom: 30px;
         }
 
-        /* Simplified form elements */
-        .form-select,
-        .form-control,
-        .date-input {
-            height: 38px;
-            border: 1px solid var(--border-color);
-            transition: var(--transition-fast);
+        .card-header {
+            background-color: #fff;
+            border-bottom: 1px solid var(--border-color);
+            padding: 1.25rem 1.5rem;
         }
 
-        .form-select:focus,
-        .form-control:focus,
-        .date-input:focus {
-            border-color: var(--primary-color);
-            box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+        .card-header .d-flex {
+            flex-wrap: wrap;
+            gap: 10px;
         }
 
-        /* Simplified entries selector */
-        .entries-select-container select {
-            width: 100%;
-            padding: 8px 12px;
-            border-radius: 4px;
-            appearance: none;
-            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23343a40' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3e%3c/svg%3e");
-            background-position: right 0.75rem center;
-            background-size: 16px 12px;
-            background-repeat: no-repeat;
+        .card-body {
+            padding: 1.5rem;
+            position: relative;
         }
 
-        /* Labels and text - simplified */
-        .form-label,
-        .entries-select-container label {
-            font-weight: 500;
+        .form-label {
+            font-weight: 600;
             color: var(--text-dark);
             margin-bottom: 8px;
-            font-size: 0.875rem;
         }
 
-        .help-text {
-            margin-top: 5px;
-            font-size: 0.75rem;
-            color: var(--text-muted);
+        .error-feedback {
+            color: var(--danger-color);
+            font-size: 0.875em;
+            margin-top: 0.25rem;
+            display: none;
         }
 
-        /* Simplified button styles */
+        /* ========== BUTTONS ========== */
         .btn {
+            min-height: var(--form-element-height);
             display: inline-flex;
             align-items: center;
             justify-content: center;
             gap: 0.5rem;
             padding: 0.5rem 1rem;
-            min-height: 38px;
-            transition: var(--transition-fast);
+            transition: var(--transition-normal);
             box-shadow: var(--shadow-sm);
         }
 
@@ -105,16 +98,133 @@
             box-shadow: none;
         }
 
-        /* Table styles - simplified */
+        /* ========== FORM ELEMENTS ========== */
+        .form-select,
+        .form-control,
+        .date-input {
+            height: var(--form-element-height);
+            border: 1px solid var(--border-color);
+            transition: var(--transition-normal);
+            border-radius: var(--border-radius-normal);
+        }
+
+        .form-select:focus,
+        .form-control:focus,
+        .date-input:focus {
+            border-color: var(--primary-color);
+            box-shadow: var(--focus-shadow);
+            outline: none;
+        }
+
+        .entries-select-container select {
+            width: 100%;
+            padding: 8px 12px;
+            border-radius: var(--border-radius-normal);
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23343a40' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3e%3c/svg%3e");
+            background-position: right 0.75rem center;
+            background-size: 16px 12px;
+            background-repeat: no-repeat;
+        }
+
+        /* ========== FILTER SECTION ========== */
+        .filter-section {
+            background-color: var(--light-bg);
+            padding: 20px;
+            border-radius: var(--border-radius-large);
+            margin-bottom: 20px;
+            box-shadow: var(--shadow-md);
+            transition: var(--transition-normal);
+        }
+
+        .filter-section:hover {
+            box-shadow: var(--shadow-lg);
+        }
+
+        /* ========== INDICATORS & HELPERS ========== */
+        .help-text {
+            margin-top: 5px;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        .loading-overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(255, 255, 255, 0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            border-radius: var(--border-radius-large);
+        }
+
+        .export-status {
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 10px;
+            background-color: #fff3cd;
+            border: 1px solid #ffeeba;
+            color: #856404;
+            border-radius: var(--border-radius-normal);
+            margin-bottom: 15px;
+        }
+
+        .export-status .spinner-border {
+            width: 1rem;
+            height: 1rem;
+            margin-right: 8px;
+        }
+
+        .table-scroll-indicator {
+            display: none;
+            margin-bottom: 10px;
+            text-align: center;
+            padding: 10px;
+            color: var(--text-muted);
+            font-size: 0.9em;
+        }
+
+        .current-date-info {
+            display: block;
+            font-size: 0.9rem;
+            margin-top: 5px;
+        }
+
+        .current-date-info strong {
+            color: var(--primary-color);
+        }
+
+        /* ========== TABLE STYLES ========== */
         .table-responsive {
             overflow-x: auto;
             -webkit-overflow-scrolling: touch;
-            border-radius: 8px;
+            border-radius: var(--border-radius-large);
             box-shadow: var(--shadow-md);
         }
 
+        .table-responsive::-webkit-scrollbar {
+            height: 6px;
+        }
+
+        .table-responsive::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 3px;
+        }
+
+        .table-responsive::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 3px;
+        }
+
+        #report-table {
+            min-width: 800px;
+            width: 100%;
+        }
+
         #report-table th {
-            background-color: var(--bg-light);
+            background-color: var(--light-bg);
             font-weight: 600;
             border-bottom: 2px solid #e9ecef;
         }
@@ -126,58 +236,13 @@
             padding: 0.75rem 1rem;
         }
 
-        /* Loading and status indicators */
-        .loading-overlay {
-            position: absolute;
-            inset: 0;
-            /* Shorthand for top/right/bottom/left */
-            background: rgba(255, 255, 255, 0.7);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 1000;
-            border-radius: 8px;
-        }
+        /* ========== RESPONSIVE STYLES ========== */
+        /* Mobile styles */
+        @media (max-width: 576px) {
+            .card-body {
+                padding: 15px;
+            }
 
-        .export-status {
-            display: none;
-            align-items: center;
-            justify-content: center;
-            padding: 10px;
-            background-color: #fff3cd;
-            border: 1px solid #ffeeba;
-            color: #856404;
-            border-radius: 4px;
-            margin-bottom: 15px;
-        }
-
-        .export-status .spinner-border {
-            width: 1rem;
-            height: 1rem;
-            margin-right: 8px;
-        }
-
-        /* Card styling - simplified */
-        .card {
-            border: none;
-            border-radius: 10px;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
-            margin-bottom: 30px;
-        }
-
-        .card-header {
-            background-color: #fff;
-            border-bottom: 1px solid #f1f1f1;
-            padding: 1.25rem 1.5rem;
-        }
-
-        .card-body {
-            padding: 1.5rem;
-            position: relative;
-        }
-
-        /* Responsive styles - combined and simplified */
-        @media (max-width: 768px) {
             .filter-section {
                 padding: 15px;
             }
@@ -192,10 +257,6 @@
                 margin-bottom: 6px;
             }
 
-            .card-body {
-                padding: 15px;
-            }
-
             #report-table {
                 font-size: 14px;
             }
@@ -203,9 +264,7 @@
             .table-scroll-indicator {
                 display: block;
             }
-        }
 
-        @media (max-width: 576px) {
             .d-flex.flex-wrap.gap-2 {
                 justify-content: space-between;
                 margin-top: 10px;
@@ -222,6 +281,38 @@
                 margin: 0 -15px;
             }
         }
+
+        /* Tablet styles */
+        @media (max-width: 768px) {
+            .btn-group {
+                width: 100%;
+                margin-top: 10px;
+            }
+
+            .btn-group .btn {
+                flex: 1;
+                white-space: nowrap;
+                padding: 8px;
+                font-size: 14px;
+            }
+
+            .table-responsive {
+                margin: 0 -15px;
+            }
+        }
+
+        @media (min-width: 577px) and (max-width: 991px) {
+            .table-scroll-indicator {
+                display: block;
+            }
+        }
+
+        /* Desktop styles */
+        @media (min-width: 768px) {
+            .modal-dialog {
+                max-width: 700px;
+            }
+        }
     </style>
 @endsection
 
@@ -232,7 +323,12 @@
             <div class="card">
                 <div class="card-header">
                     <div class="d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0">History Sales Report</h5>
+                        <div>
+                            <h5 class="mb-0">History Sales Report</h5>
+                            <span class="text-muted current-date-info" id="date-filter-info">
+                                <strong>Pilih tanggal</strong> untuk melihat data
+                            </span>
+                        </div>
                         <div id="report-summary" class="text-muted small">
                             <span id="total-records">0</span> records found
                         </div>
@@ -281,7 +377,7 @@
                                             <i class="fas fa-file-excel"></i>
                                             <span class="d-none d-sm-inline">Export Filtered</span>
                                         </button>
-                                        <button type="button" class="btn btn-info" id="exportAllBtn"
+                                        <button type="button" class="btn btn-success" id="exportAllBtn"
                                             title="Export all data in the database">
                                             <i class="fas fa-download"></i>
                                             <span class="d-none d-sm-inline">Export All</span>
@@ -305,7 +401,7 @@
 
                     <!-- Table Scroll Indicator -->
                     <div class="table-scroll-indicator">
-                        <i class="fas fa-arrows-left-right"></i> Scroll horizontally to view more data
+                        <i class="fas fa-arrows-left-right"></i> Geser kanan-kiri untuk melihat data lengkap
                     </div>
 
                     <!-- Data Table -->
@@ -551,6 +647,9 @@
                         // Update record count
                         const info = table.page.info();
                         $totalRecords.text(info.recordsTotal);
+
+                        // Update date filter info when data is loaded
+                        updateDateFilterInfo($startDate.val(), $endDate.val());
                     }
                 },
                 columns: [{
@@ -728,6 +827,7 @@
                 isFilterAttempted = true;
                 if (validateDates()) {
                     table.ajax.reload();
+                    updateDateFilterInfo($startDate.val(), $endDate.val());
                     showSuccess('Data berhasil difilter');
                 }
                 isInitialLoad = false;
@@ -802,6 +902,7 @@
                 $pageLength.val(25);
                 table.page.len(25).draw();
                 table.ajax.reload();
+                updateDateFilterInfo('', '');
                 showSuccess('Filter telah dihapus');
                 isFilterAttempted = false;
             });
@@ -849,7 +950,7 @@
                     showCancelButton: true,
                     confirmButtonText: 'Ya, Ekspor Semua',
                     cancelButtonText: 'Batal',
-                    confirmButtonColor: '#17a2b8'
+                    confirmButtonColor: '#28a745'
                 }).then((result) => {
                     if (result.isConfirmed) {
                         // Show export status indicator
@@ -991,6 +1092,35 @@
 
                 // Reload table to restore view
                 table.ajax.reload();
+            }
+
+            // Function to update the date filter info display
+            function updateDateFilterInfo(startDate, endDate) {
+                const $dateFilterInfo = $('#date-filter-info');
+
+                if (!startDate || !endDate) {
+                    $dateFilterInfo.html('<strong>Pilih tanggal</strong> untuk melihat data');
+                    return;
+                }
+
+                // Format the dates to Indonesian format
+                const formatDate = (dateString) => {
+                    const date = new Date(dateString);
+                    const options = {
+                        day: 'numeric',
+                        month: 'long',
+                        year: 'numeric',
+                        timeZone: 'Asia/Jakarta'
+                    };
+                    return date.toLocaleDateString('id-ID', options);
+                };
+
+                const formattedStartDate = formatDate(startDate);
+                const formattedEndDate = formatDate(endDate);
+
+                $dateFilterInfo.html(
+                    `Menampilkan data: <strong>${formattedStartDate}</strong> s/d <strong>${formattedEndDate}</strong>`
+                );
             }
         });
     </script>

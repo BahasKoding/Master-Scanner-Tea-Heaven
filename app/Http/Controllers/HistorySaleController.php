@@ -222,8 +222,17 @@ class HistorySaleController extends Controller
         try {
             $query = HistorySale::query();
 
-            // Handle date range filter
-            if ($request->filled(['start_date', 'end_date'])) {
+            // Set default timezone ke Asia/Jakarta
+            date_default_timezone_set('Asia/Jakarta');
+
+            // Jika tidak ada filter tanggal, tampilkan data hari ini berdasarkan timezone Asia/Jakarta
+            if (!$request->filled(['start_date', 'end_date'])) {
+                $today = date('Y-m-d');
+                $startDate = $today . ' 00:00:00';
+                $endDate = $today . ' 23:59:59';
+                $query->whereBetween('created_at', [$startDate, $endDate]);
+            } else {
+                // Handle date range filter jika ada
                 $startDate = $request->input('start_date') . ' 00:00:00';
                 $endDate = $request->input('end_date') . ' 23:59:59';
                 $query->whereBetween('created_at', [$startDate, $endDate]);

@@ -14,160 +14,43 @@
     <link rel="stylesheet" href="{{ URL::asset('build/css/plugins/datatables/dataTables.bootstrap5.min.css') }}">
     <!-- [Page specific CSS] end -->
     <style>
-        /* Mobile-first responsive styles */
-        @media (max-width: 768px) {
-            .card-body {
-                padding: 15px;
-            }
-
-            .scanner-input,
-            .sku-input,
-            .qty-input {
-                font-size: 16px;
-                /* Prevent iOS zoom on focus */
-            }
-
-            .sku-input-container {
-                grid-template-columns: 1fr;
-                gap: 10px;
-            }
-
-            .qty-input {
-                width: 100%;
-            }
-
-            .scanning-indicator {
-                width: 100%;
-                margin: 5px 0;
-            }
-
-            #resetScannerBtn {
-                width: 100%;
-                margin-top: 15px;
-            }
-
-            .btn-group {
-                width: 100%;
-                margin-top: 10px;
-            }
-
-            .btn-group .btn {
-                flex: 1;
-                white-space: nowrap;
-                padding: 8px;
-                font-size: 14px;
-            }
-
-            .table-responsive {
-                margin: 0 -15px;
-            }
-
-            /* Adjust modal for mobile */
-            .modal-dialog {
-                margin: 10px;
-                padding: 0;
-            }
-
-            .modal-content {
-                border-radius: 10px;
-            }
-
-            .modal-body {
-                padding: 15px;
-            }
-
-            /* Make table more readable on mobile */
-            #history-sales-table {
-                font-size: 14px;
-            }
-
-            #history-sales-table th,
-            #history-sales-table td {
-                white-space: normal;
-                min-width: 100px;
-            }
-
-            /* Stack action buttons on mobile */
-            #history-sales-table .btn {
-                display: block;
-                width: 100%;
-                margin: 5px 0;
-            }
+        /* ========== VARIABEL & ROOT ========== */
+        :root {
+            --primary-color: #4CAF50;
+            --primary-light: rgba(76, 175, 80, 0.25);
+            --danger-color: #dc3545;
+            --secondary-color: #6c757d;
+            --light-bg: #f8f9fa;
+            --border-color: #dee2e6;
+            --focus-shadow: 0 0 0 0.2rem rgba(76, 175, 80, 0.25);
+            --card-shadow: 0 0 20px rgba(0, 0, 0, 0.08);
+            --transition-normal: all 0.3s ease;
+            --border-radius-normal: 4px;
+            --border-radius-large: 8px;
+            --form-element-height: 44px;
         }
 
-        /* Base styles for all screen sizes */
-        .scanner-active {
-            border: 2px solid #4CAF50 !important;
-            box-shadow: 0 0 5px #4CAF50;
+        /* ========== UTILITY CLASSES ========== */
+        .transition {
+            transition: var(--transition-normal);
         }
 
-        .form-section {
-            background-color: #f8f9fa;
-            padding: 20px;
-            border-radius: 5px;
-            margin-bottom: 20px;
+        /* ========== COMMON ELEMENTS ========== */
+        .card {
+            border: none;
+            box-shadow: var(--card-shadow);
+            margin-bottom: 30px;
         }
 
-        .scanner-input {
-            transition: all 0.3s ease;
-            height: 45px;
-        }
-
-        .scanner-input:focus {
-            border-color: #4CAF50;
-            box-shadow: 0 0 0 0.2rem rgba(76, 175, 80, 0.25);
-        }
-
-        .sku-input-container {
-            margin-bottom: 15px;
-            display: grid;
-            grid-template-columns: 1fr 120px 120px;
-            gap: 15px;
-            align-items: center;
-            background-color: #f8f9fa;
+        .card-header {
+            background-color: #fff;
+            border-bottom: 1px solid var(--border-color);
             padding: 15px;
-            border-radius: 8px;
-            border: 1px solid #dee2e6;
         }
 
-        .sku-input {
-            width: 100%;
-            height: 45px;
-        }
-
-        .qty-input {
-            width: 120px;
-            height: 45px;
-            text-align: center;
-            font-weight: bold;
-        }
-
-        .scanning-indicator {
-            display: none;
-            color: #4CAF50;
-            margin-left: 10px;
-            text-align: center;
-        }
-
-        .scanning-indicator.active {
-            display: inline-block;
-        }
-
-        .error-feedback {
-            color: #dc3545;
-            font-size: 0.875em;
-            margin-top: 0.25rem;
-            display: none;
-        }
-
-        .countdown-timer {
-            color: #6c757d;
-            font-size: 1em;
-            margin-left: 10px;
-            background-color: #e9ecef;
-            padding: 5px 15px;
-            border-radius: 20px;
-            font-weight: 500;
+        .card-header .d-flex {
+            flex-wrap: wrap;
+            gap: 10px;
         }
 
         .form-label {
@@ -176,71 +59,150 @@
             margin-bottom: 8px;
         }
 
-        .scanner-section {
-            background-color: #fff;
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 0 15px rgba(0, 0, 0, 0.05);
+        .error-feedback {
+            color: var(--danger-color);
+            font-size: 0.875em;
+            margin-top: 0.25rem;
+            display: none;
         }
 
-        .card {
-            border: none;
-            box-shadow: 0 0 20px rgba(0, 0, 0, 0.08);
-            margin-bottom: 30px;
-        }
-
-        .card-header {
-            background-color: #fff;
-            border-bottom: 1px solid #e3e6f0;
-            padding: 15px;
-        }
-
-        /* Responsive header for all screen sizes */
-        .card-header .d-flex {
-            flex-wrap: wrap;
-            gap: 10px;
-        }
-
-        /* Improve table responsiveness */
-        .table-responsive {
-            overflow-x: auto;
-            -webkit-overflow-scrolling: touch;
-        }
-
-        /* Improve button touch targets */
+        /* ========== BUTTONS ========== */
         .btn {
-            min-height: 44px;
+            min-height: var(--form-element-height);
             display: inline-flex;
             align-items: center;
             justify-content: center;
+            transition: var(--transition-normal);
         }
 
-        /* Improve form field touch targets */
+        /* Button icon styling */
+        .btn-icon {
+            width: 36px;
+            height: 36px;
+            padding: 0;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            margin: 0 3px;
+            transition: all 0.2s ease;
+        }
+
+        .btn-icon i {
+            font-size: 1rem;
+        }
+
+        .btn-icon:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 3px 5px rgba(0, 0, 0, 0.2);
+        }
+
+        /* ========== FORM ELEMENTS ========== */
         input[type="text"],
         input[type="number"] {
-            min-height: 44px;
+            min-height: var(--form-element-height);
+            transition: var(--transition-normal);
         }
 
-        /* Add smooth transitions */
-        .btn,
-        input,
-        .card {
-            transition: all 0.3s ease;
+        .scanner-active {
+            border: 2px solid var(--primary-color) !important;
+            box-shadow: 0 0 5px var(--primary-color);
         }
 
-        /* Improve modal responsiveness */
-        .modal-dialog {
-            max-width: 95%;
-            margin: 20px auto;
+        .scanner-input:focus,
+        .sku-input:focus,
+        .qty-input:focus {
+            border-color: var(--primary-color);
+            box-shadow: var(--focus-shadow);
+            outline: none;
         }
 
-        @media (min-width: 768px) {
-            .modal-dialog {
-                max-width: 700px;
-            }
+        .scanner-input {
+            height: 45px;
         }
 
-        /* Mobile and Tablet Responsive Table Styles */
+        .sku-input,
+        .qty-input {
+            height: var(--form-element-height);
+            padding: 8px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: var(--border-radius-normal);
+            font-size: 16px;
+        }
+
+        .sku-input-container {
+            display: grid;
+            gap: 10px;
+            margin-bottom: 15px;
+            padding: 15px;
+            background-color: var(--light-bg);
+            border-radius: var(--border-radius-large);
+            border: 1px solid var(--border-color);
+        }
+
+        .qty-input {
+            text-align: center;
+            font-weight: bold;
+        }
+
+        /* ========== INDICATORS & HELPERS ========== */
+        .scanning-indicator {
+            display: none;
+            color: var(--primary-color);
+            margin-left: 10px;
+            text-align: center;
+        }
+
+        .scanning-indicator.active {
+            display: inline-block;
+        }
+
+        .countdown-timer {
+            color: var(--secondary-color);
+            font-size: 1em;
+            margin-left: 10px;
+            background-color: var(--light-bg);
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-weight: 500;
+        }
+
+        .table-scroll-indicator {
+            display: none;
+            margin-bottom: 10px;
+        }
+
+        .current-date-info {
+            display: block;
+            font-size: 0.9rem;
+            margin-top: 5px;
+        }
+
+        .current-date-info strong {
+            color: var(--primary-color);
+        }
+
+        /* ========== SECTIONS & CONTAINERS ========== */
+        .scanner-section {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: var(--border-radius-large);
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.05);
+        }
+
+        .form-section {
+            background-color: var(--light-bg);
+            padding: 20px;
+            border-radius: var(--border-radius-normal);
+            margin-bottom: 20px;
+        }
+
+        .sku-form-wrapper {
+            max-width: 100%;
+            overflow-x: hidden;
+        }
+
+        /* ========== TABLE STYLES ========== */
         .table-wrapper {
             position: relative;
             overflow-x: auto;
@@ -266,7 +228,6 @@
 
         #history-sales-table {
             min-width: 800px;
-            /* Ensure minimum width for content */
             width: 100%;
         }
 
@@ -277,110 +238,7 @@
             padding: 12px 8px;
         }
 
-        /* Responsive SKU Input Form */
-        .sku-form-wrapper {
-            max-width: 100%;
-            overflow-x: hidden;
-        }
-
-        .sku-input-container {
-            display: grid;
-            gap: 10px;
-            margin-bottom: 15px;
-            padding: 15px;
-            background-color: #f8f9fa;
-            border-radius: 8px;
-            border: 1px solid #dee2e6;
-        }
-
-        /* Mobile styles */
-        @media (max-width: 576px) {
-            .sku-input-container {
-                grid-template-columns: 1fr;
-            }
-
-            .sku-input {
-                width: 100%;
-            }
-
-            .qty-input {
-                width: 100%;
-            }
-
-            .scanning-indicator {
-                width: 100%;
-                text-align: center;
-                margin: 5px 0;
-            }
-
-            #history-sales-table td:nth-child(3),
-            /* SKU column */
-            #history-sales-table td:nth-child(4) {
-                /* Qty column */
-                max-width: 150px;
-                white-space: normal;
-                word-break: break-word;
-            }
-
-            .table-scroll-indicator {
-                display: block;
-                text-align: center;
-                padding: 10px;
-                color: #666;
-                font-size: 0.9em;
-            }
-        }
-
-        /* Tablet styles */
-        @media (min-width: 577px) and (max-width: 991px) {
-            .sku-input-container {
-                grid-template-columns: 2fr 1fr;
-            }
-
-            .scanning-indicator {
-                grid-column: span 2;
-                text-align: center;
-            }
-
-            #history-sales-table td:nth-child(3),
-            /* SKU column */
-            #history-sales-table td:nth-child(4) {
-                /* Qty column */
-                max-width: 200px;
-                white-space: normal;
-                word-break: break-word;
-            }
-        }
-
-        /* Desktop styles */
-        @media (min-width: 992px) {
-            .sku-input-container {
-                grid-template-columns: 1fr 120px 120px;
-            }
-
-            .scanning-indicator {
-                text-align: center;
-            }
-        }
-
-        /* Common styles for all devices */
-        .sku-input,
-        .qty-input {
-            height: 44px;
-            padding: 8px 12px;
-            border: 1px solid #ced4da;
-            border-radius: 4px;
-            font-size: 16px;
-        }
-
-        .sku-input:focus,
-        .qty-input:focus {
-            border-color: #4CAF50;
-            box-shadow: 0 0 0 0.2rem rgba(76, 175, 80, 0.25);
-            outline: none;
-        }
-
-        /* Table action buttons */
+        /* Action buttons in table */
         .action-buttons {
             display: flex;
             gap: 5px;
@@ -395,42 +253,58 @@
             white-space: nowrap;
         }
 
-        /* Horizontal scroll indicator */
-        .table-scroll-indicator {
-            display: none;
-            margin-bottom: 10px;
+        /* ========== MODAL STYLES ========== */
+        .modal-dialog {
+            max-width: 95%;
+            margin: 20px auto;
         }
 
-        @media (max-width: 991px) {
+        /* ========== RESPONSIVE STYLES ========== */
+        /* Mobile styles */
+        @media (max-width: 576px) {
+            .card-body {
+                padding: 15px;
+            }
+
+            .sku-input-container {
+                grid-template-columns: 1fr;
+            }
+
+            .sku-input,
+            .qty-input {
+                width: 100%;
+            }
+
+            .scanning-indicator {
+                width: 100%;
+                text-align: center;
+                margin: 5px 0;
+            }
+
+            #resetScannerBtn {
+                width: 100%;
+                margin-top: 15px;
+            }
+
+            #history-sales-table {
+                font-size: 14px;
+            }
+
+            #history-sales-table td:nth-child(3),
+            #history-sales-table td:nth-child(4) {
+                max-width: 150px;
+                white-space: normal;
+                word-break: break-word;
+            }
+
             .table-scroll-indicator {
                 display: block;
+                text-align: center;
+                padding: 10px;
+                color: #666;
+                font-size: 0.9em;
             }
-        }
 
-        /* Styling untuk action buttons dengan icon */
-        .btn-icon {
-            width: 36px;
-            height: 36px;
-            padding: 0;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            border-radius: 50%;
-            margin: 0 3px;
-            transition: all 0.2s ease;
-        }
-
-        .btn-icon i {
-            font-size: 1rem;
-        }
-
-        .btn-icon:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 3px 5px rgba(0, 0, 0, 0.2);
-        }
-
-        /* Pastikan tidak ada shadow atau efek hover yang berlebihan untuk tampilan mobile */
-        @media (max-width: 768px) {
             .btn-icon {
                 width: 32px;
                 height: 32px;
@@ -440,18 +314,87 @@
                 font-size: 0.875rem;
             }
 
-            /* Untuk mobile, tampilkan button dalam baris tanpa stack */
             #history-sales-table .btn {
                 display: inline-flex;
                 width: auto;
                 margin: 0 3px;
             }
 
-            /* Perbaiki styling container actions */
             .d-flex.justify-content-center {
                 display: flex !important;
                 justify-content: center !important;
                 gap: 8px;
+            }
+        }
+
+        /* Tablet styles */
+        @media (max-width: 768px) {
+            .btn-group {
+                width: 100%;
+                margin-top: 10px;
+            }
+
+            .btn-group .btn {
+                flex: 1;
+                white-space: nowrap;
+                padding: 8px;
+                font-size: 14px;
+            }
+
+            .table-responsive {
+                margin: 0 -15px;
+            }
+
+            .modal-dialog {
+                margin: 10px;
+                padding: 0;
+            }
+
+            .modal-content {
+                border-radius: 10px;
+            }
+
+            .modal-body {
+                padding: 15px;
+            }
+        }
+
+        @media (min-width: 577px) and (max-width: 991px) {
+            .sku-input-container {
+                grid-template-columns: 2fr 1fr;
+            }
+
+            .scanning-indicator {
+                grid-column: span 2;
+                text-align: center;
+            }
+
+            #history-sales-table td:nth-child(3),
+            #history-sales-table td:nth-child(4) {
+                max-width: 200px;
+                white-space: normal;
+                word-break: break-word;
+            }
+
+            .table-scroll-indicator {
+                display: block;
+            }
+        }
+
+        /* Desktop styles */
+        @media (min-width: 768px) {
+            .modal-dialog {
+                max-width: 700px;
+            }
+        }
+
+        @media (min-width: 992px) {
+            .sku-input-container {
+                grid-template-columns: 1fr 120px 120px;
+            }
+
+            .scanning-indicator {
+                text-align: center;
             }
         }
     </style>
@@ -532,7 +475,11 @@
             <div class="card">
                 <div class="card-header">
                     <div class="d-flex justify-content-between align-items-center flex-wrap">
-                        <h5 class="mb-2 mb-md-0">History Sales List</h5>
+                        <div>
+                            <h5 class="mb-0">History Sales List</h5>
+                            <span class="text-muted current-date-info">Menampilkan data:
+                                <strong>{{ date('d F Y') }}</strong></span>
+                        </div>
                         <div class="btn-group" role="group">
                             <button type="button" class="btn btn-outline-primary active" id="showActive">
                                 <i class="fas fa-list me-1 d-none d-sm-inline"></i>Data Aktif
@@ -712,6 +659,9 @@
                         childList: true,
                         subtree: true
                     });
+
+                    // Update tanggal saat pertama kali load
+                    updateCurrentDateInfo();
                 },
                 ajax: {
                     url: "{{ route('history-sales.data') }}",
@@ -723,6 +673,11 @@
                         } else if ($('#showActive').hasClass('active')) {
                             d.only_trashed = false;
                         }
+                    },
+                    // Tambahkan handler untuk ajax complete untuk memperbarui info tanggal
+                    dataSrc: function(json) {
+                        updateCurrentDateInfo();
+                        return json.data;
                     }
                 },
                 columns: [{
@@ -1107,6 +1062,25 @@
             tableWrapper.on('scroll', function() {
                 $('.table-scroll-indicator').fadeOut();
             });
+
+            /**
+             * Fungsi untuk memperbarui informasi tanggal aktif yang ditampilkan
+             */
+            function updateCurrentDateInfo() {
+                const today = new Date();
+                const options = {
+                    day: 'numeric',
+                    month: 'long',
+                    year: 'numeric',
+                    timeZone: 'Asia/Jakarta'
+                };
+
+                // Format tanggal ke Bahasa Indonesia
+                const indonesianDate = today.toLocaleDateString('id-ID', options);
+
+                // Update text pada elemen
+                $('.current-date-info strong').text(indonesianDate);
+            }
         });
     </script>
 @endsection
