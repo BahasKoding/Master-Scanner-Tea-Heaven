@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\HistorySale;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class HistorySaleController extends Controller
 {
@@ -36,19 +37,19 @@ class HistorySaleController extends Controller
             $validatedData = $request->validate([
                 'no_resi' => 'required|string|unique:history_sales,no_resi',
                 'no_sku' => 'required|array',
-                'no_sku.*' => 'nullable|string|min:10',
+                'no_sku.*' => 'nullable|string|min:3',
                 'qty' => 'sometimes|array',
                 'qty.*' => 'sometimes|integer|min:1',
             ]);
 
-            // Filter out empty SKUs and check for duplicates within current form submission
+            // Filter out empty SKUs and check for duplicates
             $skus = [];
             $quantities = [];
             $seenSkus = [];
 
             foreach ($validatedData['no_sku'] as $index => $sku) {
                 if (!empty(trim($sku))) {
-                    // Check for duplicate SKU in current submission only
+                    // Check for duplicate SKU
                     if (in_array($sku, $seenSkus)) {
                         return response()->json([
                             'status' => 'error',
@@ -64,13 +65,7 @@ class HistorySaleController extends Controller
                 }
             }
 
-            if (empty($skus)) {
-                return response()->json([
-                    'status' => 'error',
-                    'message' => 'At least one SKU is required'
-                ], 422);
-            }
-
+            // Create record even if no SKUs are provided
             $historySale = HistorySale::create([
                 'no_resi' => $validatedData['no_resi'],
                 'no_sku' => $skus,
@@ -79,7 +74,7 @@ class HistorySaleController extends Controller
 
             return response()->json([
                 'status' => 'success',
-                'message' => 'History Sale added successfully with ' . count($skus) . ' SKU(s)',
+                'message' => 'History Sale added successfully' . (count($skus) > 0 ? ' with ' . count($skus) . ' SKU(s)' : ''),
             ]);
         } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json([
@@ -213,40 +208,104 @@ class HistorySaleController extends Controller
     /**
      * Get data for DataTables.
      */
-    public function data()
+    public function data(Request $request)
     {
         try {
-            $historySales = HistorySale::orderBy('created_at', 'desc')->get();
+            $query = HistorySale::query();
+
+            // Handle trashed records based on request
+            if ($request->boolean('only_trashed')) {
+                $query->onlyTrashed();
+            } else {
+                $query->whereNull('deleted_at');
+            }
+
+            // Get total records count
+            $totalRecords = $query->count();
+
+            // Handle search
+            if ($searchValue = $request->input('search.value')) {
+                $query->where(function ($q) use ($searchValue) {
+                    $q->where('no_resi', 'like', "%{$searchValue}%")
+                        ->orWhere('no_sku', 'like', "%{$searchValue}%");
+                });
+            }
+
+            // Get filtered records count
+            $filteredRecords = $query->count();
+
+            // Handle ordering
+            $orderColumn = $request->input('order.0.column', 4); // Default to created_at
+            $orderDir = $request->input('order.0.dir', 'desc');
+            $columns = ['no', 'no_resi', 'no_sku', 'qty', 'created_at', 'updated_at'];
+
+            if (isset($columns[$orderColumn])) {
+                $query->orderBy($columns[$orderColumn], $orderDir);
+            }
+
+            // Handle pagination
+            $start = $request->input('start', 0);
+            $length = $request->input('length', 25);
+            $historySales = $query->skip($start)->take($length)->get();
 
             $data = [];
             foreach ($historySales as $key => $historySale) {
+                // Decode JSON data
                 $skus = is_string($historySale->no_sku) ? json_decode($historySale->no_sku, true) : $historySale->no_sku;
                 $quantities = is_string($historySale->qty) ? json_decode($historySale->qty, true) : $historySale->qty;
 
-                $displayItems = array_map(function ($sku, $qty) {
-                    return $sku . ' (Qty: ' . $qty . ')';
-                }, $skus, $quantities);
+                if (!is_array($skus)) {
+                    Log::warning('Invalid SKU data for ID ' . $historySale->id, [
+                        'skus' => $skus,
+                        'raw_data' => $historySale->no_sku
+                    ]);
+                    continue;
+                }
+
+                // Format SKUs and quantities for display
+                $skuDisplay = [];
+                $qtyDisplay = [];
+                foreach ($skus as $index => $sku) {
+                    $skuDisplay[] = $sku;
+                    $qtyDisplay[] = $quantities[$index] ?? 1;
+                }
+
+                // Add restore button for trashed records
+                $actions = '';
+                if ($historySale->trashed()) {
+                    $actions .= '<button onclick="restoreHistorySale(' . $historySale->id . ')" class="btn btn-sm btn-success">Restore</button> ';
+                    $actions .= '<button onclick="forceDeleteHistorySale(' . $historySale->id . ')" class="btn btn-sm btn-danger">Delete Permanently</button>';
+                } else {
+                    $actions .= '<button onclick="editHistorySale(' . $historySale->id . ')" class="btn btn-sm btn-primary">Edit</button> ';
+                    $actions .= '<button onclick="deleteHistorySale(' . $historySale->id . ')" class="btn btn-sm btn-danger">Delete</button>';
+                }
 
                 $data[] = [
-                    'no' => $key + 1,
+                    'DT_RowId' => 'row_' . $historySale->id,
+                    'no' => $start + $key + 1, // Nomor urut yang benar sesuai pagination
                     'id' => $historySale->id,
                     'no_resi' => $historySale->no_resi,
-                    'no_sku' => implode('<br>', $displayItems),
+                    'no_sku' => implode('<br>', $skuDisplay),
+                    'qty' => implode('<br>', $qtyDisplay),
                     'created_at' => $historySale->created_at->format('Y-m-d H:i:s'),
                     'updated_at' => $historySale->updated_at->format('Y-m-d H:i:s'),
-                    'actions' => '
-                        <button onclick="editHistorySale(' . $historySale->id . ')" class="btn btn-sm btn-primary">Edit</button>
-                        <button onclick="deleteHistorySale(' . $historySale->id . ')" class="btn btn-sm btn-danger">Delete</button>
-                    '
+                    'deleted_at' => $historySale->deleted_at ? $historySale->deleted_at->format('Y-m-d H:i:s') : null,
+                    'actions' => $actions
                 ];
             }
 
             return response()->json([
+                'draw' => $request->input('draw', 1),
+                'recordsTotal' => $totalRecords,
+                'recordsFiltered' => $filteredRecords,
                 'data' => $data
             ]);
         } catch (\Exception $e) {
+            Log::error('Error in data method: ' . $e->getMessage(), [
+                'exception' => $e
+            ]);
             return response()->json([
-                'error' => 'An error occurred: ' . $e->getMessage()
+                'error' => 'Terjadi kesalahan: ' . $e->getMessage()
             ], 500);
         }
     }
@@ -328,6 +387,48 @@ class HistorySaleController extends Controller
             return response()->json([
                 'valid' => false,
                 'message' => 'Validation error: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Restore a soft-deleted record.
+     */
+    public function restore($id)
+    {
+        try {
+            $historySale = HistorySale::withTrashed()->findOrFail($id);
+            $historySale->restore();
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'History Sale restored successfully'
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'An error occurred: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Permanently delete a record.
+     */
+    public function forceDelete($id)
+    {
+        try {
+            $historySale = HistorySale::withTrashed()->findOrFail($id);
+            $historySale->forceDelete();
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'History Sale permanently deleted'
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'An error occurred: ' . $e->getMessage()
             ], 500);
         }
     }

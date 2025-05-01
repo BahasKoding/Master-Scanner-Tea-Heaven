@@ -4,10 +4,11 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class HistorySale extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes;
 
     protected $fillable = [
         'no_resi',
@@ -23,5 +24,6 @@ class HistorySale extends Model
     protected $casts = [
         'no_sku' => 'array',
         'qty' => 'array',
+        'deleted_at' => 'datetime',
     ];
 }

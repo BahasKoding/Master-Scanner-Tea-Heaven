@@ -91,6 +91,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::delete('history-sales/{historySale}', [HistorySaleController::class, 'destroy'])->name('history-sales.destroy');
     Route::post('history-sales/data', [HistorySaleController::class, 'data'])->name('history-sales.data');
 
+    // Soft Delete routes
+    Route::post('history-sales/{id}/restore', [HistorySaleController::class, 'restore'])->name('history-sales.restore');
+    Route::delete('history-sales/{id}/force', [HistorySaleController::class, 'forceDelete'])->name('history-sales.force-delete');
+
     // Route untuk validasi no_resi
     Route::post('/validate-no-resi', [HistorySaleController::class, 'validateNoResi'])->name('history-sales.validate-no-resi');
 
@@ -110,5 +114,4 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // Define a GET route with dynamic placeholders for route parameters.
     Route::get('{routeName}/{name?}', [HomeController::class, 'pageView']);
-
 });

@@ -17,6 +17,7 @@ return new class extends Migration
             $table->json('no_sku');
             $table->json('qty');
             $table->timestamps();
+            $table->softDeletes(); // Add soft deletes
         });
     }
 
