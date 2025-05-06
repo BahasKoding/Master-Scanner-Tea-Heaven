@@ -12,7 +12,7 @@
 
 
 <!-- [Favicon] icon -->
-<link rel="icon" href="{{ URL::asset('build/images/ico32.ico') }}" type="image/x-icon">
+<link rel="icon" href="{{ URL::asset('build/images/favicon.svg') }}" type="image/x-icon">
 
 <!-- CSRF Token -->
 <meta name="csrf-token" content="{{ csrf_token() }}">

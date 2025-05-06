@@ -16,27 +16,20 @@ Auth::routes();
 
 
 // Login routes
-Route::get('/', [AuthController::class, 'showLoginForm'])->name('login');
-Route::post('/login', [AuthController::class, 'login'])->name('login.submit');
-Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
+Route::get('/', [App\Http\Controllers\Auth\LoginController::class, 'showLoginForm'])->name('login');
+Route::post('/login', [App\Http\Controllers\Auth\LoginController::class, 'login'])->name('login.submit');
+Route::post('/logout', [App\Http\Controllers\Auth\LoginController::class, 'logout'])->name('logout');
 
-Route::get('/home', function () {
-    return view('index');
-})->name('home');
-
-
-
-Route::middleware(['auth', 'verified'])->group(function () {
-
+Route::middleware(['auth'])->group(function () {
     // Update the dashboard route with a name
     Route::get('/dashboard', function () {
         return view('dashboard');
     })->name('dashboard');
 
-    // Route::get('/', function () {
-    //     // Return a view named 'index' when accessing the root URL
-    //     return view('index');
-    // });
+    // Route for displaying the success message after login
+    Route::get('/home', function () {
+        return view('index');
+    })->name('home');
 
     //role 
     route::get('roles', [RoleController::class, 'index'])->name('roles.index');
@@ -102,6 +95,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::get('/activity', [ActivityController::class, 'index'])->name('activity');
     Route::get('/load-more-activities', [ActivityController::class, 'loadMoreActivities'])->name('load.more.activities');
+
+    // New activity routes
+    Route::get('/auth-activities', [ActivityController::class, 'getAuthActivities'])->name('auth.activities');
+    Route::get('/user-activities/{userId}', [ActivityController::class, 'getUserActivities'])->name('user.activities');
+    Route::get('/user/{userId}/activities', [ActivityController::class, 'showUserActivities'])->name('user.activities.show');
 
     Route::get('/alerts', function () {
         // Return a view named 'index' when accessing the root URL

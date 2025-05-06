@@ -7,7 +7,7 @@ use App\Providers\RouteServiceProvider;
 use Illuminate\Foundation\Auth\AuthenticatesUsers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Validation\ValidationException;
+use Illuminate\Support\Facades\Auth;
 use Exception;
 use App\Models\User;
 
@@ -31,7 +31,7 @@ class LoginController extends Controller
      *
      * @var string
      */
-    protected $redirectTo = RouteServiceProvider::HOME;
+    protected $redirectTo = '/dashboard';
 
     /**
      * Create a new controller instance.
@@ -43,67 +43,176 @@ class LoginController extends Controller
         $this->middleware('guest')->except('logout');
     }
 
-    protected function authenticated(Request $request, $user)
-    {
-        if (!$user->hasVerifiedEmail()) {
-            auth()->logout();
-            return redirect()->route('verification.notice');
-        }
-    }
-
+    /**
+     * Show the application's login form.
+     *
+     * @return \Illuminate\View\View
+     */
     public function showLoginForm()
     {
         return view('auth.login');
     }
 
+    /**
+     * Handle a login request to the application.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\RedirectResponse
+     */
     public function login(Request $request)
     {
         try {
-            $this->validateLogin($request);
+            // Validate login data
+            $this->validate($request, [
+                'email' => 'required|email',
+                'password' => 'required',
+            ]);
 
-            // Attempt to find the user
-            $user = User::where('email', $request->email)->first();
+            // Check for too many login attempts
+            if ($this->hasTooManyLoginAttempts($request)) {
+                $this->fireLockoutEvent($request);
+
+                // Get time remaining before next attempt is allowed
+                $seconds = $this->limiter()->availableIn(
+                    $this->throttleKey($request)
+                );
+
+                $minutes = ceil($seconds / 60);
+
+                $message = $minutes > 1
+                    ? "Terlalu banyak percobaan login. Silakan coba lagi dalam $minutes menit."
+                    : "Terlalu banyak percobaan login. Silakan coba lagi dalam $minutes menit.";
+
+                return redirect()
+                    ->back()
+                    ->withInput($request->only($this->username(), 'remember'))
+                    ->withErrors(['email' => $message]);
+            }
+
+            // Get credentials
+            $credentials = $this->credentials($request);
+
+            // Check if user exists
+            $user = User::where('email', $credentials['email'])->first();
 
             if (!$user) {
-                throw ValidationException::withMessages([
-                    'email' => ['These credentials do not match our records.'],
-                ]);
+                $this->incrementLoginAttempts($request);
+
+                // Record failed login attempt due to invalid email
+                addActivity('auth', 'failed_login', 'Failed login attempt with email: ' . $credentials['email'], 0);
+
+                return redirect()
+                    ->back()
+                    ->withInput($request->only($this->username(), 'remember'))
+                    ->withErrors(['email' => 'Email yang Anda masukkan tidak terdaftar.']);
             }
 
-            if (!$user->hasVerifiedEmail()) {
-                return redirect()->route('verification.notice');
-            }
-
+            // Attempt to log the user in
             if ($this->attemptLogin($request)) {
-                return $this->sendLoginResponse($request);
+                // Reset login attempts
+                $this->clearLoginAttempts($request);
+
+                // Remember user if requested
+                if ($request->filled('remember')) {
+                    Auth::setRememberDuration(43200); // 30 days
+                }
+
+                // Record successful login activity
+                addActivity('auth', 'login', 'User logged in successfully', Auth::id());
+
+                // Redirect to dashboard
+                return redirect()->intended($this->redirectPath())
+                    ->with('success', 'Login berhasil! Selamat datang di Dashboard Tea Heaven.');
             }
 
-            throw ValidationException::withMessages([
-                'email' => ['These credentials do not match our records.'],
-            ]);
+            // If login failed, increment the number of attempts
+            $this->incrementLoginAttempts($request);
+
+            // Record failed login attempt due to wrong password
+            addActivity('auth', 'failed_login', 'Failed login attempt for user: ' . $user->name . ' (wrong password)', $user->id);
+
+            // Wrong password
+            return redirect()
+                ->back()
+                ->withInput($request->only($this->username(), 'remember'))
+                ->withErrors(['password' => 'Password yang Anda masukkan salah.']);
         } catch (Exception $e) {
-            Log::error('Login error', ['message' => $e->getMessage(), 'email' => $request->email]);
-            return back()->withInput($request->only($this->username(), 'remember'))
-                ->withErrors(['login_error' => $e->getMessage()]);
+            Log::error('Login error', [
+                'message' => $e->getMessage(),
+                'user_ip' => $request->ip()
+            ]);
+
+            return redirect()
+                ->back()
+                ->withInput($request->only($this->username(), 'remember'))
+                ->withErrors(['email' => 'Terjadi kesalahan saat login. Silakan coba lagi.']);
         }
     }
 
-    protected function attemptLogin(Request $request)
+    /**
+     * Log the user out of the application.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\RedirectResponse
+     */
+    public function logout(Request $request)
     {
-        $credentials = $this->credentials($request);
-        Log::info('Attempting login', ['email' => $credentials['email']]);
-        $result = $this->guard()->attempt(
-            $credentials,
-            $request->filled('remember')
-        );
-        Log::info('Login attempt result', ['success' => $result]);
-        return $result;
+        // Record logout activity before actually logging out
+        if (Auth::check()) {
+            addActivity('auth', 'logout', 'User logged out: ' . Auth::user()->name, Auth::id());
+        }
+
+        Auth::logout();
+
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+
+        return redirect()->route('login')
+            ->with('logout_success', 'Anda berhasil logout dari sistem.');
     }
 
-    protected function sendFailedLoginResponse(Request $request)
+    /**
+     * Get the needed authorization credentials from the request.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return array
+     */
+    protected function credentials(Request $request)
     {
-        throw ValidationException::withMessages([
-            $this->username() => [trans('auth.failed')],
-        ]);
+        return $request->only($this->username(), 'password');
+    }
+
+    /**
+     * Get the login username to be used by the controller.
+     *
+     * @return string
+     */
+    public function username()
+    {
+        return 'email';
+    }
+
+    /**
+     * The user has been authenticated.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @param  mixed  $user
+     * @return mixed
+     */
+    protected function authenticated(Request $request, $user)
+    {
+        // Clear login attempts
+        $this->clearLoginAttempts($request);
+
+        // Remember user if requested
+        if ($request->filled('remember')) {
+            Auth::setRememberDuration(43200); // 30 days
+        }
+
+        // Add success message to session
+        session()->flash('success', 'Login berhasil! Selamat datang di Dashboard Tea Heaven.');
+
+        // Return to intended location or dashboard
+        return redirect()->intended($this->redirectPath());
     }
 }

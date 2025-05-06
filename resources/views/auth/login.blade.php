@@ -4,116 +4,138 @@
 
 @section('content')
     <div class="auth-form">
-        <div class="card my-5">
-            <div class="card-body">
-                <div id="loginErrorMessage" class="alert alert-danger" style="display: none;"></div>
+        <div class="card my-5 shadow-sm">
+            <div class="card-body p-4">
                 <div class="text-center">
-                    <img src="{{ asset('img/tea-heaven.png') }}" alt="Logo Tea Heaven" class="img-fluid mb-2">
-                    <h4 class="f-w-500 mb-3 mt-3">LOGIN HERE</h4>
-                    <!--<p class="mb-3">Don't have an Account? <a href="{{ route('register') }}"
-                                    class="link-primary ms-1">Create Account</a></p>-->
+                    <img src="{{ asset('img/tea-heaven.png') }}" alt="Logo Tea Heaven" class="img-fluid mb-3"
+                        style="max-height: 80px;">
+                    <h4 class="fw-bold mb-4">Administrator Login</h4>
                 </div>
+
+                @if (session('error'))
+                    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                        {{ session('error') }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                @endif
+
+                @if (session('logout_success'))
+                    <div class="alert alert-success alert-dismissible fade show" role="alert">
+                        {{ session('logout_success') }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                @endif
+
                 <form id="loginForm" method="POST" action="{{ route('login.submit') }}">
                     @csrf
                     <div class="form-group mb-3">
-                        <input type="text" class="form-control" name="email" required autocomplete="name"
-                            value="admin@gmail.com" autofocus id="email" placeholder="Your Email">
-                        <span id="emailError" class="text-danger"></span>
-                    </div>
-                    <div class="form-group mb-3">
-                        <input type="password" class="form-control" name="password" required autocomplete="current-password"
-                            value="12345678" id="password" placeholder="Password">
-                        <span id="passwordError" class="text-danger"></span>
-                    </div>
-                    <div class="d-flex mt-1 justify-content-between align-items-center">
-                        <div class="form-check">
-                            {{-- <input class="form-check-input input-primary" type="checkbox" name="remember" id="remember" {{ old('remember') ? 'checked' : '' }}>
-                        <label class="form-check-label text-muted" for="remember">Remember me?</label> --}}
+                        <label for="email" class="form-label">Email</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="fas fa-envelope"></i></span>
+                            <input type="email" class="form-control @error('email') is-invalid @enderror" name="email"
+                                id="email" placeholder="Enter your email" value="{{ old('email') }}" required
+                                autocomplete="email" autofocus>
                         </div>
-                        <a href="#">
-                            {{-- <h6 class="f-w-400 mb-0">Forgot Password?</h6> --}}
-                        </a>
+                        <div id="emailFeedback" class="invalid-feedback"></div>
+                        @error('email')
+                            <span class="text-danger">{{ $message }}</span>
+                        @enderror
                     </div>
-                    <div class="d-grid mt-4">
-                        <button type="submit" class="btn btn-primary">Login</button>
+
+                    <div class="form-group mb-4">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <label for="password" class="form-label">Password</label>
+                        </div>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="fas fa-lock"></i></span>
+                            <input type="password" class="form-control @error('password') is-invalid @enderror"
+                                name="password" id="password" placeholder="Enter your password" required>
+                            <button type="button" class="input-group-text bg-transparent" id="togglePassword">
+                                <i class="fas fa-eye-slash"></i>
+                            </button>
+                        </div>
+                        <div id="passwordFeedback" class="invalid-feedback"></div>
+                        @error('password')
+                            <span class="text-danger">{{ $message }}</span>
+                        @enderror
+                    </div>
+
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary py-2">
+                            <span id="loginButton">Login</span>
+                            <span id="loadingSpinner" class="spinner-border spinner-border-sm ms-2 d-none"
+                                role="status"></span>
+                        </button>
                     </div>
                 </form>
+
             </div>
         </div>
     </div>
 @endsection
 
 @section('scripts')
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script>
-        $(document).ready(function() {
-            @if (session('logout_success'))
-                Swal.fire({
-                    icon: 'success',
-                    title: 'Logout Successful',
-                    text: '{{ session('
-                                                    logout_success ') }}',
-                    timer: 3000,
-                    showConfirmButton: false
-                });
-            @endif
+        document.addEventListener('DOMContentLoaded', function() {
+            // Toggle password visibility
+            const togglePassword = document.querySelector('#togglePassword');
+            const password = document.querySelector('#password');
 
-            $('#loginForm').on('submit', function(e) {
-                e.preventDefault();
-                $.ajax({
-                    url: $(this).attr('action'),
-                    method: 'POST',
-                    data: $(this).serialize(),
-                    dataType: 'json',
-                    success: function(response) {
-                        if (response.redirect) {
-                            window.location.href = response.redirect;
-                        } else {
-                            Swal.fire({
-                                icon: 'success',
-                                title: 'Login Successful',
-                                text: response.message,
-                                showConfirmButton: false,
-                                timer: 1500
-                            });
-                        }
-                    },
-                    error: function(xhr) {
-                        if (xhr.status === 422) {
-                            var errors = xhr.responseJSON.errors;
-                            var errorMessage = '';
-                            $.each(errors, function(key, value) {
-                                errorMessage += value[0] + '<br>';
-                            });
-                            Swal.fire({
-                                icon: 'error',
-                                title: 'Login Failed',
-                                html: errorMessage,
-                                confirmButtonText: 'Try Again'
-                            });
-                        } else if (xhr.status === 404) {
-                            Swal.fire({
-                                icon: 'error',
-                                title: 'User Not Found',
-                                text: 'The email you entered is not registered. Would you like to create an account?',
-                                showCancelButton: true,
-                                confirmButtonText: 'Register',
-                                cancelButtonText: 'Try Again'
-                            }).then((result) => {
-                                if (result.isConfirmed) {
-                                    window.location.href = "{{ route('register') }}";
-                                }
-                            });
-                        } else {
-                            Swal.fire({
-                                icon: 'error',
-                                title: 'Login Failed',
-                                text: 'An unexpected error occurred. Please try again later.',
-                                confirmButtonText: 'OK'
-                            });
-                        }
-                    }
-                });
+            togglePassword.addEventListener('click', function() {
+                const type = password.getAttribute('type') === 'password' ? 'text' : 'password';
+                password.setAttribute('type', type);
+                this.querySelector('i').classList.toggle('fa-eye');
+                this.querySelector('i').classList.toggle('fa-eye-slash');
+            });
+
+            // Client-side validation
+            const loginForm = document.getElementById('loginForm');
+            const emailInput = document.getElementById('email');
+            const passwordInput = document.getElementById('password');
+            const emailFeedback = document.getElementById('emailFeedback');
+            const passwordFeedback = document.getElementById('passwordFeedback');
+            const loginButton = document.getElementById('loginButton');
+            const loadingSpinner = document.getElementById('loadingSpinner');
+
+            loginForm.addEventListener('submit', function(e) {
+                e.preventDefault(); // Always prevent default to handle submission manually
+
+                let isValid = true;
+
+                // Reset previous validation states
+                emailInput.classList.remove('is-invalid');
+                passwordInput.classList.remove('is-invalid');
+
+                // Email validation
+                const emailValue = emailInput.value.trim();
+                if (!emailValue) {
+                    emailInput.classList.add('is-invalid');
+                    emailFeedback.textContent = 'Email is required';
+                    isValid = false;
+                } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailValue)) {
+                    emailInput.classList.add('is-invalid');
+                    emailFeedback.textContent = 'Please enter a valid email address';
+                    isValid = false;
+                }
+
+                // Password validation
+                if (!passwordInput.value) {
+                    passwordInput.classList.add('is-invalid');
+                    passwordFeedback.textContent = 'Password is required';
+                    isValid = false;
+                }
+
+                if (!isValid) {
+                    return false;
+                }
+
+                // Show loading indicator
+                loginButton.textContent = 'Logging in';
+                loadingSpinner.classList.remove('d-none');
+
+                // Submit form directly for reliable operation
+                // This avoids JSON parsing issues when server returns unexpected formats
+                loginForm.submit();
             });
         });
     </script>

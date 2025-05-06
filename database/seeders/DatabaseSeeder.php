@@ -16,7 +16,7 @@ class DatabaseSeeder extends Seeder
         $this->call([
             RolesSeeder::class,       // Add the new RoleSeeder here
             AdminUserSeeder::class,  // Your existing seeders
-            HistorySaleSeeder::class,
+            // HistorySaleSeeder::class,
         ]);
 
         // Dapatkan user admin yang baru dibuat

@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use App\Models\User;
 use App\Models\Role;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Auth;
 
 class UserController extends Controller
 {
@@ -23,7 +24,7 @@ class UserController extends Controller
         //$user->assignRole('admin');
         //$roleNames = $user->getRoleNames();
         //return $roleNames;
-        $currentUser = auth()->user()->getRoleNames();
+        $currentUser = Auth::user()->getRoleNames();
 
         if ($currentUser->contains('Super Admin')) {
             $roles = Role::all();
@@ -66,23 +67,33 @@ class UserController extends Controller
             ]);
 
             // Create user and set email_verified_at to current timestamp with Carbon format
-            $user = User::create(array_merge($request->only('name', 'email', 'password'), ['email_verified_at' => \Carbon\Carbon::now()->format('Y-m-d H:i:s')]));
+            $user = User::create(array_merge(
+                $request->only('name', 'email'),
+                [
+                    'password' => Hash::make($request->password),
+                    'email_verified_at' => \Carbon\Carbon::now()->format('Y-m-d H:i:s')
+                ]
+            ));
             $user->assignRole($request->role);
-            return response()->json(['status' => 'success', 'message' => 'Role created successfully']);
+
+            // Record activity
+            if (function_exists('addActivity')) {
+                addActivity('user', 'create', 'User ' . $user->name . ' was created by ' . Auth::user()->name, $user->id);
+            }
+
+            return response()->json(['status' => 'success', 'message' => 'User created successfully']);
         } catch (\Exception $e) {
-            return response()->json(['status' => 'error', 'message' => 'Failed to create role'], 500);
+            return response()->json(['status' => 'error', 'message' => 'Failed to create user: ' . $e->getMessage()], 500);
         }
     }
 
     public function edit(User $user)
     {
         try {
-            $data = User::findOrFail($user->id);
-            $roleNames = $data->getRoleNames()->toArray();
+            $data = User::with('roles')->findOrFail($user->id);
             return response()->json([
                 'status' => 'success',
-                'data' => $data,
-                'roleNames' => $roleNames
+                'data' => $data
             ]);
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
             return response()->json([
@@ -136,22 +147,35 @@ class UserController extends Controller
                 $user->syncRoles([$validatedData['data']['role']]);
             }
 
+            // Record activity
+            if (function_exists('addActivity')) {
+                addActivity('user', 'update', 'User ' . $user->name . ' was updated by ' . Auth::user()->name, $user->id);
+            }
+
             return response()->json(['status' => 'success', 'message' => 'User updated successfully']);
         } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json(['status' => 'error', 'errors' => $e->errors()], 422);
         } catch (\Exception $e) {
-            return response()->json(['status' => 'error', 'message' => 'Failed to update user'], 500);
+            return response()->json(['status' => 'error', 'message' => 'Failed to update user: ' . $e->getMessage()], 500);
         }
     }
 
     public function destroy(User $user)
     {
         try {
-            $data = User::findOrFail($user->id);
-            $data->delete();
+            $userName = $user->name;
+            $userId = $user->id;
+
+            $user->delete();
+
+            // Record activity
+            if (function_exists('addActivity')) {
+                addActivity('user', 'delete', 'User ' . $userName . ' was deleted by ' . Auth::user()->name, $userId);
+            }
+
             return response()->json([
                 'status' => 'success',
-                'message' => 'user deleted successfully'
+                'message' => 'User deleted successfully'
             ]);
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
             return response()->json([
@@ -171,70 +195,96 @@ class UserController extends Controller
      */
     public function data(Request $request)
     {
-        $query = User::query();
+        try {
+            // Query dengan eager loading untuk roles
+            $query = User::with('roles');
 
-        // Get total count before filtering
-        $totalRecords = $query->count();
+            // Get total count before filtering
+            $totalRecords = $query->count();
 
-        // Apply search filter if present
-        if ($request->has('search') && !empty($request->search['value'])) {
-            $searchValue = $request->search['value'];
-            $query->where(function ($q) use ($searchValue) {
-                $q->where('name', 'like', "%{$searchValue}%")
-                    ->orWhere('email', 'like', "%{$searchValue}%");
+            // Apply search filter if present
+            if ($request->has('search') && !empty($request->search['value'])) {
+                $searchValue = $request->search['value'];
+                $query->where(function ($q) use ($searchValue) {
+                    $q->where('name', 'like', "%{$searchValue}%")
+                        ->orWhere('email', 'like', "%{$searchValue}%");
+                });
+            }
+
+            // Get filtered count
+            $filteredRecords = $query->count();
+
+            // Apply ordering
+            if ($request->has('order') && !empty($request->order)) {
+                $columnIndex = $request->order[0]['column'];
+                $columnName = $request->columns[$columnIndex]['name'];
+                $columnDirection = $request->order[0]['dir'];
+
+                if ($columnName && $columnName != 'actions' && $columnName != 'roles') {
+                    $query->orderBy($columnName, $columnDirection);
+                }
+            } else {
+                $query->orderBy('created_at', 'desc');
+            }
+
+            // Apply pagination
+            $start = $request->start ?? 0;
+            $length = $request->length ?? 10;
+
+            // Filter users based on current user role
+            $currentUser = Auth::user()->getRoleNames();
+            if ($currentUser->contains('Super Admin')) {
+                // Super admin can see all users
+            } elseif ($currentUser->contains('Admin')) {
+                // Admin cannot see Super Admin users
+                $query->whereDoesntHave('roles', function ($q) {
+                    $q->where('name', 'Super Admin');
+                });
+            } elseif ($currentUser->contains('Operator')) {
+                // Operator cannot see Super Admin or Admin users
+                $query->whereDoesntHave('roles', function ($q) {
+                    $q->whereIn('name', ['Super Admin', 'Admin']);
+                });
+            }
+
+            // Get paginated data with roles
+            $users = $query->skip($start)->take($length)->get();
+
+            // Format data for DataTables
+            $data = $users->map(function ($user) {
+                // Get roles as an array of strings
+                $rolesArray = $user->roles->map(function ($role) {
+                    return $role->name;
+                })->toArray();
+
+                return [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'email' => $user->email,
+                    'role' => implode(', ', $rolesArray),
+                    'roles' => $user->roles->toArray(),
+                    'created_at' => $user->created_at->format('Y-m-d H:i:s'),
+                    'updated_at' => $user->updated_at->format('Y-m-d H:i:s')
+                ];
             });
+
+            return response()->json([
+                'draw' => intval($request->draw),
+                'recordsTotal' => $totalRecords,
+                'recordsFiltered' => $filteredRecords,
+                'data' => $data
+            ]);
+        } catch (\Exception $e) {
+            // Log the error
+            \Illuminate\Support\Facades\Log::error('DataTables error: ' . $e->getMessage());
+
+            return response()->json([
+                'draw' => intval($request->draw),
+                'recordsTotal' => 0,
+                'recordsFiltered' => 0,
+                'data' => [],
+                'error' => 'An error occurred while fetching data: ' . $e->getMessage()
+            ]);
         }
-
-        // Get filtered count
-        $filteredRecords = $query->count();
-
-        // Apply pagination
-        $start = $request->start ?? 0;
-        $length = $request->length ?? 10;
-        $query->offset($start)->limit($length);
-
-        // Get paginated data
-
-        $currentUser = auth()->user()->getRoleNames();
-        if ($currentUser->contains('Super Admin')) {
-            $users = $query->get();
-        } elseif ($currentUser->contains('Admin')) {
-            $users = $query->whereDoesntHave('roles', function ($q) {
-                $q->where('name', '!=', 'Admin');
-            })->get();
-        } elseif ($currentUser->contains('Operator')) {
-            $users = $query->whereDoesntHave('roles', function ($q) {
-                $q->where('name', '!=', 'Admin')->where('name', '!=', 'Super Admin');
-            })->get();
-        }
-
-        $data = $users->map(function ($user) {
-            return [
-                'id' => $user->id,
-                'name' => $user->name,
-                'email' => $user->email,
-                'role' => $user->roles->pluck('name')->implode(', '), // Include 'role' field with comma-separated roles
-                'created_at' => $user->created_at->format('Y-m-d H:i:s'),
-                'updated_at' => $user->updated_at->format('Y-m-d H:i:s'),
-                'actions' => '
-                    <button onclick="editUser(' . $user->id . ')" class="btn btn-sm btn-primary">Edit</button>
-                    <button onclick="deleteUser(' . $user->id . ')" class="btn btn-sm btn-danger">Delete</button>
-                '
-            ];
-        });
-
-        $data = $data->map(function ($item) use ($users) {
-            $user = $users->where('id', $item['id'])->first();
-            $item['role'] = $user->roles->pluck('name')->implode(', ');
-            $item['rolename'] = $user->roles->pluck('name')->implode(', '); // Adding 'rolename' field with comma-separated role names
-            return $item;
-        });
-
-        return response()->json([
-            'draw' => $request->draw,
-            'recordsTotal' => $totalRecords,
-            'recordsFiltered' => $filteredRecords,
-            'data' => $data
-        ]);
     }
 }

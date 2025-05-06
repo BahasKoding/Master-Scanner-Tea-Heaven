@@ -22,17 +22,8 @@ class RolesSeeder extends Seeder
             'Users Create',
             'Users Update',
             'Users Delete',
-            'Suppliers Create',
-            'Products Create',
-            'Products Update',
-            'Suppliers Update',
-            'Suppliers Delete',
-            'Products Delete',
             'Roles Update',
             'Roles Delete',
-            'Product Category Create',
-            'Product Category Update',
-            'Product Category Delete',
         ];
 
         // Create permissions

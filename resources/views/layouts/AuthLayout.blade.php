@@ -1,22 +1,91 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
 
 <head>
-    <title>@yield('title') | Sistem Informasi Tea Heaven</title>
+    <title>@yield('title') | Tea Heaven Admin</title>
     <!-- [Meta] -->
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=0, minimal-ui">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="description" content="Sistem Informasi">
-    <meta name="keywords" content="Laravel 11 Bootstrap Tea Heaven">
-    <meta name="author" content="bahaskoding">
+    <meta name="description" content="Tea Heaven - Teh Hijau Premium Indonesia">
+    <meta name="keywords" content="admin, dashboard, tea, green tea, organic">
+    <meta name="author" content="Tea Heaven">
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
     <!-- [Favicon] icon -->
-    <link rel="icon" href="{{ URL::asset('build/images/ico32.ico') }}" type="image/x-icon">
+    <link rel="icon" href="{{ asset('images/favicon.png') }}" type="image/x-icon">
+
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&display=swap"
+        rel="stylesheet">
+
+    <!-- Font Awesome -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+
     @yield('css')
 
     @include('layouts.head-css')
+
+    <style>
+        :root {
+            --primary: #014421;
+            --secondary: #F5F3E7;
+            --tertiary: #7B5E57;
+        }
+
+        body {
+            font-family: 'Public Sans', sans-serif;
+            background-color: #f8f9fa;
+        }
+
+        .auth-main {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: var(--secondary);
+            padding: 2rem 0;
+        }
+
+        .auth-wrapper {
+            width: 100%;
+            max-width: 450px;
+            margin: 0 auto;
+        }
+
+        .card {
+            border: none;
+            border-radius: 10px;
+            box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.1);
+        }
+
+        .btn-primary {
+            background-color: var(--primary);
+            border-color: var(--primary);
+        }
+
+        .btn-primary:hover {
+            background-color: #013319;
+            border-color: #013319;
+        }
+
+        .text-primary {
+            color: var(--primary) !important;
+        }
+
+        a {
+            color: var(--primary);
+        }
+
+        a:hover {
+            color: #013319;
+        }
+
+        .form-control:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 0.25rem rgba(1, 68, 33, 0.25);
+        }
+    </style>
 </head>
 
 <body data-pc-preset="preset-6" data-pc-sidebar-theme="light" data-pc-sidebar-caption="true" data-pc-direction="ltr"
@@ -48,9 +117,10 @@
 
     @include('layouts.footerjs')
 
-    @yield('scripts')
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <!-- SweetAlert2 -->
     <script src="{{ asset('build/js/plugins/sweetalert2.all.min.js') }}"></script>
+
+    @yield('scripts')
 </body>
 
 </html>
