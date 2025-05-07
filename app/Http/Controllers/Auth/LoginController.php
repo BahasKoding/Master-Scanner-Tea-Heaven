@@ -8,6 +8,7 @@ use Illuminate\Foundation\Auth\AuthenticatesUsers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Route;
 use Exception;
 use App\Models\User;
 
@@ -157,8 +158,26 @@ class LoginController extends Controller
         // Record successful login activity
         addActivity('auth', 'login', 'User logged in successfully', Auth::id());
 
-        // Return to intended location or dashboard with success message
-        return redirect()->intended($this->redirectPath())
+        // Clear any intended URLs that might be invalid or causing issues
+        if ($request->session()->has('url.intended')) {
+            // Check if the intended URL contains favicon.png or other problematic paths
+            $intendedUrl = $request->session()->get('url.intended');
+            if (
+                strpos($intendedUrl, 'favicon.png') !== false ||
+                strpos($intendedUrl, '/images/') !== false ||
+                strpos($intendedUrl, '.png') !== false ||
+                strpos($intendedUrl, '.jpg') !== false ||
+                strpos($intendedUrl, '.jpeg') !== false ||
+                strpos($intendedUrl, '.gif') !== false ||
+                strpos($intendedUrl, '.ico') !== false
+            ) {
+                // Clear the problematic intended URL
+                $request->session()->forget('url.intended');
+            }
+        }
+
+        // Explicitly redirect to dashboard to avoid problematic redirects
+        return redirect('/dashboard')
             ->with('login_success', 'Login berhasil! Selamat datang di Dashboard Tea Heaven.');
     }
 
@@ -225,7 +244,44 @@ class LoginController extends Controller
         // Add success message to session
         session()->flash('login_success', 'Login berhasil! Selamat datang di Dashboard Tea Heaven.');
 
-        // Return to intended location or dashboard
-        return redirect()->intended($this->redirectPath());
+        // Check for intended url that might be problematic
+        if ($request->session()->has('url.intended')) {
+            $intendedUrl = $request->session()->get('url.intended');
+            if (
+                strpos($intendedUrl, 'favicon.png') !== false ||
+                strpos($intendedUrl, '/images/') !== false ||
+                strpos($intendedUrl, '.png') !== false ||
+                strpos($intendedUrl, '.jpg') !== false ||
+                strpos($intendedUrl, '.jpeg') !== false ||
+                strpos($intendedUrl, '.gif') !== false ||
+                strpos($intendedUrl, '.ico') !== false
+            ) {
+                // Clear the problematic intended URL
+                $request->session()->forget('url.intended');
+            }
+        }
+
+        // Always redirect to dashboard explicitly
+        return redirect('/dashboard');
+    }
+
+    /**
+     * Get the post login redirect path.
+     *
+     * @return string
+     */
+    public function redirectPath()
+    {
+        // Check if the dashboard route exists, otherwise use home
+        if (Route::has('dashboard')) {
+            return route('dashboard');
+        }
+
+        if (Route::has('home')) {
+            return route('home');
+        }
+
+        // Fallback to root path if neither route exists
+        return '/';
     }
 }

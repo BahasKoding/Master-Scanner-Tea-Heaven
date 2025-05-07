@@ -12,6 +12,14 @@ use App\Http\Controllers\HistorySaleController;
 use App\Http\Controllers\SupplierController;
 use Illuminate\Support\Facades\Auth;
 
+// Root route - redirect to login if not authenticated or dashboard if authenticated
+Route::get('/', function () {
+    if (Auth::check()) {
+        return redirect('/dashboard');
+    }
+    return redirect('/login');
+});
+
 // Laravel Auth Routes
 Auth::routes();
 
@@ -107,9 +115,4 @@ Route::middleware(['auth'])->group(function () {
 
     // Define a GET route with dynamic placeholders for route parameters.
     Route::get('{routeName}/{name?}', [HomeController::class, 'pageView']);
-});
-
-// Redirect root URL to login page
-Route::get('/', function () {
-    return redirect()->route('login');
 });
