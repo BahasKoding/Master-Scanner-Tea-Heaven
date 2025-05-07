@@ -34,13 +34,22 @@ class HistorySaleController extends Controller
     public function store(Request $request)
     {
         try {
+            // Determine validation rules for no_resi based on allow_duplicates parameter
+            $resiRule = 'required|string';
+            if (!$request->boolean('allow_duplicates', false)) {
+                $resiRule .= '|unique:history_sales,no_resi';
+            }
+
             $validatedData = $request->validate([
-                'no_resi' => 'required|string|unique:history_sales,no_resi',
+                'no_resi' => $resiRule,
                 'no_sku' => 'required|array',
                 'no_sku.*' => 'nullable|string|min:3',
                 'qty' => 'sometimes|array',
                 'qty.*' => 'sometimes|integer|min:1',
             ]);
+
+            // Get No Resi value
+            $noResi = $validatedData['no_resi'];
 
             // Filter out empty SKUs and check for duplicates
             $skus = [];
@@ -49,6 +58,14 @@ class HistorySaleController extends Controller
 
             foreach ($validatedData['no_sku'] as $index => $sku) {
                 if (!empty(trim($sku))) {
+                    // Prevent No Resi from being used as an SKU
+                    if (trim($sku) === $noResi) {
+                        return response()->json([
+                            'status' => 'error',
+                            'message' => 'No Resi tidak boleh sama dengan No SKU: ' . $sku
+                        ], 422);
+                    }
+
                     // Check for duplicate SKU
                     if (in_array($sku, $seenSkus)) {
                         return response()->json([
@@ -138,6 +155,9 @@ class HistorySaleController extends Controller
                 'qty.*' => 'required|integer|min:1',
             ]);
 
+            // Get No Resi value
+            $noResi = $validatedData['no_resi'];
+
             // Check for duplicate SKUs
             $skus = [];
             $quantities = [];
@@ -145,6 +165,14 @@ class HistorySaleController extends Controller
 
             foreach ($validatedData['no_sku'] as $index => $sku) {
                 if (!empty(trim($sku))) {
+                    // Prevent No Resi from being used as an SKU
+                    if (trim($sku) === $noResi) {
+                        return response()->json([
+                            'status' => 'error',
+                            'message' => 'No Resi tidak boleh sama dengan No SKU: ' . $sku
+                        ], 422);
+                    }
+
                     // Check for duplicate SKU
                     if (in_array($sku, $seenSkus)) {
                         return response()->json([
@@ -469,6 +497,7 @@ class HistorySaleController extends Controller
     {
         try {
             $noResi = $request->input('no_resi');
+            $allowDuplicates = $request->boolean('allow_duplicates', false);
 
             if (empty($noResi)) {
                 return response()->json([
@@ -477,12 +506,20 @@ class HistorySaleController extends Controller
                 ], 422);
             }
 
-            // Check if no_resi already exists
-            $exists = HistorySale::where('no_resi', $noResi)->exists();
+            // Check if no_resi already exists (if duplicates are not allowed)
+            if (!$allowDuplicates) {
+                $exists = HistorySale::where('no_resi', $noResi)->exists();
 
+                return response()->json([
+                    'valid' => !$exists,
+                    'message' => $exists ? 'No Resi already exists' : 'No Resi is valid'
+                ]);
+            }
+
+            // If duplicates are allowed, always return valid
             return response()->json([
-                'valid' => !$exists,
-                'message' => $exists ? 'No Resi already exists' : 'No Resi is valid'
+                'valid' => true,
+                'message' => 'No Resi is valid (duplicates allowed)'
             ]);
         } catch (\Exception $e) {
             return response()->json([

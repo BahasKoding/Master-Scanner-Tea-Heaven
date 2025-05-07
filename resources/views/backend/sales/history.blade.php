@@ -35,6 +35,13 @@
             transition: var(--transition-normal);
         }
 
+        /* Help text styling */
+        .form-help-text {
+            font-size: 0.85rem;
+            color: var(--secondary-color);
+            margin-top: 0.25rem;
+        }
+
         /* ========== COMMON ELEMENTS ========== */
         .card {
             border: none;
@@ -75,6 +82,13 @@
             transition: var(--transition-normal);
         }
 
+        /* Button Group Styling */
+        .btn-group {
+            display: inline-flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
         /* Button icon styling */
         .btn-icon {
             width: 36px;
@@ -95,6 +109,28 @@
         .btn-icon:hover {
             transform: translateY(-2px);
             box-shadow: 0 3px 5px rgba(0, 0, 0, 0.2);
+        }
+
+        /* Remove SKU button styling */
+        .btn-remove-sku {
+            width: 40px;
+            height: var(--form-element-height);
+            padding: 0;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: var(--border-radius-normal);
+            transition: all 0.2s ease;
+        }
+
+        .btn-remove-sku:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 3px 5px rgba(0, 0, 0, 0.2);
+        }
+
+        .btn-remove-sku:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
         }
 
         /* ========== FORM ELEMENTS ========== */
@@ -130,6 +166,10 @@
             font-size: 16px;
         }
 
+        .sku-input {
+            min-width: 300px;
+        }
+
         .sku-input-container {
             display: grid;
             gap: 10px;
@@ -157,6 +197,48 @@
             display: inline-block;
         }
 
+        /* Scanner toggle styling */
+        .form-check-input:checked {
+            background-color: var(--primary-color);
+            border-color: var(--primary-color);
+        }
+
+        .form-check-input:focus {
+            border-color: var(--primary-color);
+            box-shadow: var(--focus-shadow);
+        }
+
+        .form-check.form-switch .form-check-input {
+            width: 3em;
+            height: 1.5em;
+            cursor: pointer;
+        }
+
+        .form-check-label {
+            cursor: pointer;
+            user-select: none;
+        }
+
+        #scannerStatus {
+            font-weight: 500;
+            transition: var(--transition-normal);
+        }
+
+        .scanner-inactive {
+            color: var(--secondary-color);
+            text-decoration: line-through;
+        }
+
+        .scanner-active {
+            color: var(--primary-color);
+            font-weight: 600;
+        }
+
+        .scanner-mode-hint {
+            font-size: 0.75rem;
+            opacity: 0.8;
+        }
+
         .countdown-timer {
             color: var(--secondary-color);
             font-size: 1em;
@@ -170,6 +252,11 @@
         .table-scroll-indicator {
             display: none;
             margin-bottom: 10px;
+            padding: 8px;
+            background-color: #fff3cd;
+            border-radius: var(--border-radius-normal);
+            text-align: center;
+            font-size: 0.9rem;
         }
 
         .current-date-info {
@@ -266,8 +353,44 @@
                 padding: 15px;
             }
 
+            /* Scanner toggle display on mobile */
+            .card-header .d-flex {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .d-flex.align-items-center {
+                width: 100%;
+                margin-top: 10px;
+                justify-content: space-between;
+                flex-wrap: wrap;
+            }
+
+            .form-check.form-switch {
+                margin-bottom: 10px;
+                width: 100%;
+            }
+
+            .countdown-timer {
+                margin-left: 0;
+                width: 100%;
+                text-align: center;
+                margin-top: 10px;
+                font-size: 0.9rem;
+            }
+
+            .scanner-mode-hint {
+                display: inline-block !important;
+                margin-left: 5px;
+            }
+
             .sku-input-container {
-                grid-template-columns: 1fr;
+                grid-template-columns: 1fr 80px 40px;
+                padding: 10px;
+            }
+
+            .sku-input {
+                min-width: 100%;
             }
 
             .sku-input,
@@ -277,13 +400,27 @@
 
             .scanning-indicator {
                 width: 100%;
+                grid-column: span 3;
                 text-align: center;
                 margin: 5px 0;
             }
 
+            /* Button responsiveness on mobile */
+            .btn-group {
+                width: 100%;
+                flex-direction: column;
+            }
+
+            #submitManualBtn,
             #resetScannerBtn {
                 width: 100%;
-                margin-top: 15px;
+                margin: 5px 0;
+            }
+
+            /* Table styles for mobile */
+            .table-scroll-indicator {
+                display: block;
+                font-weight: bold;
             }
 
             #history-sales-table {
@@ -295,14 +432,6 @@
                 max-width: 150px;
                 white-space: normal;
                 word-break: break-word;
-            }
-
-            .table-scroll-indicator {
-                display: block;
-                text-align: center;
-                padding: 10px;
-                color: #666;
-                font-size: 0.9em;
             }
 
             .btn-icon {
@@ -328,7 +457,44 @@
         }
 
         /* Tablet styles */
-        @media (max-width: 768px) {
+        @media (min-width: 577px) and (max-width: 991px) {
+            .card-header .d-flex {
+                justify-content: space-between;
+            }
+
+            .form-check.form-switch {
+                margin-right: 15px;
+            }
+
+            .countdown-timer {
+                font-size: 0.9rem;
+                padding: 5px 10px;
+            }
+
+            .sku-input-container {
+                grid-template-columns: 2fr 80px 40px;
+            }
+
+            .sku-input {
+                min-width: 100%;
+            }
+
+            .scanning-indicator {
+                grid-column: span 3;
+                text-align: center;
+            }
+
+            #history-sales-table td:nth-child(3),
+            #history-sales-table td:nth-child(4) {
+                max-width: 200px;
+                white-space: normal;
+                word-break: break-word;
+            }
+
+            .table-scroll-indicator {
+                display: block;
+            }
+
             .btn-group {
                 width: 100%;
                 margin-top: 10px;
@@ -359,42 +525,57 @@
             }
         }
 
-        @media (min-width: 577px) and (max-width: 991px) {
+        /* Desktop styles */
+        @media (min-width: 992px) {
             .sku-input-container {
-                grid-template-columns: 2fr 1fr;
+                grid-template-columns: 1fr 120px 40px;
             }
 
             .scanning-indicator {
-                grid-column: span 2;
+                grid-column: span 3;
                 text-align: center;
             }
 
-            #history-sales-table td:nth-child(3),
-            #history-sales-table td:nth-child(4) {
-                max-width: 200px;
-                white-space: normal;
-                word-break: break-word;
-            }
-
-            .table-scroll-indicator {
-                display: block;
-            }
-        }
-
-        /* Desktop styles */
-        @media (min-width: 768px) {
             .modal-dialog {
                 max-width: 700px;
             }
         }
 
-        @media (min-width: 992px) {
-            .sku-input-container {
-                grid-template-columns: 1fr 120px 120px;
+        /* Input validation styling */
+        .is-validating {
+            background-image: url('data:image/svg+xml;charset=UTF-8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24px" height="24px"><path fill="%23aaa" d="M12,1A11,11,0,1,0,23,12,11,11,0,0,0,12,1Zm0,19a8,8,0,1,1,8-8A8,8,0,0,1,12,20Z"/><path fill="%23aaa" d="M12,4a8,8,0,0,0-8,8H6a6,6,0,1,1,6,6v2A8,8,0,0,0,12,4Z"><animateTransform attributeName="transform" type="rotate" from="0 12 12" to="360 12 12" dur="1s" repeatCount="indefinite"/></path></svg>');
+            background-repeat: no-repeat;
+            background-position: right 10px center;
+            background-size: 20px;
+            transition: background 0.3s;
+        }
+
+        /* Table loading state */
+        .table-loading {
+            position: relative;
+        }
+
+        .table-loading:after {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255, 255, 255, 0.7) url('data:image/svg+xml;charset=UTF-8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 44 44" width="44px" height="44px"><circle fill="none" stroke="%234CAF50" stroke-width="4" cx="22" cy="22" r="14"><animate attributeName="stroke-dasharray" dur="1.5s" calcMode="spline" values="0 100;100 100;0 100" keyTimes="0;0.5;1" keySplines="0.42,0,0.58,1;0.42,0,0.58,1" repeatCount="indefinite"/><animate attributeName="stroke-dashoffset" dur="1.5s" calcMode="spline" values="0;-100;-200" keyTimes="0;0.5;1" keySplines="0.42,0,0.58,1;0.42,0,0.58,1" repeatCount="indefinite"/></circle></svg>') center center no-repeat;
+            background-size: 50px;
+            z-index: 10;
+            border-radius: var(--border-radius-large);
+            animation: fadeIn 0.2s ease-in-out;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
             }
 
-            .scanning-indicator {
-                text-align: center;
+            to {
+                opacity: 1;
             }
         }
     </style>
@@ -410,10 +591,20 @@
                     <div class="d-flex justify-content-between align-items-center flex-wrap">
                         <div class="mb-2 mb-md-0">
                             <h5 class="mb-0">Scan Barcode</h5>
-                            <small class="text-muted">Scan No Resi first, then scan SKU(s)</small>
+                            <small class="text-muted">Pindai No Resi terlebih dahulu, kemudian pindai SKU barang</small>
                         </div>
-                        <div class="countdown-timer" id="autoSubmitTimer" style="display: none;">
-                            <i class="fas fa-clock me-1"></i> Auto-submitting in <span id="submitCountdown">10</span>s
+                        <div class="d-flex align-items-center">
+                            <div class="form-check form-switch me-3">
+                                <input class="form-check-input" type="checkbox" id="scannerToggle" checked>
+                                <label class="form-check-label" for="scannerToggle">
+                                    <span id="scannerStatus">Resi Auto-Scan</span>
+                                    <small class="d-block text-muted scanner-mode-hint">Mode pindai otomatis</small>
+                                </label>
+                            </div>
+                            <div class="countdown-timer" id="autoSubmitTimer" style="display: none;">
+                                <i class="fas fa-clock me-1"></i> Menyimpan dalam <span id="submitCountdown">10</span> detik
+                                <br><small class="text-muted">(atau klik "Simpan Data" untuk menyimpan sekarang)</small>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -429,38 +620,56 @@
                                     </label>
                                     <div class="input-group">
                                         <input type="text" class="form-control scanner-input scanner-active"
-                                            id="no_resi" name="no_resi" required autofocus placeholder="Scan No Resi...">
+                                            id="no_resi" name="no_resi" required autofocus
+                                            placeholder="Ketik atau pindai nomor resi di sini...">
                                         <span class="scanning-indicator" id="resiScanningIndicator">
-                                            <i class="fas fa-circle-notch fa-spin"></i> Scanning...
+                                            <i class="fas fa-circle-notch fa-spin"></i> Memindai...
                                         </span>
                                     </div>
                                     <div class="error-feedback" id="resiError"></div>
+                                    <small class="text-muted d-block mt-1">
+                                        <i class="fas fa-info-circle"></i> Nomor resi harus unik dan belum pernah digunakan
+                                        sebelumnya
+                                    </small>
                                 </div>
 
                                 <div class="mb-4">
                                     <label class="form-label">
-                                        <i class="fas fa-boxes me-1"></i> No SKU & Quantity
+                                        <i class="fas fa-boxes me-1"></i> No SKU & Jumlah
                                         <span class="text-danger">*</span>
                                     </label>
                                     <div id="sku-container">
                                         <div class="sku-input-container">
                                             <input type="text" class="form-control scanner-input sku-input"
-                                                name="no_sku[]" required disabled placeholder="Scan SKU..."
-                                                style="min-width: 300px;">
+                                                name="no_sku[]" required disabled
+                                                placeholder="Ketik atau pindai nomor SKU di sini...">
                                             <input type="number" class="form-control qty-input" name="qty[]"
-                                                value="1" min="1">
+                                                value="1" min="1" title="Jumlah barang">
+                                            <button type="button" class="btn btn-danger btn-remove-sku"
+                                                title="Hapus SKU" disabled>
+                                                <i class="fas fa-minus"></i>
+                                            </button>
                                             <span class="scanning-indicator" id="skuScanningIndicator">
-                                                <i class="fas fa-circle-notch fa-spin"></i> Scanning...
+                                                <i class="fas fa-circle-notch fa-spin"></i> Memindai...
                                             </span>
                                         </div>
                                     </div>
                                     <div class="error-feedback" id="skuError"></div>
+                                    <small class="text-muted d-block mt-1">
+                                        <i class="fas fa-info-circle"></i> Masukkan nomor SKU produk dan jumlahnya. Isian
+                                        baru akan muncul otomatis.
+                                    </small>
                                 </div>
 
                                 <div class="text-center mt-4">
-                                    <button type="button" id="resetScannerBtn" class="btn btn-warning btn-lg">
-                                        <i class="fas fa-redo me-1"></i> Reset Scanner
-                                    </button>
+                                    <div class="btn-group">
+                                        <button type="button" id="submitManualBtn" class="btn btn-primary btn-lg me-2">
+                                            <i class="fas fa-save me-1"></i> Simpan Data
+                                        </button>
+                                        <button type="button" id="resetScannerBtn" class="btn btn-warning btn-lg">
+                                            <i class="fas fa-redo me-1"></i> Reset Form
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -476,7 +685,7 @@
                 <div class="card-header">
                     <div class="d-flex justify-content-between align-items-center flex-wrap">
                         <div>
-                            <h5 class="mb-0">History Sales List</h5>
+                            <h5 class="mb-0">Daftar Riwayat Penjualan</h5>
                             <span class="text-muted current-date-info">Menampilkan data:
                                 <strong>{{ date('d F Y') }}</strong></span>
                         </div>
@@ -492,19 +701,19 @@
                 </div>
                 <div class="card-body">
                     <div class="table-scroll-indicator">
-                        <i class="fas fa-arrows-left-right"></i> Geser kanan-kiri untuk melihat data lengkap
+                        <i class="fas fa-arrows-left-right me-1"></i> Geser kanan-kiri untuk melihat data lengkap
                     </div>
                     <div class="table-wrapper">
                         <table id="history-sales-table" class="table table-striped table-bordered">
                             <thead id="main-table-header">
                                 <tr>
-                                    <th style="width: 50px;">NO</th>
+                                    <th style="width:.50px;">NO</th>
                                     <th style="width: 120px;">NO RESI</th>
-                                    <th>SKU</th>
-                                    <th style="width: 80px;">QTY</th>
-                                    <th style="width: 150px;">CREATED AT</th>
-                                    <th style="width: 150px;">UPDATED AT</th>
-                                    <th style="width: 100px;">ACTIONS</th>
+                                    <th>NO SKU</th>
+                                    <th style="width: 80px;">JUMLAH</th>
+                                    <th style="width: 150px;">DIBUAT</th>
+                                    <th style="width: 150px;">DIPERBARUI</th>
+                                    <th style="width: 100px;">AKSI</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -578,13 +787,13 @@
          *    - Input field focused by default
          *    - Shows "Scanning..." indicator
          *    - Immediate validation via AJAX
-         *    - Validates uniqueness of No Resi only
+         *    - Validates uniqueness of No Resi only when auto-scan is enabled
          *    - On valid: enables SKU input
          *    - On invalid: shows error, resets after 3s
          * 
          * 2. SKU Scanning Process:
          *    - Shows "Scanning..." indicator
-         *    - Validates minimum length (10 chars)
+         *    - Validates minimum length (3 chars)
          *    - Checks for duplicate SKUs within form
          *    - On duplicate: shows error, resets form after 3s
          *    - On valid: adds ONE new input field
@@ -601,284 +810,334 @@
             // Prevent DataTables from showing error messages in console
             $.fn.dataTable.ext.errMode = 'none';
 
-            // Constants for timing and validation
-            const SUBMIT_TIMEOUT = 10000; // 10s auto-submit delay
-            const RESET_TIMEOUT = 3000; // 3s reset delay
-            const SCAN_DELAY = 100; // 100ms between scans
-            const MIN_SKU_LENGTH = 3; // Minimum SKU length
-            const NEW_FIELD_DELAY = 100; // 100ms wait before adding new SKU field
+            // Constants for timing and validation - consolidated in one place
+            const CONFIG = {
+                SUBMIT_TIMEOUT: 10000, // 10s auto-submit delay
+                RESET_TIMEOUT: 3000, // 3s reset delay
+                SCAN_DELAY: 100, // 100ms between scans
+                MIN_SKU_LENGTH: 3, // Minimum SKU length
+                NEW_FIELD_DELAY: 100, // 100ms wait before adding new SKU field
+                COUNTDOWN_SECONDS: 10, // Initial countdown value
+                TABLE_CHUNK_SIZE: 500, // Chunk size for loading large datasets
+                EXPORT_LIMIT: 10000 // Maximum number of records for export
+            };
 
-            // State tracking variables
-            let submitTimer = null;
-            let newFieldTimer = null;
-            let lastScanTime = Date.now();
-            let isProcessing = false;
-            let hasValidResi = false;
-            let countdownInterval = null;
-            let countdownSeconds = 10;
-            let isAddingNewField = false; // New flag to prevent multiple field additions
+            // State tracking variables - consolidated and organized
+            const STATE = {
+                submitTimer: null,
+                newFieldTimer: null,
+                countdownInterval: null,
+                countdownSeconds: CONFIG.COUNTDOWN_SECONDS,
+                isProcessing: false,
+                hasValidResi: false,
+                isScannerActive: true,
+                isAddingNewField: false,
+                resiValidationTimer: null
+            };
 
-            // Check and remove duplicate thead elements that might already exist
-            if ($('#history-sales-table thead').length > 1) {
-                $('#history-sales-table thead:gt(0)').remove();
+            // Initialize scanner toggle
+            function initScannerToggle() {
+                $('#scannerToggle').on('change', function() {
+                    STATE.isScannerActive = $(this).is(':checked');
+
+                    if (STATE.isScannerActive) {
+                        $('#scannerStatus').text('Resi Auto-Scan').removeClass('scanner-inactive').addClass(
+                            'scanner-active');
+                        $('.scanner-mode-hint').text('Mode pindai otomatis');
+                        $('#no_resi').addClass('scanner-active');
+                    } else {
+                        $('#scannerStatus').text('Resi Manual').removeClass('scanner-active').addClass(
+                            'scanner-inactive');
+                        $('.scanner-mode-hint').text('Mode input manual');
+                        $('#no_resi').removeClass('scanner-active');
+                    }
+                }).trigger('change'); // Initialize the state
             }
 
-            // Initialize DataTable with standard configuration
-            var table = $('#history-sales-table').DataTable({
-                processing: true,
-                serverSide: true,
-                responsive: true,
-                scrollX: true,
-                dom: 'frtip',
-                bAutoWidth: false,
-                ordering: true,
-                searching: true,
-                stateSave: false,
-                paging: true,
-                fixedHeader: false,
-                headerCallback: function() {
-                    // Hapus header yang duplikat segera setelah header dibuat
-                    if ($('#history-sales-table thead').length > 1) {
-                        $('#history-sales-table thead:not(#main-table-header)').remove();
-                    }
-                },
-                initComplete: function() {
-                    // Check for duplicate headers after initialization
-                    if ($('#history-sales-table thead').length > 1) {
-                        $('#history-sales-table thead:not(#main-table-header)').remove();
-                    }
-
-                    // Tambahkan observer untuk mendeteksi perubahan DOM
-                    const observer = new MutationObserver(function(mutations) {
-                        if ($('#history-sales-table thead').length > 1) {
-                            $('#history-sales-table thead:not(#main-table-header)').remove();
-                        }
-                    });
-
-                    observer.observe(document.getElementById('history-sales-table'), {
-                        childList: true,
-                        subtree: true
-                    });
-
-                    // Update tanggal saat pertama kali load
-                    updateCurrentDateInfo();
-                },
-                ajax: {
-                    url: "{{ route('history-sales.data') }}",
-                    type: "POST",
-                    data: function(d) {
-                        d._token = "{{ csrf_token() }}";
-                        if ($('#showArchived').hasClass('active')) {
-                            d.only_trashed = true;
-                        } else if ($('#showActive').hasClass('active')) {
-                            d.only_trashed = false;
-                        }
-                    },
-                    // Tambahkan handler untuk ajax complete untuk memperbarui info tanggal
-                    dataSrc: function(json) {
-                        updateCurrentDateInfo();
-                        return json.data;
-                    }
-                },
-                columns: [{
-                        data: 'no',
-                        name: 'no'
-                    },
-                    {
-                        data: 'no_resi',
-                        name: 'no_resi'
-                    },
-                    {
-                        data: 'no_sku',
-                        name: 'no_sku',
-                        className: 'align-top'
-                    },
-                    {
-                        data: 'qty',
-                        name: 'qty',
-                        className: 'align-top'
-                    },
-                    {
-                        data: 'created_at',
-                        name: 'created_at'
-                    },
-                    {
-                        data: 'updated_at',
-                        name: 'updated_at'
-                    },
-                    {
-                        data: 'actions',
-                        name: 'actions',
-                        orderable: false,
-                        searchable: false
-                    }
-                ],
-                order: [
-                    [4, 'desc']
-                ],
-                pageLength: 25,
-                lengthMenu: [
-                    [10, 25, 50, 100],
-                    [10, 25, 50, 100]
-                ],
-                language: {
-                    processing: '<i class="fas fa-spinner fa-spin fa-2x"></i><span class="ms-2">Memuat data...</span>',
-                    lengthMenu: "Tampilkan _MENU_ data per halaman",
-                    zeroRecords: "Tidak ada data yang ditemukan",
-                    info: "Menampilkan halaman _PAGE_ dari _PAGES_",
-                    infoEmpty: "Tidak ada data yang tersedia",
-                    infoFiltered: "(difilter dari _MAX_ total data)",
-                    search: "Cari:",
-                    paginate: {
-                        first: "Pertama",
-                        last: "Terakhir",
-                        next: "Selanjutnya",
-                        previous: "Sebelumnya"
-                    }
-                },
-                drawCallback: function(settings) {
-                    // Ensure no duplicate headers by removing any extra thead elements
-                    if ($('#history-sales-table thead').length > 1) {
-                        $('#history-sales-table thead:not(#main-table-header)').remove();
-                    }
-
-                    // Remove any DataTables generated header
-                    $('.dataTable > thead:gt(0)').remove();
-
-                    // Make sure tooltip works for action buttons
-                    $('[title]').tooltip();
-                }
-            });
-
-            // Clean up any duplicate headers after Ajax calls
-            table.on('xhr.dt', function() {
-                setTimeout(function() {
-                    if ($('#history-sales-table thead').length > 1) {
-                        $('#history-sales-table thead:not(#main-table-header)').remove();
-                    }
-                }, 100);
-            });
-
-            // Initialize edit functionality
-            initializeHistoryEdit(table);
-
-            // Setup AJAX CSRF token
-            $.ajaxSetup({
-                headers: {
-                    'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
-                }
-            });
-
             /**
-             * No Resi Input Handler
-             * - Validates input immediately
-             * - Shows scanning indicator
-             * - Enables SKU input on success
+             * No Resi Input Handler - refactored for clarity
              */
-            $('#no_resi').on('input', function(e) {
-                const noResi = $(this).val().trim();
-                clearTimeout(submitTimer);
-                $('#resiScanningIndicator').addClass('active');
+            function initNoResiHandler() {
+                $('#no_resi').on('input', function() {
+                    const noResi = $(this).val().trim();
+                    clearTimeout(STATE.submitTimer);
 
-                if (!noResi) {
-                    hasValidResi = false;
-                    return;
-                }
+                    // Always show scanning indicator
+                    $('#resiScanningIndicator').addClass('active');
 
-                validateNoResi(noResi);
-            });
+                    if (!noResi) {
+                        STATE.hasValidResi = false;
+                        return;
+                    }
 
-            /**
-             * SKU Input Handler
-             * - Validates length and duplicates
-             * - Starts countdown for auto-submit
-             * - Prepares new field if needed
-             */
-            $(document).on('input', '.sku-input', function(e) {
-                if (isProcessing || !hasValidResi) return;
-                const input = $(this);
-                const currentSku = input.val().trim();
-                handleSkuInput(input, currentSku);
-            });
+                    // Only auto-validate if scanner is active, otherwise wait for blur
+                    if (STATE.isScannerActive) {
+                        validateNoResi(noResi, false);
+                    }
+                });
 
-            /**
-             * Quantity Input Handler
-             * - Resets countdown timer when quantity is changed manually
-             */
-            $(document).on('input', '.qty-input', function(e) {
-                if (isProcessing || !hasValidResi) return;
-                if ($(this).closest('.sku-input-container').find('.sku-input').val().trim().length >=
-                    MIN_SKU_LENGTH) {
-                    startCountdown();
-                    setupAutoSubmit();
-                }
-            });
+                // Manual validation for No Resi when scanner is disabled
+                $('#no_resi').on('blur', function() {
+                    const noResi = $(this).val().trim();
 
-            /**
-             * Helper Functions
-             */
-            function validateNoResi(noResi) {
-                $.ajax({
-                    url: "{{ route('history-sales.validate-no-resi') }}",
-                    method: 'POST',
-                    data: {
-                        no_resi: noResi
-                    },
-                    success: function(response) {
-                        if (response.valid) {
-                            handleValidResi();
-                        } else {
-                            handleInvalidResi();
-                        }
-                    },
-                    error: function() {
-                        handleResiError();
+                    if (!STATE.isScannerActive && noResi) {
+                        validateNoResi(noResi, true);
                     }
                 });
             }
 
+            /**
+             * SKU Input Handler - refactored for clarity
+             */
+            function initSkuHandler() {
+                $(document).on('input', '.sku-input', function() {
+                    if (STATE.isProcessing || !STATE.hasValidResi) return;
+
+                    const input = $(this);
+                    const currentSku = input.val().trim();
+
+                    // Check if the SKU input matches the No Resi value
+                    const noResi = $('#no_resi').val().trim();
+                    if (currentSku === noResi && noResi !== '') {
+                        input.val(''); // Clear the input
+                        showAlert('warning', 'Perhatian!', 'Nilai No Resi tidak boleh sama dengan No SKU');
+                        return; // Stop processing
+                    }
+
+                    handleSkuInput(input, currentSku);
+                });
+
+                // Quantity Input Handler
+                $(document).on('input', '.qty-input', function() {
+                    if (STATE.isProcessing || !STATE.hasValidResi) return;
+
+                    if ($(this).closest('.sku-input-container').find('.sku-input').val().trim().length >=
+                        CONFIG.MIN_SKU_LENGTH) {
+                        startCountdown();
+                        setupAutoSubmit();
+                    }
+                });
+
+                // Remove SKU Button Handler
+                $(document).on('click', '.btn-remove-sku', function() {
+                    const container = $(this).closest('.sku-input-container');
+                    // Don't remove the last container, just clear it
+                    if ($('.sku-input-container').length > 1) {
+                        container.fadeOut(200, function() {
+                            $(this).remove();
+                            // If at least one SKU has content, restart countdown
+                            if (hasSKUsWithContent()) {
+                                startCountdown();
+                                setupAutoSubmit();
+                            }
+                        });
+                    } else {
+                        container.find('.sku-input').val('');
+                        container.find('.qty-input').val('1');
+                    }
+                });
+
+                // Add paste event handler to prevent pasting No Resi into SKU
+                $(document).on('paste', '.sku-input', function(e) {
+                    const noResi = $('#no_resi').val().trim();
+
+                    // Get pasted content
+                    let pastedText;
+                    if (window.clipboardData && window.clipboardData.getData) {
+                        pastedText = window.clipboardData.getData('Text');
+                    } else if (e.originalEvent && e.originalEvent.clipboardData && e.originalEvent
+                        .clipboardData.getData) {
+                        pastedText = e.originalEvent.clipboardData.getData('text/plain');
+                    }
+
+                    // Check if pasted content is No Resi
+                    if (pastedText && pastedText.trim() === noResi && noResi !== '') {
+                        e.preventDefault();
+                        showAlert('warning', 'Perhatian!', 'Nilai No Resi tidak boleh sama dengan No SKU');
+                    }
+                });
+
+                // Add scan detection for better handling of barcode scanner input
+                $(document).on('keypress', '.sku-input', function(e) {
+                    // If Enter key is pressed very shortly after input (typical for scanners)
+                    if (e.which === 13) {
+                        e.preventDefault(); // Prevent form submission
+                        const input = $(this);
+                        const currentSku = input.val().trim();
+                        const noResi = $('#no_resi').val().trim();
+
+                        if (currentSku === noResi && noResi !== '') {
+                            input.val(''); // Clear the input
+                            showAlert('warning', 'Perhatian!',
+                                'Nilai No Resi tidak boleh sama dengan No SKU');
+                            return; // Stop processing
+                        }
+                    }
+                });
+            }
+
+            // Check if any SKU inputs have content
+            function hasSKUsWithContent() {
+                let hasContent = false;
+                $('.sku-input').each(function() {
+                    if ($(this).val().trim().length >= CONFIG.MIN_SKU_LENGTH) {
+                        hasContent = true;
+                        return false; // break the loop
+                    }
+                });
+                return hasContent;
+            }
+
+            /**
+             * Initialize form buttons
+             */
+            function initFormButtons() {
+                // Reset scanner button
+                $('#resetScannerBtn').on('click', resetForm);
+
+                // Submit manual button
+                $('#submitManualBtn').on('click', function() {
+                    // Only submit if we have a valid resi and at least one SKU field has content
+                    if (STATE.hasValidResi) {
+                        let hasContent = hasSKUsWithContent();
+
+                        if (hasContent) {
+                            clearInterval(STATE.countdownInterval);
+                            clearTimeout(STATE.submitTimer);
+                            $('#autoSubmitTimer').hide();
+                            submitForm();
+                        } else {
+                            showAlert('warning', 'Perhatian!',
+                                'Anda harus mengisi minimal satu SKU untuk melanjutkan');
+                        }
+                    } else {
+                        showAlert('warning', 'Perhatian!', 'No Resi harus diisi dan valid terlebih dahulu');
+                        $('#no_resi').focus();
+                    }
+                });
+
+                // Prevent default form submission
+                $('#historySaleForm').on('submit', function(e) {
+                    e.preventDefault();
+                });
+            }
+
+            /**
+             * Initialize filter buttons
+             */
+            function initFilterButtons() {
+                // Filter buttons handler
+                $('#showActive').on('click', function() {
+                    $(this).addClass('active').siblings().removeClass('active');
+                    table.ajax.reload();
+                });
+
+                $('#showArchived').on('click', function() {
+                    $(this).addClass('active').siblings().removeClass('active');
+                    table.ajax.reload();
+                });
+            }
+
+            /**
+             * Helper Functions - Refactored for better organization
+             */
+            function validateNoResi(noResi, allowDuplicates) {
+                // Tambahkan indikator loading pada input
+                const $noResiInput = $('#no_resi');
+                $noResiInput.addClass('is-validating');
+
+                // Batasi permintaan dengan debounce sederhana
+                if (STATE.resiValidationTimer) {
+                    clearTimeout(STATE.resiValidationTimer);
+                }
+
+                STATE.resiValidationTimer = setTimeout(() => {
+                    $.ajax({
+                        url: "{{ route('history-sales.validate-no-resi') }}",
+                        method: 'POST',
+                        data: {
+                            no_resi: noResi,
+                            allow_duplicates: allowDuplicates
+                        },
+                        cache: false,
+                        timeout: 3000, // 3 detik timeout
+                        success: function(response) {
+                            $noResiInput.removeClass('is-validating');
+                            if (response.valid) {
+                                handleValidResi();
+                            } else {
+                                handleInvalidResi(response.message);
+                            }
+                        },
+                        error: function(xhr) {
+                            $noResiInput.removeClass('is-validating');
+                            handleResiError(xhr.responseJSON?.message ||
+                                'Error validasi Nomor Resi');
+                        }
+                    });
+                }, 300); // 300ms debounce
+            }
+
             function handleValidResi() {
-                hasValidResi = true;
+                STATE.hasValidResi = true;
                 $('#resiError').hide();
-                setTimeout(() => {
-                    $('.sku-input:first').prop('disabled', false).focus();
+
+                // Enable the SKU input and remove button
+                $('.sku-input:first').prop('disabled', false);
+                $('.btn-remove-sku:first').prop('disabled', false);
+
+                // Add a visual indicator showing scan direction
+                $('#no_resi').removeClass('scanner-active');
+                $('.sku-input:first').addClass('scanner-active');
+
+                // Add a visual hint that we're now scanning SKUs
+                showAlert('success', 'No Resi Valid', 'Silakan pindai No SKU', 1000);
+
+                // Only auto-focus if scanner is active
+                if (STATE.isScannerActive) {
+                    setTimeout(() => {
+                        $('.sku-input:first').focus();
+                        $('#resiScanningIndicator').removeClass('active');
+                    }, CONFIG.SCAN_DELAY);
+                } else {
                     $('#resiScanningIndicator').removeClass('active');
-                }, SCAN_DELAY);
+                    // Focus stays on No Resi field when scanner is inactive
+                }
             }
 
-            function handleInvalidResi() {
-                showError('resiError', 'No Resi already exists');
-                setTimeout(() => resetForm(), RESET_TIMEOUT);
+            function handleInvalidResi(message) {
+                showError('resiError', message || 'Nomor Resi sudah ada dalam sistem');
+                setTimeout(() => resetForm(), CONFIG.RESET_TIMEOUT);
             }
 
-            function handleResiError() {
-                showError('resiError', 'Error validating No Resi');
-                setTimeout(() => resetForm(), RESET_TIMEOUT);
+            function handleResiError(message) {
+                showError('resiError', message || 'Error validasi Nomor Resi');
+                setTimeout(() => resetForm(), CONFIG.RESET_TIMEOUT);
             }
 
             function handleSkuInput(input, currentSku) {
                 if (!currentSku) return;
 
-                clearTimeout(submitTimer);
-                clearTimeout(newFieldTimer);
+                clearTimeout(STATE.submitTimer);
+                clearTimeout(STATE.newFieldTimer);
 
                 $('#skuScanningIndicator').addClass('active');
 
-                if (currentSku.length >= MIN_SKU_LENGTH) {
+                if (currentSku.length >= CONFIG.MIN_SKU_LENGTH) {
                     // Check for duplicates
                     if (isDuplicateSkuInForm(currentSku, input)) {
-                        showError('skuError', 'Duplicate SKU detected');
-                        setTimeout(() => resetSkuForm(), RESET_TIMEOUT);
+                        showError('skuError', 'SKU duplikat terdeteksi: ' + currentSku);
+                        setTimeout(() => resetSkuForm(), CONFIG.RESET_TIMEOUT);
                         return;
                     }
 
                     // Only add new field if we're not already in the process
-                    if (!isAddingNewField && input.closest('.sku-input-container').is(':last-child')) {
-                        isAddingNewField = true;
+                    if (!STATE.isAddingNewField && input.closest('.sku-input-container').is(':last-child')) {
+                        STATE.isAddingNewField = true;
                         setTimeout(() => {
                             addNewSkuField();
-                            isAddingNewField = false;
-                        }, NEW_FIELD_DELAY);
+                            STATE.isAddingNewField = false;
+                        }, CONFIG.NEW_FIELD_DELAY);
                     }
 
                     // Reset and restart countdown for each valid SKU input
@@ -901,33 +1160,47 @@
             }
 
             function setupAutoSubmit() {
-                clearTimeout(submitTimer);
-                submitTimer = setTimeout(() => {
+                clearTimeout(STATE.submitTimer);
+                STATE.submitTimer = setTimeout(() => {
                     submitForm();
-                }, SUBMIT_TIMEOUT);
+                }, CONFIG.SUBMIT_TIMEOUT);
+            }
+
+            function showAlert(icon, title, message, timer = 2000) {
+                const titles = {
+                    'success': 'Berhasil!',
+                    'error': 'Terjadi Kesalahan!',
+                    'warning': 'Perhatian!',
+                    'info': 'Informasi'
+                };
+
+                Swal.fire({
+                    title: title || titles[icon] || '',
+                    text: message,
+                    icon: icon,
+                    timer: timer,
+                    showConfirmButton: false
+                });
             }
 
             function showError(elementId, message) {
                 $(`#${elementId}`).text(message).show();
-                Swal.fire({
-                    title: 'Error!',
-                    text: message,
-                    icon: 'error',
-                    timer: 2000,
-                    showConfirmButton: false
-                });
+                showAlert('error', 'Terjadi Kesalahan!', message);
             }
 
             function addNewSkuField() {
                 // Only add new field if the last field has content
                 const lastSkuInput = $('.sku-input:last');
-                if (lastSkuInput.val().trim().length >= MIN_SKU_LENGTH) {
+                if (lastSkuInput.val().trim().length >= CONFIG.MIN_SKU_LENGTH) {
                     const newSkuContainer = `
                     <div class="sku-input-container">
-                            <input type="text" class="form-control scanner-input sku-input" 
-                                name="no_sku[]" required placeholder="Scan SKU...">
-                            <input type="number" class="form-control qty-input" 
-                                name="qty[]" value="1" min="1">
+                        <input type="text" class="form-control scanner-input sku-input" 
+                            name="no_sku[]" required placeholder="Scan SKU...">
+                        <input type="number" class="form-control qty-input" 
+                            name="qty[]" value="1" min="1">
+                        <button type="button" class="btn btn-danger btn-remove-sku" title="Hapus SKU">
+                            <i class="fas fa-minus"></i>
+                        </button>
                         <span class="scanning-indicator">
                             <i class="fas fa-circle-notch fa-spin"></i> Scanning...
                         </span>
@@ -939,9 +1212,9 @@
             }
 
             function resetSkuForm() {
-                clearTimeout(submitTimer);
-                clearTimeout(newFieldTimer);
-                clearInterval(countdownInterval);
+                clearTimeout(STATE.submitTimer);
+                clearTimeout(STATE.newFieldTimer);
+                clearInterval(STATE.countdownInterval);
 
                 // Only reset SKU-related elements
                 $('.sku-input-container:not(:first)').remove();
@@ -953,118 +1226,160 @@
             }
 
             function resetForm() {
-                clearTimeout(submitTimer);
-                clearTimeout(newFieldTimer);
-                clearInterval(countdownInterval);
+                clearTimeout(STATE.submitTimer);
+                clearTimeout(STATE.newFieldTimer);
+                clearInterval(STATE.countdownInterval);
 
                 $('#no_resi').val('').prop('disabled', false).focus();
+                // Reset scanner active indicator
+                $('#no_resi').addClass('scanner-active');
+                $('.sku-input').removeClass('scanner-active');
+
                 $('.sku-input-container:not(:first)').remove();
                 $('.sku-input:first').val('').prop('disabled', true);
                 $('.qty-input:first').val('1');
+                $('.btn-remove-sku:first').prop('disabled', true);
 
                 $('.error-feedback').hide();
                 $('.scanning-indicator').removeClass('active');
                 $('#autoSubmitTimer').hide();
 
-                isProcessing = false;
-                hasValidResi = false;
-                lastScanTime = Date.now();
+                STATE.isProcessing = false;
+                STATE.hasValidResi = false;
             }
 
             function startCountdown() {
-                clearInterval(countdownInterval);
-                clearTimeout(submitTimer);
-                countdownSeconds = 10;
-                $('#submitCountdown').text(countdownSeconds);
-                $('#autoSubmitTimer').show();
+                clearInterval(STATE.countdownInterval);
+                clearTimeout(STATE.submitTimer);
+                STATE.countdownSeconds = CONFIG.COUNTDOWN_SECONDS;
+                $('#submitCountdown').text(STATE.countdownSeconds);
+                $('#autoSubmitTimer').show().css({
+                    'background-color': '#f8f9fa',
+                    'border-radius': '5px',
+                    'padding': '8px 15px',
+                    'margin-top': '10px',
+                    'border': '1px solid #dee2e6'
+                });
 
-                countdownInterval = setInterval(() => {
-                    countdownSeconds--;
-                    $('#submitCountdown').text(countdownSeconds);
-                    if (countdownSeconds <= 0) {
-                        clearInterval(countdownInterval);
+                STATE.countdownInterval = setInterval(() => {
+                    STATE.countdownSeconds--;
+                    $('#submitCountdown').text(STATE.countdownSeconds);
+
+                    // Add visual indication as time gets lower
+                    if (STATE.countdownSeconds <= 3) {
+                        $('#autoSubmitTimer').css('background-color', '#fff3cd');
+                    }
+
+                    if (STATE.countdownSeconds <= 0) {
+                        clearInterval(STATE.countdownInterval);
                         submitForm(); // Auto-submit when countdown reaches 0
                     }
                 }, 1000);
             }
 
             async function submitForm() {
-                if (isProcessing || !hasValidResi) return;
+                if (STATE.isProcessing || !STATE.hasValidResi) return;
 
-                isProcessing = true;
+                STATE.isProcessing = true;
+
+                // Tampilkan indikator loading
+                const loadingIndicator = Swal.fire({
+                    title: 'Menyimpan Data',
+                    html: 'Mohon tunggu sebentar...',
+                    allowOutsideClick: false,
+                    didOpen: () => {
+                        Swal.showLoading();
+                    }
+                });
+
+                // Dapatkan data form dan jangan kirim data kosong
+                const formData = new FormData(document.getElementById('historySaleForm'));
+                const formDataObj = {};
+
+                // Kumpulkan SKUs dan quantities valid
+                const skus = [];
+                const quantities = [];
+
+                // Get No Resi value to check for duplicates
+                const noResi = $('#no_resi').val().trim();
+
+                // Check for duplicate values between No Resi and SKUs
+                let hasDuplicateWithResi = false;
+
+                $('.sku-input').each(function(index) {
+                    const sku = $(this).val().trim();
+                    if (sku.length >= CONFIG.MIN_SKU_LENGTH) {
+                        // Check if SKU matches No Resi
+                        if (sku === noResi) {
+                            hasDuplicateWithResi = true;
+                            return false; // break the loop
+                        }
+
+                        skus.push(sku);
+                        quantities.push($('.qty-input').eq(index).val() || 1);
+                    }
+                });
+
+                // If duplicate found between No Resi and No SKU, show warning and stop submission
+                if (hasDuplicateWithResi) {
+                    loadingIndicator.close();
+                    showAlert('warning', 'Perhatian!',
+                        'Nilai No Resi tidak boleh sama dengan No SKU. Silakan periksa kembali.');
+                    STATE.isProcessing = false;
+                    return;
+                }
+
+                // Buat data yang akan dikirim
+                formDataObj.no_resi = noResi;
+                formDataObj.no_sku = skus;
+                formDataObj.qty = quantities;
+                formDataObj._token = $('meta[name="csrf-token"]').attr('content');
+                formDataObj.allow_duplicates = !STATE.isScannerActive;
 
                 try {
+                    // Eksekusi request AJAX dengan waktu timeout yang lebih pendek
                     const response = await $.ajax({
                         url: "{{ route('history-sales.store') }}",
                         type: "POST",
-                        data: $('#historySaleForm').serialize(),
-                        dataType: 'json'
+                        data: formDataObj,
+                        dataType: 'json',
+                        timeout: 5000, // 5 detik timeout
+                        cache: false
                     });
 
+                    loadingIndicator.close();
                     handleSubmitResponse(response);
                 } catch (error) {
+                    console.error('Error submitting form:', error);
+                    loadingIndicator.close();
                     handleSubmitError(error);
                 } finally {
-                    isProcessing = false;
+                    STATE.isProcessing = false;
                 }
             }
 
             function handleSubmitResponse(response) {
                 if (response.status === 'success') {
-                    Swal.fire({
-                        title: 'Berhasil!',
-                        text: response.message,
-                        icon: 'success',
-                        timer: 1500,
-                        showConfirmButton: false
-                    }).then(() => {
-                        // Pastikan table di-refresh setelah alert tertutup
-                        table.ajax.reload();
+                    showAlert('success', 'Berhasil!', response.message, 1000);
+
+                    // Perbarui tabel dan reset form setelah alert
+                    setTimeout(() => {
                         resetForm();
-                    });
+                        // Refresh tabel dengan cara yang lebih ringan
+                        $('#history-sales-table').DataTable().ajax.reload(null, false);
+                    }, 1100);
                 } else {
-                    throw new Error(response.message);
+                    throw new Error(response.message || 'Terjadi kesalahan pada server');
                 }
             }
 
             function handleSubmitError(error) {
-                showError('skuError', error.message || 'Failed to save data');
-                setTimeout(() => resetForm(), RESET_TIMEOUT);
+                showError('skuError', error.responseJSON?.message || error.message || 'Failed to save data');
+                setTimeout(() => resetForm(), CONFIG.RESET_TIMEOUT);
             }
-
-            // Event Handlers
-            $('#resetScannerBtn').on('click', resetForm);
-            $('#historySaleForm').on('submit', function(e) {
-                e.preventDefault();
-            });
-
-            // Initialize focus on No Resi input
-            $('#no_resi').focus();
-
-            // Filter buttons handler
-            $('#showActive').on('click', function() {
-                $(this).addClass('active').siblings().removeClass('active');
-                table.ajax.reload();
-            });
-
-            $('#showArchived').on('click', function() {
-                $(this).addClass('active').siblings().removeClass('active');
-                table.ajax.reload();
-            });
-
-            // Add touch scroll indicator behavior
-            const tableWrapper = $('.table-wrapper');
-            if (tableWrapper[0].scrollWidth > tableWrapper[0].clientWidth) {
-                $('.table-scroll-indicator').show();
-            }
-
-            // Hide scroll indicator after user has scrolled
-            tableWrapper.on('scroll', function() {
-                $('.table-scroll-indicator').fadeOut();
-            });
 
             /**
-             * Fungsi untuk memperbarui informasi tanggal aktif yang ditampilkan
+             * Update current date info display
              */
             function updateCurrentDateInfo() {
                 const today = new Date();
@@ -1081,6 +1396,253 @@
                 // Update text pada elemen
                 $('.current-date-info strong').text(indonesianDate);
             }
+
+            // Initialize all components
+            $(document).ready(function() {
+                // Prevent DataTables from showing error messages in console
+                $.fn.dataTable.ext.errMode = 'none';
+
+                // Setup AJAX CSRF token
+                $.ajaxSetup({
+                    headers: {
+                        'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+                    }
+                });
+
+                // Check and remove duplicate thead elements that might already exist
+                if ($('#history-sales-table thead').length > 1) {
+                    $('#history-sales-table thead:gt(0)').remove();
+                }
+
+                // Initialize DataTable with optimized configuration
+                var table = $('#history-sales-table').DataTable({
+                    processing: true,
+                    serverSide: true,
+                    responsive: true,
+                    scrollX: true,
+                    dom: 'frtip',
+                    bAutoWidth: false,
+                    ordering: true,
+                    searching: true,
+                    stateSave: false,
+                    paging: true,
+                    fixedHeader: false,
+                    deferRender: true, // Improves rendering performance
+                    pageLength: 10, // Reduced from 25 for faster loading
+                    lengthMenu: [
+                        [10, 25, 50],
+                        [10, 25, 50]
+                    ],
+                    searchDelay: 500, // Delay search requests
+                    ajax: {
+                        url: "{{ route('history-sales.data') }}",
+                        type: "POST",
+                        data: function(d) {
+                            d._token = "{{ csrf_token() }}";
+                            if ($('#showArchived').hasClass('active')) {
+                                d.only_trashed = true;
+                            } else if ($('#showActive').hasClass('active')) {
+                                d.only_trashed = false;
+                            }
+
+                            // Tambahkan indikator loading
+                            $('.table-wrapper').addClass('table-loading');
+                        },
+                        dataSrc: function(json) {
+                            updateCurrentDateInfo();
+                            // Hapus indikator loading setelah data dimuat
+                            $('.table-wrapper').removeClass('table-loading');
+                            return json.data;
+                        },
+                        error: function(xhr, error, thrown) {
+                            console.warn('AJAX error:', error);
+                            // Hapus indikator loading ketika terjadi error
+                            $('.table-wrapper').removeClass('table-loading');
+                            showAlert('error', 'Terjadi Kesalahan!',
+                                'Gagal memuat data. Silakan coba lagi.');
+                        }
+                    },
+                    columns: [{
+                            data: 'no',
+                            name: 'no',
+                            orderable: false,
+                            searchable: false
+                        },
+                        {
+                            data: 'no_resi',
+                            name: 'no_resi'
+                        },
+                        {
+                            data: 'no_sku',
+                            name: 'no_sku',
+                            className: 'align-top'
+                        },
+                        {
+                            data: 'qty',
+                            name: 'qty',
+                            className: 'align-top',
+                            searchable: false
+                        },
+                        {
+                            data: 'created_at',
+                            name: 'created_at'
+                        },
+                        {
+                            data: 'updated_at',
+                            name: 'updated_at',
+                            visible: false,
+                            searchable: false
+                        },
+                        {
+                            data: 'actions',
+                            name: 'actions',
+                            orderable: false,
+                            searchable: false
+                        }
+                    ],
+                    order: [
+                        [4, 'desc']
+                    ],
+                    language: {
+                        processing: '<i class="fas fa-spinner fa-spin fa-2x"></i><span class="ms-2">Memuat data...</span>',
+                        lengthMenu: "Tampilkan _MENU_ data per halaman",
+                        zeroRecords: "Tidak ada data yang ditemukan",
+                        info: "Menampilkan halaman _PAGE_ dari _PAGES_",
+                        infoEmpty: "Tidak ada data yang tersedia",
+                        infoFiltered: "(difilter dari _MAX_ total data)",
+                        search: "Cari:",
+                        paginate: {
+                            first: "Pertama",
+                            last: "Terakhir",
+                            next: "Selanjutnya",
+                            previous: "Sebelumnya"
+                        },
+                        emptyTable: "Tidak ada data dalam tabel",
+                        infoPostFix: "",
+                        thousands: ".",
+                        loadingRecords: "Memuat...",
+                        aria: {
+                            sortAscending: ": aktifkan untuk mengurutkan kolom naik",
+                            sortDescending: ": aktifkan untuk mengurutkan kolom turun"
+                        }
+                    },
+                    drawCallback: function() {
+                        // Ensure no duplicate headers
+                        if ($('#history-sales-table thead').length > 1) {
+                            $('#history-sales-table thead:not(#main-table-header)').remove();
+                        }
+
+                        // Remove any DataTables generated header
+                        $('.dataTable > thead:gt(0)').remove();
+
+                        // Make sure tooltip works for action buttons
+                        $('[title]').tooltip();
+                    },
+                    initComplete: function() {
+                        // Update date info on first load
+                        updateCurrentDateInfo();
+
+                        // Fix header issues
+                        if ($('#history-sales-table thead').length > 1) {
+                            $('#history-sales-table thead:not(#main-table-header)').remove();
+                        }
+
+                        // Improve search performance by adding debounce
+                        const searchInput = $('div.dataTables_filter input');
+                        searchInput.unbind();
+                        searchInput.bind('input', debounce(function(e) {
+                            table.search(this.value).draw();
+                        }, 500));
+
+                        // Add observer to detect DOM changes only when necessary
+                        try {
+                            const tableElement = document.getElementById('history-sales-table');
+                            if (tableElement) {
+                                const observer = new MutationObserver(function(mutations) {
+                                    if ($('#history-sales-table thead').length > 1) {
+                                        $('#history-sales-table thead:not(#main-table-header)')
+                                            .remove();
+                                    }
+                                });
+
+                                observer.observe(tableElement, {
+                                    childList: true,
+                                    subtree: true
+                                });
+                            }
+                        } catch (e) {
+                            console.warn('MutationObserver error:', e);
+                        }
+                    }
+                });
+
+                // Debounce function to improve performance
+                function debounce(func, wait) {
+                    let timeout;
+                    return function() {
+                        const context = this,
+                            args = arguments;
+                        clearTimeout(timeout);
+                        timeout = setTimeout(function() {
+                            func.apply(context, args);
+                        }, wait);
+                    };
+                }
+
+                // Add SKU button click handler in edit modal
+                $('#add-edit-sku-btn').on('click', function() {
+                    const skuHtml = `
+                    <div class="edit-sku-container d-flex mb-2">
+                        <input type="text" class="form-control me-2" name="edit_no_sku[]" placeholder="SKU">
+                        <input type="number" class="form-control me-2" name="edit_qty[]" value="1" min="1" style="width: 120px;">
+                        <button type="button" class="btn btn-danger remove-edit-sku">
+                            <i class="fas fa-minus"></i>
+                        </button>
+                    </div>`;
+                    $('#edit-sku-container').append(skuHtml);
+                });
+
+                // Remove SKU button click handler in edit modal
+                $(document).on('click', '.remove-edit-sku', function() {
+                    // Don't remove the last container, just clear it
+                    if ($('.edit-sku-container').length > 1) {
+                        $(this).closest('.edit-sku-container').remove();
+                    } else {
+                        $(this).closest('.edit-sku-container').find('input[name="edit_no_sku[]"]')
+                            .val('');
+                        $(this).closest('.edit-sku-container').find('input[name="edit_qty[]"]').val(
+                            '1');
+                    }
+                });
+
+                // Initialize edit functionality
+                try {
+                    initializeHistoryEdit(table);
+                } catch (e) {
+                    console.warn('Edit functionality initialization error:', e);
+                }
+
+                // Initialize UI components
+                initScannerToggle();
+                initNoResiHandler();
+                initSkuHandler();
+                initFormButtons();
+                initFilterButtons();
+
+                // Initialize focus on No Resi input
+                $('#no_resi').focus();
+
+                // Add touch scroll indicator behavior
+                const tableWrapper = $('.table-wrapper');
+                if (tableWrapper.length && tableWrapper[0].scrollWidth > tableWrapper[0].clientWidth) {
+                    $('.table-scroll-indicator').show();
+                }
+
+                // Hide scroll indicator after user has scrolled
+                tableWrapper.on('scroll', function() {
+                    $('.table-scroll-indicator').fadeOut();
+                });
+            });
         });
     </script>
 @endsection
