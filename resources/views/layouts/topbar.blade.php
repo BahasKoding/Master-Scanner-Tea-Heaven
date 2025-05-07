@@ -6,12 +6,12 @@
             <ul class="list-unstyled">
                 <!-- ======= Menu collapse Icon ===== -->
                 <li class="pc-h-item pc-sidebar-collapse">
-                    <a href="#" class="pc-head-link ms-0" id="sidebar-hide">
+                    <a href="javascript:void(0);" class="pc-head-link ms-0" id="sidebar-hide">
                         <i class="ti ti-menu-2"></i>
                     </a>
                 </li>
                 <li class="pc-h-item pc-sidebar-popup">
-                    <a href="#" class="pc-head-link ms-0" id="mobile-collapse">
+                    <a href="javascript:void(0);" class="pc-head-link ms-0" id="mobile-collapse">
                         <i class="ti ti-menu-2"></i>
                     </a>
                 </li>
@@ -36,14 +36,14 @@
                             <div class="user-profile-info">
                                 <div class="d-flex align-items-center">
                                     <div class="flex-shrink-0">
-                                        <img src="{{ URL::asset('build/images/user/avatar-2.jpg') }}" 
-                                             alt="user-image"
-                                             class="profile-img rounded-circle">
+                                        <img src="{{ URL::asset('build/images/user/avatar-2.jpg') }}" alt="user-image"
+                                            class="profile-img rounded-circle">
                                     </div>
                                     <div class="flex-grow-1 mx-3">
                                         <h5 class="mb-0 user-name">{{ Auth::user()->name }}</h5>
                                         <p class="mb-0 user-email">{{ Auth::user()->email }}</p>
-                                        <span class="badge role-badge">{{ Auth::user()->getRoleNames()->first() }}</span>
+                                        <span
+                                            class="badge role-badge">{{ Auth::user()->getRoleNames()->first() }}</span>
                                     </div>
                                 </div>
                             </div>
@@ -169,7 +169,7 @@
 <script>
     // Immediately execute this script
     document.addEventListener('DOMContentLoaded', function() {
-        // Get elements
+        // Get elements for profile menu
         const toggleBtn = document.querySelector('.profile-toggle-btn');
         const menu = document.getElementById('custom-profile-menu');
         const logoutBtn = document.getElementById('direct-logout-btn');

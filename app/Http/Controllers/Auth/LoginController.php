@@ -9,6 +9,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Session;
 use Exception;
 use App\Models\User;
 
@@ -108,6 +110,17 @@ class LoginController extends Controller
                     ->withErrors(['email' => 'Email yang Anda masukkan tidak terdaftar.']);
             }
 
+            // Check if user is already logged in elsewhere
+            if ($this->isUserLoggedInElsewhere($user->id)) {
+                // Record failed login attempt due to user already logged in
+                addActivity('auth', 'failed_login', 'Login attempt rejected: User already logged in on another device', $user->id);
+
+                return redirect()
+                    ->back()
+                    ->withInput($request->only($this->username(), 'remember'))
+                    ->withErrors(['email' => 'Akun ini sedang digunakan pada perangkat lain. Silakan logout dari perangkat tersebut terlebih dahulu.']);
+            }
+
             // Attempt to log the user in
             if ($this->attemptLogin($request)) {
                 // If login successful, handle successful login response
@@ -139,6 +152,23 @@ class LoginController extends Controller
     }
 
     /**
+     * Check if a user is already logged in on another device
+     * 
+     * @param int $userId
+     * @return bool
+     */
+    protected function isUserLoggedInElsewhere($userId)
+    {
+        // Get all active sessions for this user
+        $sessions = DB::table('sessions')
+            ->where('user_id', $userId)
+            ->get();
+
+        // If there are any active sessions, user is already logged in elsewhere
+        return $sessions->count() > 0;
+    }
+
+    /**
      * Send the response after the user was authenticated.
      *
      * @param  \Illuminate\Http\Request  $request
@@ -154,6 +184,9 @@ class LoginController extends Controller
         if ($request->filled('remember')) {
             Auth::setRememberDuration(43200); // 30 days
         }
+
+        // Store the current session ID for this user
+        $this->storeUserSession(Auth::id(), session()->getId());
 
         // Record successful login activity
         addActivity('auth', 'login', 'User logged in successfully', Auth::id());
@@ -182,6 +215,27 @@ class LoginController extends Controller
     }
 
     /**
+     * Store the user's session ID
+     * 
+     * @param int $userId
+     * @param string $sessionId
+     * @return void
+     */
+    protected function storeUserSession($userId, $sessionId)
+    {
+        // Clear any existing sessions for this user
+        DB::table('sessions')
+            ->where('user_id', $userId)
+            ->delete();
+
+        // No need to manually create a record as Laravel automatically creates the session record
+        // Just make sure it's updated with the user_id
+        DB::table('sessions')
+            ->where('id', $sessionId)
+            ->update(['user_id' => $userId]);
+    }
+
+    /**
      * Log the user out of the application.
      *
      * @param  \Illuminate\Http\Request  $request
@@ -191,7 +245,13 @@ class LoginController extends Controller
     {
         // Record logout activity before actually logging out
         if (Auth::check()) {
-            addActivity('auth', 'logout', 'User logged out: ' . Auth::user()->name, Auth::id());
+            $userId = Auth::id();
+            addActivity('auth', 'logout', 'User logged out: ' . Auth::user()->name, $userId);
+
+            // Clear the user's session
+            DB::table('sessions')
+                ->where('user_id', $userId)
+                ->delete();
         }
 
         Auth::logout();
@@ -240,6 +300,9 @@ class LoginController extends Controller
         if ($request->filled('remember')) {
             Auth::setRememberDuration(43200); // 30 days
         }
+
+        // Store the current session ID for this user
+        $this->storeUserSession($user->id, session()->getId());
 
         // Add success message to session
         session()->flash('login_success', 'Login berhasil! Selamat datang di Dashboard Tea Heaven.');
