@@ -298,6 +298,22 @@
                     });
                 });
             }
+
+            // Show SweetAlert for login success notification
+            @if (session('login_success'))
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Login Berhasil',
+                    text: "{{ session('login_success') }}",
+                    timer: 2500,
+                    position: 'top-end',
+                    toast: true,
+                    showConfirmButton: false,
+                    customClass: {
+                        popup: 'colored-toast'
+                    }
+                });
+            @endif
         });
 
         $(document).ready(function() {

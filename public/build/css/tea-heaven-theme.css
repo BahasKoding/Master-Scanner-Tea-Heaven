@@ -1,0 +1,157 @@
+/* Tea Heaven Theme - Override Default Colors */
+:root {
+    --bs-primary: #228B22 !important;
+    --bs-primary-rgb: 34, 139, 34 !important;
+}
+
+/* Button styles */
+.btn-primary {
+    background-color: #228B22 !important;
+    border-color: #228B22 !important;
+}
+
+.btn-primary:hover,
+.btn-primary:focus,
+.btn-primary:active {
+    background-color: #1a6b1a !important;
+    border-color: #1a6b1a !important;
+}
+
+.btn-outline-primary {
+    color: #228B22 !important;
+    border-color: #228B22 !important;
+}
+
+.btn-outline-primary:hover,
+.btn-outline-primary:focus,
+.btn-outline-primary:active {
+    background-color: #228B22 !important;
+    color: #fff !important;
+}
+
+/* Text & Links */
+.text-primary {
+    color: #228B22 !important;
+}
+
+a {
+    color: #228B22;
+}
+
+a:hover {
+    color: #1a6b1a;
+}
+
+/* Background */
+.bg-primary {
+    background-color: #228B22 !important;
+}
+
+/* Sidebar */
+[data-pc-sidebar-theme="light"] {
+    --pc-sidebar-active-color: #228B22 !important;
+}
+
+/* Navigation */
+.nav-pills .nav-link.active,
+.nav-pills .show>.nav-link {
+    background-color: #228B22 !important;
+}
+
+.border-primary {
+    border-color: #228B22 !important;
+}
+
+/* Forms */
+.form-check-input:checked {
+    background-color: #228B22 !important;
+    border-color: #228B22 !important;
+}
+
+.form-control:focus {
+    border-color: #228B22 !important;
+    box-shadow: 0 0 0 0.25rem rgba(34, 139, 34, 0.25) !important;
+}
+
+/* Progress bars */
+.progress-bar {
+    background-color: #228B22 !important;
+}
+
+/* Pagination */
+.page-item.active .page-link {
+    background-color: #228B22 !important;
+    border-color: #228B22 !important;
+}
+
+.page-link {
+    color: #228B22;
+}
+
+.page-link:hover {
+    color: #1a6b1a;
+}
+
+/* Dropdown */
+.dropdown-item.active,
+.dropdown-item:active {
+    background-color: #228B22 !important;
+}
+
+/* Custom Tea Heaven styles */
+.btn-tea {
+    background-color: #228B22;
+    border-color: #228B22;
+    color: white;
+}
+
+.btn-tea:hover,
+.btn-tea:focus {
+    background-color: #1a6b1a;
+    border-color: #1a6b1a;
+    color: white;
+}
+
+/* Add SweetAlert custom styles for Tea Heaven */
+.colored-toast.swal2-icon-success {
+    background-color: #228B22 !important;
+}
+
+.colored-toast.swal2-icon-error {
+    background-color: #dc3545 !important;
+}
+
+.colored-toast.swal2-icon-warning {
+    background-color: #ffc107 !important;
+}
+
+.colored-toast.swal2-icon-info {
+    background-color: #17a2b8 !important;
+}
+
+.colored-toast .swal2-title,
+.colored-toast .swal2-html-container {
+    color: #fff !important;
+}
+
+/* Override default SweetAlert styles for Tea Heaven */
+.swal2-confirm {
+    background-color: #228B22 !important;
+}
+
+.swal2-styled.swal2-confirm:focus {
+    box-shadow: 0 0 0 3px rgba(34, 139, 34, 0.5) !important;
+}
+
+.swal2-icon.swal2-success {
+    border-color: #228B22 !important;
+    color: #228B22 !important;
+}
+
+.swal2-icon.swal2-success [class^=swal2-success-line] {
+    background-color: #228B22 !important;
+}
+
+.swal2-icon.swal2-success .swal2-success-ring {
+    border: 0.25em solid rgba(34, 139, 34, 0.3) !important;
+}

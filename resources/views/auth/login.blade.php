@@ -12,21 +12,7 @@
                     <h4 class="fw-bold mb-4">Administrator Login</h4>
                 </div>
 
-                @if (session('error'))
-                    <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                        {{ session('error') }}
-                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                    </div>
-                @endif
-
-                @if (session('logout_success'))
-                    <div class="alert alert-success alert-dismissible fade show" role="alert">
-                        {{ session('logout_success') }}
-                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                    </div>
-                @endif
-
-                <form id="loginForm" method="POST" action="{{ route('login.submit') }}">
+                <form id="loginForm" method="POST" action="{{ route('login') }}">
                     @csrf
                     <div class="form-group mb-3">
                         <label for="email" class="form-label">Email</label>
@@ -98,8 +84,6 @@
             const loadingSpinner = document.getElementById('loadingSpinner');
 
             loginForm.addEventListener('submit', function(e) {
-                e.preventDefault(); // Always prevent default to handle submission manually
-
                 let isValid = true;
 
                 // Reset previous validation states
@@ -109,10 +93,12 @@
                 // Email validation
                 const emailValue = emailInput.value.trim();
                 if (!emailValue) {
+                    e.preventDefault();
                     emailInput.classList.add('is-invalid');
                     emailFeedback.textContent = 'Email is required';
                     isValid = false;
                 } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailValue)) {
+                    e.preventDefault();
                     emailInput.classList.add('is-invalid');
                     emailFeedback.textContent = 'Please enter a valid email address';
                     isValid = false;
@@ -120,23 +106,38 @@
 
                 // Password validation
                 if (!passwordInput.value) {
+                    e.preventDefault();
                     passwordInput.classList.add('is-invalid');
                     passwordFeedback.textContent = 'Password is required';
                     isValid = false;
                 }
 
-                if (!isValid) {
-                    return false;
+                if (isValid) {
+                    // Show loading indicator
+                    loginButton.textContent = 'Logging in';
+                    loadingSpinner.classList.remove('d-none');
                 }
-
-                // Show loading indicator
-                loginButton.textContent = 'Logging in';
-                loadingSpinner.classList.remove('d-none');
-
-                // Submit form directly for reliable operation
-                // This avoids JSON parsing issues when server returns unexpected formats
-                loginForm.submit();
             });
+
+            // Show SweetAlert for session messages
+            @if (session('error'))
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Login Failed',
+                    text: "{{ session('error') }}",
+                    confirmButtonColor: '#d33'
+                });
+            @endif
+
+            @if (session('logout_success'))
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Logout Successful',
+                    text: "{{ session('logout_success') }}",
+                    timer: 2000,
+                    showConfirmButton: false
+                });
+            @endif
         });
     </script>
 @endsection

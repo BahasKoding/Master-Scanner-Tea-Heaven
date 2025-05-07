@@ -17,6 +17,9 @@
 <!-- CSRF Token -->
 <meta name="csrf-token" content="{{ csrf_token() }}">
 
+<!-- Tea Heaven custom theme -->
+<link rel="stylesheet" href="{{ URL::asset('build/css/tea-heaven-theme.css') }}">
+
 @yield('css')
 
 @include('layouts.head-css')
@@ -44,10 +47,26 @@
     @include('layouts.footer')
     @include('layouts.customizer')
 
+    <!-- Core JS libraries in correct order -->
+    <script src="{{ asset('build/js/plugins/jquery.min.js') }}"></script>
+    <script src="{{ asset('build/js/plugins/popper.min.js') }}"></script>
+    <script src="{{ asset('build/js/plugins/bootstrap.min.js') }}"></script>
+
+    <!-- Initialize Bootstrap components explicitly -->
+    <script>
+        // Ensure Bootstrap components are initialized properly
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize dropdowns
+            var dropdownElementList = [].slice.call(document.querySelectorAll('[data-bs-toggle="dropdown"]'));
+            dropdownElementList.map(function(dropdownToggleEl) {
+                return new bootstrap.Dropdown(dropdownToggleEl);
+            });
+        });
+    </script>
+
     @include('layouts.footerjs')
 
     @yield('scripts')
-    <script src="{{ asset('build/js/plugins/sweetalert2.all.min.js') }}"></script>
 </body>
 <!-- [Body] end -->
 

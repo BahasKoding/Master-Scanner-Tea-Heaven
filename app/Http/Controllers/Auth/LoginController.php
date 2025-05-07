@@ -109,20 +109,8 @@ class LoginController extends Controller
 
             // Attempt to log the user in
             if ($this->attemptLogin($request)) {
-                // Reset login attempts
-                $this->clearLoginAttempts($request);
-
-                // Remember user if requested
-                if ($request->filled('remember')) {
-                    Auth::setRememberDuration(43200); // 30 days
-                }
-
-                // Record successful login activity
-                addActivity('auth', 'login', 'User logged in successfully', Auth::id());
-
-                // Redirect to dashboard
-                return redirect()->intended($this->redirectPath())
-                    ->with('success', 'Login berhasil! Selamat datang di Dashboard Tea Heaven.');
+                // If login successful, handle successful login response
+                return $this->sendLoginResponse($request);
             }
 
             // If login failed, increment the number of attempts
@@ -147,6 +135,31 @@ class LoginController extends Controller
                 ->withInput($request->only($this->username(), 'remember'))
                 ->withErrors(['email' => 'Terjadi kesalahan saat login. Silakan coba lagi.']);
         }
+    }
+
+    /**
+     * Send the response after the user was authenticated.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\RedirectResponse
+     */
+    protected function sendLoginResponse(Request $request)
+    {
+        $request->session()->regenerate();
+
+        $this->clearLoginAttempts($request);
+
+        // Remember user if requested
+        if ($request->filled('remember')) {
+            Auth::setRememberDuration(43200); // 30 days
+        }
+
+        // Record successful login activity
+        addActivity('auth', 'login', 'User logged in successfully', Auth::id());
+
+        // Return to intended location or dashboard with success message
+        return redirect()->intended($this->redirectPath())
+            ->with('login_success', 'Login berhasil! Selamat datang di Dashboard Tea Heaven.');
     }
 
     /**
@@ -210,7 +223,7 @@ class LoginController extends Controller
         }
 
         // Add success message to session
-        session()->flash('success', 'Login berhasil! Selamat datang di Dashboard Tea Heaven.');
+        session()->flash('login_success', 'Login berhasil! Selamat datang di Dashboard Tea Heaven.');
 
         // Return to intended location or dashboard
         return redirect()->intended($this->redirectPath());
