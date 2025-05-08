@@ -19,10 +19,15 @@ class Activity extends Model
         'note',
         'user_id'
     ];
+
     protected $casts = [
         'created_at' => 'datetime',
+        'updated_at' => 'datetime',
     ];
 
+    /**
+     * Get the user that performed this activity
+     */
     public function user()
     {
         return $this->belongsTo(User::class);

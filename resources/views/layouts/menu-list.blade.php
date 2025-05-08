@@ -17,8 +17,8 @@
         <span class="pc-arrow"><i data-feather="chevron-right"></i></span>
     </a>
     <ul class="pc-submenu">
-        <li class="pc-item"><a class="pc-link" href="{{ route('suppliers.index') }}">Supplier</a></li>
         <li class="pc-item"><a class="pc-link" href="{{ route('category-suppliers.index') }}">Category Supplier</a></li>
+        <li class="pc-item"><a class="pc-link" href="{{ route('suppliers.index') }}">Supplier</a></li>
         <li class="pc-item"><a class="pc-link" href="#">Product</a></li>
     </ul>
 </li>

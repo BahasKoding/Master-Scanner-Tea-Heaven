@@ -475,161 +475,38 @@
                 dom: 'Bfrtip',
                 deferRender: true,
                 buttons: [{
-                    extend: 'excel',
-                    text: '<i class="fas fa-file-excel"></i> Export Excel',
-                    className: 'btn btn-success d-none', // Hidden button (we'll use our custom one)
-                    title: function() {
-                        const startDate = $startDate.val() || 'All';
-                        const endDate = $endDate.val() || 'All';
-                        return `History Sales Report (${startDate} to ${endDate})`;
-                    },
-                    exportOptions: {
-                        columns: [0, 1, 2, 3, 4, 5],
-                        modifier: {
-                            search: 'applied',
-                            order: 'applied',
-                            page: 'all'
-                        },
-                        format: {
-                            body: function(data, row, column, node) {
-                                // Clean data for export
-                                if (column === 2 || column === 3) {
-                                    if (typeof data === 'string') {
-                                        let cleanData = data
-                                            .replace(/<br\s*\/?>/gi, ', ')
-                                            .replace(/<[^>]*>/g, '')
-                                            .replace(/\s*,\s*/g, ', ')
-                                            .replace(/,\s*$/, '')
-                                            .replace(/\u200B/g, '');
-                                        return cleanData;
-                                    }
-                                }
-                                return data;
-                            },
-                            header: function(data, columnIdx) {
-                                if (typeof data === 'string') {
-                                    return data.replace(/<[^>]*>/g, '');
-                                }
-                                return data;
-                            }
+                        extend: 'copy',
+                        text: '<i class="fas fa-copy"></i> Salin',
+                        className: 'btn btn-secondary',
+                        exportOptions: {
+                            columns: ':not(:last-child)'
                         }
                     },
-                    action: function(e, dt, button, config) {
-                        // Progress indication for large exports
-                        const recordsTotal = dt.page.info().recordsTotal;
-                        if (recordsTotal > 100) {
-                            const percentStep = Math.ceil(recordsTotal / 10);
-                            let currentProgress = 0;
-
-                            $exportStatus.show();
-
-                            // Update progress message periodically
-                            const progressInterval = setInterval(() => {
-                                currentProgress += percentStep;
-                                if (currentProgress >= recordsTotal) {
-                                    clearInterval(progressInterval);
-                                    $exportStatusText.text('Finalizing export...');
-                                } else {
-                                    const percent = Math.min(Math.round((
-                                            currentProgress / recordsTotal) *
-                                        100), 95);
-                                    $('#exportStatusText').text(
-                                        `Preparing data: ${percent}% complete...`);
-                                }
-                            }, 300);
-
-                            // Proceed with export
-                            $.fn.dataTable.ext.buttons.excelHtml5.action.call(this, e, dt,
-                                button, config);
-
-                            // Hide status after a delay
-                            setTimeout(() => {
-                                clearInterval(progressInterval);
-                                $exportStatus.hide();
-                            }, 1500);
-                        } else {
-                            // For smaller datasets, just do the export
-                            $.fn.dataTable.ext.buttons.excelHtml5.action.call(this, e, dt,
-                                button, config);
+                    {
+                        extend: 'excel',
+                        text: '<i class="fas fa-file-excel"></i> Excel',
+                        className: 'btn btn-success',
+                        exportOptions: {
+                            columns: ':not(:last-child)'
                         }
                     },
-                    customize: function(xlsx) {
-                        const sheet = xlsx.xl.worksheets['sheet1.xml'];
-
-                        // Set optimal column widths
-                        const widths = [4, 15, 35, 10, 18, 18];
-
-                        // Find or create cols element
-                        let cols = $('cols', sheet);
-                        if (cols.length === 0) {
-                            const colsElement = $.parseXML('<cols></cols>').documentElement;
-                            $('worksheet', sheet).prepend(colsElement);
-                            cols = $('cols', sheet);
+                    {
+                        extend: 'pdf',
+                        text: '<i class="fas fa-file-pdf"></i> PDF',
+                        className: 'btn btn-danger',
+                        exportOptions: {
+                            columns: ':not(:last-child)'
                         }
-
-                        // Clear existing col elements
-                        cols.empty();
-
-                        // Add new col elements with specified widths
-                        widths.forEach((width, i) => {
-                            cols.append(
-                                `<col min="${i + 1}" max="${i + 1}" width="${width}" customWidth="1"/>`
-                            );
-                        });
-
-                        // Process each row to clean data and apply formatting
-                        $('row', sheet).each(function(index) {
-                            // Skip header row
-                            if (index === 0) return;
-
-                            const cells = $('c', this);
-
-                            // Process all cells to ensure clean data
-                            $(cells).each(function() {
-                                const textNode = $('t', this);
-                                if (textNode.length) {
-                                    const text = textNode.text();
-                                    if (text && text.includes('<')) {
-                                        // If any HTML tag is found, clean it
-                                        const cleanText = text
-                                            .replace(/<br\s*\/?>/gi, ', ')
-                                            .replace(/<[^>]*>/g, '')
-                                            .replace(/\s*,\s*/g, ', ')
-                                            .replace(/,\s*$/, '')
-                                            .replace(/\u200B/g, '');
-                                        textNode.text(cleanText);
-                                    }
-                                }
-
-                                // Apply styling
-                                $(this).attr('s', '55');
-                            });
-
-                            // Set compact row height
-                            $(this).attr('ht', '22');
-                            $(this).attr('customHeight', '1');
-                        });
-
-                        // Add custom style with improved readability
-                        const styleSheet = xlsx.xl['styles.xml'];
-                        const styles = $('styleSheet', styleSheet);
-
-                        // Check if style 55 already exists
-                        let cellXfs = $('cellXfs', styles);
-                        if (cellXfs.length === 0) {
-                            styles.append(
-                                '<cellXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment vertical="center" horizontal="left" wrapText="1"/></xf></cellXfs>'
-                            );
-                        } else {
-                            // Add new style for wrap text
-                            const xfCount = parseInt(cellXfs.attr('count'));
-                            cellXfs.attr('count', xfCount + 1);
-                            cellXfs.append(
-                                '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment vertical="center" horizontal="left" wrapText="1"/></xf>'
-                            );
+                    },
+                    {
+                        extend: 'print',
+                        text: '<i class="fas fa-print"></i> Cetak',
+                        className: 'btn btn-info',
+                        exportOptions: {
+                            columns: ':not(:last-child)'
                         }
                     }
-                }],
+                ],
                 ajax: {
                     url: "{{ route('history-sales.data') }}",
                     type: "POST",
@@ -688,19 +565,20 @@
                     ['10', '25', '50', '100', 'All']
                 ],
                 language: {
-                    processing: '<div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div>',
-                    lengthMenu: "Tampilkan _MENU_ data per halaman",
+                    lengthMenu: "Tampilkan _MENU_ entri per halaman",
                     zeroRecords: "Tidak ada data yang ditemukan",
                     info: "Menampilkan halaman _PAGE_ dari _PAGES_",
-                    infoEmpty: "Tidak ada data yang tersedia",
-                    infoFiltered: "(difilter dari _MAX_ total data)",
+                    infoEmpty: "Tidak ada data tersedia",
+                    infoFiltered: "(difilter dari _MAX_ total entri)",
                     search: "Cari:",
                     paginate: {
                         first: "Pertama",
                         last: "Terakhir",
                         next: "Selanjutnya",
                         previous: "Sebelumnya"
-                    }
+                    },
+                    loadingRecords: "Memuat...",
+                    processing: "Memproses...",
                 },
                 drawCallback: function() {
                     // Additional functionality after table is drawn

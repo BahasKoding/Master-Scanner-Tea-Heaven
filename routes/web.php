@@ -13,6 +13,12 @@ use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\CategorySupplierController;
 use Illuminate\Support\Facades\Auth;
 
+/*
+|--------------------------------------------------------------------------
+| Web Routes
+|--------------------------------------------------------------------------
+*/
+
 // Root route - redirect to login if not authenticated or dashboard if authenticated
 Route::get('/', function () {
     if (Auth::check()) {
@@ -24,96 +30,144 @@ Route::get('/', function () {
 // Laravel Auth Routes
 Auth::routes();
 
-// Dashboard route (protected by auth middleware)
+// All authenticated routes
 Route::middleware(['auth'])->group(function () {
-    // Dashboard route
+    // Dashboard routes
     Route::get('/dashboard', function () {
         return view('dashboard');
     })->name('dashboard');
 
-    // Route for displaying the success message after login
     Route::get('/home', function () {
         return view('index');
     })->name('home');
 
-    //role 
-    Route::get('roles', [RoleController::class, 'index'])->name('roles.index');
-    Route::get('roles/create', [RoleController::class, 'create'])->name('roles.create');
-    Route::post('roles', [RoleController::class, 'store'])->name('roles.store');
-    Route::get('roles/{role}', [RoleController::class, 'show'])->name('roles.show');
-    Route::get('roles/{role}/edit', [RoleController::class, 'edit'])->name('roles.edit');
-    Route::put('roles/{role}', [RoleController::class, 'update'])->name('roles.update');
-    Route::delete('roles/{role}', [RoleController::class, 'destroy'])->name('roles.destroy');
-    Route::post('roles/data', [RoleController::class, 'data'])->name('roles.data');
-    Route::post('roles/{role}/give-permission-to', [RoleController::class, 'givePermissionTo'])->name('roles.givePermissionTo');
-    Route::get('roles-has-permission/{id}', [RoleController::class, 'roleHasPermission'])->name('roles.roleHasPermission');
+    /*
+    |--------------------------------------------------------------------------
+    | User Management Routes
+    |--------------------------------------------------------------------------
+    */
 
-    //permission
-    Route::get('permissions', [PermissionController::class, 'index'])->name('permissions.index');
-    Route::get('permissions/create', [PermissionController::class, 'create'])->name('permissions.create');
-    Route::post('permissions', [PermissionController::class, 'store'])->name('permissions.store');
-    Route::get('permissions/{permission}', [PermissionController::class, 'show'])->name('permissions.show');
-    Route::get('permissions/{permission}/edit', [PermissionController::class, 'edit'])->name('permissions.edit');
-    Route::put('permissions/{permission}', [PermissionController::class, 'update'])->name('permissions.update');
-    Route::delete('permissions/{permission}', [PermissionController::class, 'destroy'])->name('permissions.destroy');
-    Route::post('permissions/data', [PermissionController::class, 'data'])->name('permissions.data');
+    // User routes
+    Route::prefix('users')->name('users.')->group(function () {
+        Route::get('/', [UserController::class, 'index'])->name('index');
+        Route::get('/create', [UserController::class, 'create'])->name('create');
+        Route::post('/', [UserController::class, 'store'])->name('store');
+        Route::get('/{user}', [UserController::class, 'show'])->name('show');
+        Route::get('/{user}/edit', [UserController::class, 'edit'])->name('edit');
+        Route::put('/{user}', [UserController::class, 'update'])->name('update');
+        Route::delete('/{user}', [UserController::class, 'destroy'])->name('destroy');
+        Route::post('/data', [UserController::class, 'data'])->name('data');
+        Route::post('/get-users', [UserController::class, 'getUsers'])->name('get-users');
+        Route::get('/debug', [UserController::class, 'debug'])->name('debug');
+    });
 
-    //users
-    Route::get('users', [UserController::class, 'index'])->name('users.index');
-    Route::get('users/create', [UserController::class, 'create'])->name('users.create');
-    Route::post('users', [UserController::class, 'store'])->name('users.store');
-    Route::get('users/{user}', [UserController::class, 'show'])->name('users.show');
-    Route::get('users/{user}/edit', [UserController::class, 'edit'])->name('users.edit');
-    Route::put('users/{user}', [UserController::class, 'update'])->name('users.update');
-    Route::delete('users/{user}', [UserController::class, 'destroy'])->name('users.destroy');
-    Route::post('users/data', [UserController::class, 'data'])->name('users.data');
+    // Role routes
+    Route::prefix('roles')->name('roles.')->group(function () {
+        Route::get('/', [RoleController::class, 'index'])->name('index');
+        Route::get('/create', [RoleController::class, 'create'])->name('create');
+        Route::post('/', [RoleController::class, 'store'])->name('store');
+        Route::get('/{role}', [RoleController::class, 'show'])->name('show');
+        Route::get('/{role}/edit', [RoleController::class, 'edit'])->name('edit');
+        Route::put('/{role}', [RoleController::class, 'update'])->name('update');
+        Route::delete('/{role}', [RoleController::class, 'destroy'])->name('destroy');
+        Route::post('/data', [RoleController::class, 'data'])->name('data');
+        Route::post('/{role}/give-permission-to', [RoleController::class, 'givePermissionTo'])->name('givePermissionTo');
+        Route::get('-has-permission/{id}', [RoleController::class, 'roleHasPermission'])->name('roleHasPermission');
+    });
 
-    //menus
-    Route::get('menus', [MenuController::class, 'index'])->name('menus.index');
-    Route::get('menus/create', [MenuController::class, 'create'])->name('menus.create');
-    Route::post('menus', [MenuController::class, 'store'])->name('menus.store');
-    Route::get('menus/{menu}', [MenuController::class, 'show'])->name('menus.show');
-    Route::get('menus/{menu}/edit', [MenuController::class, 'edit'])->name('menus.edit');
-    Route::put('menus/{menu}', [MenuController::class, 'update'])->name('menus.update');
-    Route::delete('menus/{menu}', [MenuController::class, 'destroy'])->name('menus.destroy');
-    Route::post('menus/data', [MenuController::class, 'data'])->name('menus.data');
+    // Permission routes
+    Route::prefix('permissions')->name('permissions.')->group(function () {
+        Route::get('/', [PermissionController::class, 'index'])->name('index');
+        Route::get('/create', [PermissionController::class, 'create'])->name('create');
+        Route::post('/', [PermissionController::class, 'store'])->name('store');
+        Route::get('/{permission}', [PermissionController::class, 'show'])->name('show');
+        Route::get('/{permission}/edit', [PermissionController::class, 'edit'])->name('edit');
+        Route::put('/{permission}', [PermissionController::class, 'update'])->name('update');
+        Route::delete('/{permission}', [PermissionController::class, 'destroy'])->name('destroy');
+        Route::post('/data', [PermissionController::class, 'data'])->name('data');
+    });
 
+    // Menu routes
+    Route::prefix('menus')->name('menus.')->group(function () {
+        Route::get('/', [MenuController::class, 'index'])->name('index');
+        Route::get('/create', [MenuController::class, 'create'])->name('create');
+        Route::post('/', [MenuController::class, 'store'])->name('store');
+        Route::get('/{menu}', [MenuController::class, 'show'])->name('show');
+        Route::get('/{menu}/edit', [MenuController::class, 'edit'])->name('edit');
+        Route::put('/{menu}', [MenuController::class, 'update'])->name('update');
+        Route::delete('/{menu}', [MenuController::class, 'destroy'])->name('destroy');
+        Route::post('/data', [MenuController::class, 'data'])->name('data');
+    });
 
-    // History Sales routes
-    Route::get('history-sales', [HistorySaleController::class, 'index'])->name('history-sales.index');
-    Route::post('history-sales', [HistorySaleController::class, 'store'])->name('history-sales.store');
-    Route::get('history-sales/create', [HistorySaleController::class, 'create'])->name('history-sales.create');
-    Route::get('history-sales/report', [HistorySaleController::class, 'report'])->name('history-sales.report');
-    Route::post('history-sales/export', [HistorySaleController::class, 'export'])->name('history-sales.export');
-    Route::get('history-sales/{historySale}', [HistorySaleController::class, 'show'])->name('history-sales.show');
-    Route::get('history-sales/{historySale}/edit', [HistorySaleController::class, 'edit'])->name('history-sales.edit');
-    Route::put('history-sales/{historySale}', [HistorySaleController::class, 'update'])->name('history-sales.update');
-    Route::delete('history-sales/{historySale}', [HistorySaleController::class, 'destroy'])->name('history-sales.destroy');
-    Route::post('history-sales/data', [HistorySaleController::class, 'data'])->name('history-sales.data');
+    /*
+    |--------------------------------------------------------------------------
+    | Business Logic Routes
+    |--------------------------------------------------------------------------
+    */
 
-    // Soft Delete routes
-    Route::post('history-sales/{id}/restore', [HistorySaleController::class, 'restore'])->name('history-sales.restore');
-    Route::delete('history-sales/{id}/force', [HistorySaleController::class, 'forceDelete'])->name('history-sales.force-delete');
+    // History Sales routes with resource and additional actions
+    Route::prefix('history-sales')->name('history-sales.')->group(function () {
+        Route::get('/', [HistorySaleController::class, 'index'])->name('index');
+        Route::post('/', [HistorySaleController::class, 'store'])->name('store');
+        Route::get('/create', [HistorySaleController::class, 'create'])->name('create');
+        Route::get('/report', [HistorySaleController::class, 'report'])->name('report');
+        Route::post('/export', [HistorySaleController::class, 'export'])->name('export');
+        Route::get('/{historySale}', [HistorySaleController::class, 'show'])->name('show');
+        Route::get('/{historySale}/edit', [HistorySaleController::class, 'edit'])->name('edit');
+        Route::put('/{historySale}', [HistorySaleController::class, 'update'])->name('update');
+        Route::delete('/{historySale}', [HistorySaleController::class, 'destroy'])->name('destroy');
+        Route::post('/data', [HistorySaleController::class, 'data'])->name('data');
 
-    // Route untuk validasi no_resi
+        // Soft Delete routes
+        Route::post('/{id}/restore', [HistorySaleController::class, 'restore'])->name('restore');
+        Route::delete('/{id}/force', [HistorySaleController::class, 'forceDelete'])->name('force-delete');
+    });
+
+    // Validation route
     Route::post('/validate-no-resi', [HistorySaleController::class, 'validateNoResi'])->name('history-sales.validate-no-resi');
 
-    Route::get('/activity', [ActivityController::class, 'index'])->name('activity');
-    Route::get('/load-more-activities', [ActivityController::class, 'loadMoreActivities'])->name('load.more.activities');
+    // Resource routes using Laravel's resource controller pattern
+    Route::resource('suppliers', SupplierController::class);
+    Route::resource('category-suppliers', CategorySupplierController::class);
 
-    // New activity routes
-    Route::get('/auth-activities', [ActivityController::class, 'getAuthActivities'])->name('auth.activities');
-    Route::get('/user-activities/{userId}', [ActivityController::class, 'getUserActivities'])->name('user.activities');
-    Route::get('/user/{userId}/activities', [ActivityController::class, 'showUserActivities'])->name('user.activities.show');
+    // Additional route for listing suppliers by category
+    Route::get('category-suppliers/{categorySupplier}/suppliers', [CategorySupplierController::class, 'listSuppliers'])
+        ->name('category-suppliers.list-suppliers');
 
+    /*
+    |--------------------------------------------------------------------------
+    | Activity Monitoring Routes
+    |--------------------------------------------------------------------------
+    */
+
+    // Activity routes grouped by feature
+    Route::prefix('activity')->name('activity')->group(function () {
+        Route::get('/', [ActivityController::class, 'index']);
+        Route::get('/load-more', [ActivityController::class, 'loadMoreActivities'])->name('.load.more');
+        Route::get('/auth', [ActivityController::class, 'getAuthActivities'])->name('.auth');
+        Route::get('/user/{userId}', [ActivityController::class, 'getUserActivities'])->name('.user');
+        Route::get('/user/{userId}/details', [ActivityController::class, 'showUserActivities'])->name('.user.show');
+    });
+
+    /*
+    |--------------------------------------------------------------------------
+    | Miscellaneous Routes
+    |--------------------------------------------------------------------------
+    */
+
+    // Alert demo route
     Route::get('/alerts', function () {
-        // Return a view named 'index' when accessing the root URL
-        // return view('elements.ac_alert');
         return view('forms.form2_choices');
     });
 
-    Route::resource('suppliers', SupplierController::class);
-    Route::resource('category-suppliers', CategorySupplierController::class);
+    // Temporary testing routes
+    Route::get('/test-users', function () {
+        $users = \App\Models\User::with('roles')->get();
+        return response()->json([
+            'users' => $users,
+            'count' => $users->count()
+        ]);
+    });
 
     // Define a GET route with dynamic placeholders for route parameters.
     Route::get('{routeName}/{name?}', [HomeController::class, 'pageView']);

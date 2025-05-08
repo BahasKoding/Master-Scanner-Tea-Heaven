@@ -1,6 +1,6 @@
 @extends('layouts.main')
 
-@section('title', 'Supplier Management')
+@section('title', 'Manajemen Supplier')
 @section('breadcrumb-item', 'Supplier')
 
 @section('css')
@@ -32,14 +32,14 @@
             <div class="card">
                 <div class="card-header">
                     <div class="d-flex justify-content-between align-items-center">
-                        <h5>Supplier List</h5>
+                        <h5>Daftar Supplier</h5>
                         <div>
                             <button id="clear-filters" class="btn btn btn-secondary">
-                                <i class="fas fa-filter"></i> Clear Filters
+                                <i class="fas fa-filter"></i> Hapus Filter
                             </button>
                             <button type="button" class="btn btn-primary" data-bs-toggle="modal"
                                 data-bs-target="#addSupplierModal">
-                                <i class="fas fa-plus"></i> Add New Supplier
+                                <i class="fas fa-plus"></i> Tambah Supplier Baru
                             </button>
                         </div>
                     </div>
@@ -49,28 +49,28 @@
                     <div class="mb-3 p-3 border rounded bg-light">
                         <div class="row">
                             <div class="col-md-3">
-                                <label for="filter-category" class="form-label small">Category</label>
+                                <label for="filter-category" class="form-label small">Kategori</label>
                                 <select class="form-control form-control-sm" name="filter-category" id="filter-category">
-                                    <option value="">All Categories</option>
+                                    <option value="">Semua Kategori</option>
                                     @foreach ($categories as $category)
                                         <option value="{{ $category->name }}">{{ $category->name }}</option>
                                     @endforeach
                                 </select>
                             </div>
                             <div class="col-md-3">
-                                <label for="filter-code" class="form-label small">Code</label>
+                                <label for="filter-code" class="form-label small">Kode</label>
                                 <input type="text" id="filter-code" class="form-control form-control-sm"
-                                    placeholder="Filter by code">
+                                    placeholder="Filter berdasarkan kode">
                             </div>
                             <div class="col-md-3">
-                                <label for="filter-product-name" class="form-label small">Product Name</label>
+                                <label for="filter-product-name" class="form-label small">Nama Produk</label>
                                 <input type="text" id="filter-product-name" class="form-control form-control-sm"
-                                    placeholder="Filter by name">
+                                    placeholder="Filter berdasarkan nama">
                             </div>
                             <div class="col-md-3">
-                                <label for="filter-unit" class="form-label small">Unit</label>
+                                <label for="filter-unit" class="form-label small">Satuan</label>
                                 <select id="filter-unit" class="form-select form-select-sm">
-                                    <option value="">All Units</option>
+                                    <option value="">Semua Satuan</option>
                                     <option value="PCS">PCS</option>
                                     <option value="GRAM">GRAM</option>
                                     <option value="KG">KG</option>
@@ -85,11 +85,11 @@
                             <thead>
                                 <tr>
                                     <th>No</th>
-                                    <th>Category</th>
-                                    <th>Code</th>
-                                    <th>Product Name</th>
-                                    <th>Unit</th>
-                                    <th>Actions</th>
+                                    <th>Kategori</th>
+                                    <th>Kode</th>
+                                    <th>Nama Produk</th>
+                                    <th>Satuan</th>
+                                    <th>Aksi</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -109,33 +109,33 @@
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">Add New Supplier</h5>
+                    <h5 class="modal-title">Tambah Supplier Baru</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <form id="addSupplierForm">
                     @csrf
                     <div class="modal-body">
                         <div class="mb-3">
-                            <label class="form-label">Category <span class="text-danger">*</span></label>
+                            <label class="form-label">Kategori <span class="text-danger">*</span></label>
                             <select class="form-control" name="category_supplier_id" id="add-category-supplier" required>
-                                <option value="">Select Category</option>
+                                <option value="">Pilih Kategori</option>
                                 @foreach ($categories as $category)
                                     <option value="{{ $category->id }}">{{ $category->name }}</option>
                                 @endforeach
                             </select>
                         </div>
                         <div class="mb-3">
-                            <label class="form-label">Code <span class="text-danger">*</span></label>
+                            <label class="form-label">Kode <span class="text-danger">*</span></label>
                             <input type="text" class="form-control" name="code" required>
                         </div>
                         <div class="mb-3">
-                            <label class="form-label">Product Name <span class="text-danger">*</span></label>
+                            <label class="form-label">Nama Produk <span class="text-danger">*</span></label>
                             <input type="text" class="form-control" name="product_name" required>
                         </div>
                         <div class="mb-3">
-                            <label class="form-label">Unit <span class="text-danger">*</span></label>
+                            <label class="form-label">Satuan <span class="text-danger">*</span></label>
                             <select class="form-select" name="unit" required>
-                                <option value="">Select Unit</option>
+                                <option value="">Pilih Satuan</option>
                                 <option value="PCS">PCS</option>
                                 <option value="GRAM">GRAM</option>
                                 <option value="KG">KG</option>
@@ -143,8 +143,8 @@
                         </div>
                     </div>
                     <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                        <button type="submit" class="btn btn-primary">Save</button>
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Tutup</button>
+                        <button type="submit" class="btn btn-primary">Simpan</button>
                     </div>
                 </form>
             </div>
@@ -165,28 +165,28 @@
                     <input type="hidden" id="edit_supplier_id">
                     <div class="modal-body">
                         <div class="mb-3">
-                            <label class="form-label">Category <span class="text-danger">*</span></label>
+                            <label class="form-label">Kategori <span class="text-danger">*</span></label>
                             <select class="form-control" name="category_supplier_id" id="edit-category-supplier"
                                 required>
-                                <option value="">Select Category</option>
+                                <option value="">Pilih Kategori</option>
                                 @foreach ($categories as $category)
                                     <option value="{{ $category->id }}">{{ $category->name }}</option>
                                 @endforeach
                             </select>
                         </div>
                         <div class="mb-3">
-                            <label class="form-label">Code <span class="text-danger">*</span></label>
+                            <label class="form-label">Kode <span class="text-danger">*</span></label>
                             <input type="text" class="form-control" name="code" id="edit_code" required>
                         </div>
                         <div class="mb-3">
-                            <label class="form-label">Product Name <span class="text-danger">*</span></label>
+                            <label class="form-label">Nama Produk <span class="text-danger">*</span></label>
                             <input type="text" class="form-control" name="product_name" id="edit_product_name"
                                 required>
                         </div>
                         <div class="mb-3">
-                            <label class="form-label">Unit <span class="text-danger">*</span></label>
+                            <label class="form-label">Satuan <span class="text-danger">*</span></label>
                             <select class="form-select" name="unit" required>
-                                <option value="">Select Unit</option>
+                                <option value="">Pilih Satuan</option>
                                 <option value="PCS">PCS</option>
                                 <option value="GRAM">GRAM</option>
                                 <option value="KG">KG</option>
@@ -194,8 +194,8 @@
                         </div>
                     </div>
                     <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                        <button type="submit" class="btn btn-primary">Update</button>
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Tutup</button>
+                        <button type="submit" class="btn btn-primary">Perbarui</button>
                     </div>
                 </form>
             </div>
@@ -241,19 +241,19 @@
             // Initialize Choices.js for add form
             var addCategoryChoices = new Choices('#add-category-supplier', {
                 searchEnabled: true,
-                searchPlaceholderValue: "Search for a category",
+                searchPlaceholderValue: "Cari kategori",
                 itemSelectText: '',
                 placeholder: true,
-                placeholderValue: "Select a category"
+                placeholderValue: "Pilih kategori"
             });
 
             // Initialize Choices.js for edit form
             var editCategoryChoices = new Choices('#edit-category-supplier', {
                 searchEnabled: true,
-                searchPlaceholderValue: "Search for a category",
+                searchPlaceholderValue: "Cari kategori",
                 itemSelectText: '',
                 placeholder: true,
-                placeholderValue: "Select a category"
+                placeholderValue: "Pilih kategori"
             });
 
             // Initialize DataTable
@@ -317,7 +317,7 @@
                 dom: 'Bfrtip',
                 buttons: [{
                         extend: 'copy',
-                        text: '<i class="fas fa-copy"></i> Copy',
+                        text: '<i class="fas fa-copy"></i> Salin',
                         className: 'btn btn-secondary'
                     },
                     {
@@ -327,7 +327,7 @@
                     },
                     {
                         extend: 'print',
-                        text: '<i class="fas fa-print"></i> Print',
+                        text: '<i class="fas fa-print"></i> Cetak',
                         className: 'btn btn-info'
                     }
                 ]
@@ -384,7 +384,7 @@
 
                             // Show success message
                             Swal.fire({
-                                title: 'Success!',
+                                title: 'Berhasil!',
                                 text: data.message,
                                 icon: 'success',
                                 timer: 1500,
@@ -404,10 +404,10 @@
                             const errorMessages = Object.values(errors).flat();
 
                             Swal.fire({
-                                title: 'Please Check Your Input',
+                                title: 'Mohon Periksa Input Anda',
                                 html: errorMessages.join('<br>'),
                                 icon: 'warning',
-                                confirmButtonText: 'I\'ll Fix It',
+                                confirmButtonText: 'Saya Mengerti',
                                 confirmButtonColor: '#3085d6'
                             });
                         } else {
@@ -415,9 +415,9 @@
                             Swal.fire({
                                 title: 'Oops...',
                                 text: xhr.responseJSON?.message ||
-                                    'Something went wrong with the request.',
+                                    'Terjadi kesalahan pada permintaan.',
                                 icon: 'error',
-                                confirmButtonText: 'Try Again',
+                                confirmButtonText: 'Coba Lagi',
                                 confirmButtonColor: '#3085d6'
                             });
                         }
@@ -438,8 +438,8 @@
 
                 // Show loading state
                 Swal.fire({
-                    title: 'Loading...',
-                    text: 'Fetching supplier data',
+                    title: 'Memuat...',
+                    text: 'Mengambil data supplier',
                     allowOutsideClick: false,
                     showConfirmButton: false,
                     willOpen: () => {
@@ -507,7 +507,7 @@
                             Swal.fire({
                                 title: 'Error',
                                 text: response.message ||
-                                    'Failed to fetch supplier data',
+                                    'Gagal mengambil data supplier',
                                 icon: 'error'
                             });
                         }
@@ -520,7 +520,7 @@
                         });
                         Swal.fire({
                             title: 'Error',
-                            text: 'Failed to fetch supplier data. Please try again.',
+                            text: 'Gagal mengambil data supplier. Silahkan coba lagi.',
                             icon: 'error'
                         });
                     }
@@ -539,8 +539,8 @@
 
                 // Show loading state
                 Swal.fire({
-                    title: 'Updating...',
-                    text: 'Saving supplier data',
+                    title: 'Memperbarui...',
+                    text: 'Menyimpan data supplier',
                     allowOutsideClick: false,
                     showConfirmButton: false,
                     willOpen: () => {
@@ -572,7 +572,7 @@
 
                             // Show success message
                             Swal.fire({
-                                title: 'Success!',
+                                title: 'Berhasil!',
                                 text: data.message,
                                 icon: 'success',
                                 timer: 1500,
@@ -591,18 +591,18 @@
                             const errorMessages = Object.values(errors).flat();
 
                             Swal.fire({
-                                title: 'Please Check Your Input',
+                                title: 'Mohon Periksa Input Anda',
                                 html: errorMessages.join('<br>'),
                                 icon: 'warning',
-                                confirmButtonText: 'I\'ll Fix It',
+                                confirmButtonText: 'Saya Mengerti',
                                 confirmButtonColor: '#3085d6'
                             });
                         } else {
                             // Other errors
                             Swal.fire({
-                                title: 'Update Failed',
+                                title: 'Gagal Memperbarui',
                                 text: xhr.responseJSON?.message ||
-                                    'Could not update the supplier at this time.',
+                                    'Tidak dapat memperbarui supplier saat ini.',
                                 icon: 'error',
                                 confirmButtonText: 'OK',
                                 confirmButtonColor: '#3085d6'
@@ -619,14 +619,14 @@
             $(document).on('click', '.delete-btn', function() {
                 var id = $(this).data('id');
                 Swal.fire({
-                    title: 'Delete Confirmation',
-                    text: "Are you sure you want to remove this supplier? This action cannot be undone.",
+                    title: 'Konfirmasi Hapus',
+                    text: "Apakah Anda yakin ingin menghapus supplier ini? Tindakan ini tidak dapat dibatalkan.",
                     icon: 'warning',
                     showCancelButton: true,
                     confirmButtonColor: '#3085d6',
                     cancelButtonColor: '#d33',
-                    confirmButtonText: 'Yes, delete it!',
-                    cancelButtonText: 'No, keep it'
+                    confirmButtonText: 'Ya, Hapus!',
+                    cancelButtonText: 'Batal'
                 }).then((result) => {
                     if (result.isConfirmed) {
                         $.ajax({
@@ -639,7 +639,7 @@
                                 if (data.success) {
                                     table.ajax.reload();
                                     Swal.fire({
-                                        title: 'Deleted!',
+                                        title: 'Terhapus!',
                                         text: data.message,
                                         icon: 'success',
                                         timer: 1500,
@@ -651,9 +651,9 @@
                             },
                             error: function(xhr) {
                                 Swal.fire({
-                                    title: 'Delete Failed',
+                                    title: 'Gagal Menghapus',
                                     text: xhr.responseJSON?.message ||
-                                        'Could not delete the supplier at this time.',
+                                        'Tidak dapat menghapus supplier saat ini.',
                                     icon: 'error',
                                     confirmButtonText: 'OK',
                                     confirmButtonColor: '#3085d6'

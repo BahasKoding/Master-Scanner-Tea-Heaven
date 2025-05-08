@@ -3,7 +3,6 @@
 namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
-use App\Models\User;
 
 class DatabaseSeeder extends Seeder
 {
@@ -12,20 +11,12 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // Panggil AdminUserSeeder
+        // Call seeders in the right order
         $this->call([
-            RolesSeeder::class,       // Add the new RoleSeeder here
-            AdminUserSeeder::class,   // Your existing seeders
-            CategorySupplierSeeder::class, // Add CategorySupplierSeeder
-            // HistorySaleSeeder::class,
+            RolesSeeder::class,        // Create basic roles first
+            UserSeeder::class,         // Create users with their roles
+            CategorySupplierSeeder::class,
             SupplierSeeder::class,
         ]);
-
-        // Dapatkan user admin yang baru dibuat
-        $adminUser = User::where('email', 'admin@gmail.com')->first();
-
-        if (!$adminUser) {
-            throw new \Exception('Admin user not found. Make sure AdminUserSeeder is creating the user correctly.');
-        }
     }
 }

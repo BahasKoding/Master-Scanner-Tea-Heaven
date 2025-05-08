@@ -8,7 +8,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 use Spatie\Permission\Traits\HasRoles;
-use App\Models\Backend\SalesPerson;
+
 class User extends Authenticatable implements MustVerifyEmail
 {
     use HasFactory, HasRoles, Notifiable, HasApiTokens;
@@ -18,9 +18,6 @@ class User extends Authenticatable implements MustVerifyEmail
      *
      * @var array<int, string>
      */
-
-    use HasRoles;
-
     protected $fillable = [
         'name',
         'email',
@@ -57,10 +54,5 @@ class User extends Authenticatable implements MustVerifyEmail
         } else {
             $this->attributes['password'] = $password;
         }
-    }
-    
-    public function salesPerson()
-    {
-        return $this->hasOne(SalesPerson::class);
     }
 }

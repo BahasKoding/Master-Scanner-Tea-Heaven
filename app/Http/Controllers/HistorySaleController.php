@@ -11,10 +11,26 @@ class HistorySaleController extends Controller
     protected $item = 'History Sale';
 
     /**
+     * Constructor to apply permissions middleware
+     */
+    public function __construct()
+    {
+        $this->middleware('permission:Sales List', ['only' => ['index', 'data']]);
+        $this->middleware('permission:Sales Create', ['only' => ['create', 'store']]);
+        $this->middleware('permission:Sales Update', ['only' => ['edit', 'update']]);
+        $this->middleware('permission:Sales Delete', ['only' => ['destroy', 'forceDelete']]);
+        $this->middleware('permission:Sales View', ['only' => ['show']]);
+        $this->middleware('permission:Sales Report', ['only' => ['report', 'export']]);
+    }
+
+    /**
      * Display a listing of the resource.
      */
     public function index()
     {
+        // Log activity
+        addActivity('sales', 'view', 'Pengguna melihat daftar riwayat penjualan', null);
+
         return view('backend.sales.history')
             ->with('item', $this->item);
     }
@@ -24,6 +40,9 @@ class HistorySaleController extends Controller
      */
     public function create()
     {
+        // Log activity
+        addActivity('sales', 'view_create_form', 'Pengguna melihat form tambah penjualan', null);
+
         return view('backend.sales.history-create')
             ->with('item', $this->item);
     }
@@ -70,7 +89,7 @@ class HistorySaleController extends Controller
                     if (in_array($sku, $seenSkus)) {
                         return response()->json([
                             'status' => 'error',
-                            'message' => 'Duplicate SKU detected: ' . $sku
+                            'message' => 'Ditemukan SKU yang sama: ' . $sku
                         ], 422);
                     }
 
@@ -89,9 +108,12 @@ class HistorySaleController extends Controller
                 'qty' => $quantities,
             ]);
 
+            // Log activity
+            addActivity('sales', 'create', 'Pengguna membuat catatan penjualan dengan resi: ' . $noResi, $historySale->id);
+
             return response()->json([
                 'status' => 'success',
-                'message' => 'History Sale added successfully' . (count($skus) > 0 ? ' with ' . count($skus) . ' SKU(s)' : ''),
+                'message' => 'Riwayat penjualan berhasil ditambahkan' . (count($skus) > 0 ? ' dengan ' . count($skus) . ' SKU' : ''),
             ]);
         } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json([
@@ -101,7 +123,7 @@ class HistorySaleController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'status' => 'error',
-                'message' => 'An unexpected error occurred: ' . $e->getMessage()
+                'message' => 'Terjadi kesalahan: ' . $e->getMessage()
             ], 500);
         }
     }
@@ -111,6 +133,9 @@ class HistorySaleController extends Controller
      */
     public function show(HistorySale $historySale)
     {
+        // Log activity
+        addActivity('sales', 'view', 'Pengguna melihat detail penjualan dengan resi: ' . $historySale->no_resi, $historySale->id);
+
         return view('backend.sales.history-show', compact('historySale'))
             ->with('item', $this->item);
     }
@@ -127,6 +152,9 @@ class HistorySaleController extends Controller
             $historySale->no_sku = is_string($historySale->no_sku) ? json_decode($historySale->no_sku) : $historySale->no_sku;
             $historySale->qty = is_string($historySale->qty) ? json_decode($historySale->qty) : $historySale->qty;
 
+            // Log activity
+            addActivity('sales', 'edit', 'Pengguna melihat form edit untuk penjualan dengan resi: ' . $historySale->no_resi, $historySale->id);
+
             return response()->json([
                 'status' => 'success',
                 'data' => $historySale
@@ -134,7 +162,7 @@ class HistorySaleController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'status' => 'error',
-                'message' => 'Error loading history sale: ' . $e->getMessage()
+                'message' => 'Error saat memuat data riwayat penjualan: ' . $e->getMessage()
             ], 500);
         }
     }
@@ -146,6 +174,7 @@ class HistorySaleController extends Controller
     {
         try {
             $historySale = HistorySale::findOrFail($id);
+            $oldResi = $historySale->no_resi;
 
             $validatedData = $request->validate([
                 'no_resi' => 'required|string|unique:history_sales,no_resi,' . $id,
@@ -177,7 +206,7 @@ class HistorySaleController extends Controller
                     if (in_array($sku, $seenSkus)) {
                         return response()->json([
                             'status' => 'error',
-                            'message' => 'Duplicate SKU detected: ' . $sku
+                            'message' => 'Ditemukan SKU yang sama: ' . $sku
                         ], 422);
                     }
 
@@ -190,7 +219,7 @@ class HistorySaleController extends Controller
             if (empty($skus)) {
                 return response()->json([
                     'status' => 'error',
-                    'message' => 'At least one SKU is required'
+                    'message' => 'Minimal satu SKU diperlukan'
                 ], 422);
             }
 
@@ -200,14 +229,17 @@ class HistorySaleController extends Controller
                 'qty' => $quantities,
             ]);
 
+            // Log activity
+            addActivity('sales', 'update', 'Pengguna mengubah catatan penjualan dari resi: ' . $oldResi . ' menjadi ' . $noResi, $historySale->id);
+
             return response()->json([
                 'status' => 'success',
-                'message' => 'History Sale updated successfully'
+                'message' => 'Riwayat penjualan berhasil diperbarui'
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'status' => 'error',
-                'message' => 'An error occurred: ' . $e->getMessage()
+                'message' => 'Terjadi kesalahan: ' . $e->getMessage()
             ], 500);
         }
     }
@@ -219,16 +251,22 @@ class HistorySaleController extends Controller
     {
         try {
             $historySale = HistorySale::findOrFail($id);
+            $resiNumber = $historySale->no_resi;
+            $saleId = $historySale->id;
+
             $historySale->delete();
+
+            // Log activity
+            addActivity('sales', 'delete', 'Pengguna menghapus sementara catatan penjualan dengan resi: ' . $resiNumber, $saleId);
 
             return response()->json([
                 'status' => 'success',
-                'message' => 'History Sale deleted successfully'
+                'message' => 'Riwayat penjualan berhasil dihapus'
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'status' => 'error',
-                'message' => 'An error occurred: ' . $e->getMessage()
+                'message' => 'Terjadi kesalahan: ' . $e->getMessage()
             ], 500);
         }
     }
@@ -238,6 +276,9 @@ class HistorySaleController extends Controller
      */
     public function report()
     {
+        // Log activity
+        addActivity('sales', 'report', 'Pengguna melihat laporan penjualan', null);
+
         return view('backend.sales.report')
             ->with('item', $this->item);
     }
@@ -402,8 +443,8 @@ class HistorySaleController extends Controller
                 'DT_RowId' => 'row_error',
                 'no' => $counter,
                 'id' => $historySale->id ?? 'ERROR',
-                'no_resi' => $historySale->no_resi ?? 'Error loading data',
-                'no_sku' => 'Error: Could not load SKUs',
+                'no_resi' => $historySale->no_resi ?? 'Error saat memuat data',
+                'no_sku' => 'Error: Tidak dapat memuat SKU',
                 'qty' => 'Error',
                 'created_at' => $historySale->created_at ? $historySale->created_at->format('Y-m-d H:i:s') : '',
                 'updated_at' => $historySale->updated_at ? $historySale->updated_at->format('Y-m-d H:i:s') : '',
@@ -465,18 +506,23 @@ class HistorySaleController extends Controller
                         $skuQtyPairs = [];
                         foreach ($skus as $index => $sku) {
                             $qty = $quantities[$index] ?? 1;
-                            $skuQtyPairs[] = $sku . ' (Qty: ' . $qty . ')';
+                            $skuQtyPairs[] = $sku . ' (Jumlah: ' . $qty . ')';
                         }
 
                         $data[] = [
                             'ID' => $historySale->id,
                             'No Resi' => $historySale->no_resi,
-                            'SKU & Qty' => implode(', ', $skuQtyPairs),
-                            'Created At' => $historySale->created_at->format('Y-m-d H:i:s'),
-                            'Updated At' => $historySale->updated_at->format('Y-m-d H:i:s'),
+                            'SKU & Jumlah' => implode(', ', $skuQtyPairs),
+                            'Dibuat Pada' => $historySale->created_at->format('Y-m-d H:i:s'),
+                            'Diperbarui Pada' => $historySale->updated_at->format('Y-m-d H:i:s'),
                         ];
                     }
                 });
+
+            // Log activity
+            addActivity('sales', 'export', 'Pengguna mengekspor data penjualan' .
+                ($request->filled('start_date') && $request->filled('end_date') ?
+                    ' dari ' . $request->input('start_date') . ' sampai ' . $request->input('end_date') : ''), null);
 
             return response()->json([
                 'status' => 'success',
@@ -485,7 +531,7 @@ class HistorySaleController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'status' => 'error',
-                'message' => 'An error occurred while exporting data: ' . $e->getMessage()
+                'message' => 'Terjadi kesalahan saat mengekspor data: ' . $e->getMessage()
             ], 500);
         }
     }
@@ -502,7 +548,7 @@ class HistorySaleController extends Controller
             if (empty($noResi)) {
                 return response()->json([
                     'valid' => false,
-                    'message' => 'No Resi is required'
+                    'message' => 'No Resi harus diisi'
                 ], 422);
             }
 
@@ -512,19 +558,19 @@ class HistorySaleController extends Controller
 
                 return response()->json([
                     'valid' => !$exists,
-                    'message' => $exists ? 'No Resi already exists' : 'No Resi is valid'
+                    'message' => $exists ? 'No Resi sudah ada dalam sistem' : 'No Resi valid'
                 ]);
             }
 
             // If duplicates are allowed, always return valid
             return response()->json([
                 'valid' => true,
-                'message' => 'No Resi is valid (duplicates allowed)'
+                'message' => 'No Resi valid (duplikat diperbolehkan)'
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'valid' => false,
-                'message' => 'Validation error: ' . $e->getMessage()
+                'message' => 'Error validasi: ' . $e->getMessage()
             ], 500);
         }
     }
@@ -536,16 +582,21 @@ class HistorySaleController extends Controller
     {
         try {
             $historySale = HistorySale::withTrashed()->findOrFail($id);
+            $resiNumber = $historySale->no_resi;
+
             $historySale->restore();
+
+            // Log activity
+            addActivity('sales', 'restore', 'Pengguna memulihkan catatan penjualan yang terhapus dengan resi: ' . $resiNumber, $id);
 
             return response()->json([
                 'status' => 'success',
-                'message' => 'History Sale restored successfully'
+                'message' => 'Riwayat penjualan berhasil dipulihkan'
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'status' => 'error',
-                'message' => 'An error occurred: ' . $e->getMessage()
+                'message' => 'Terjadi kesalahan: ' . $e->getMessage()
             ], 500);
         }
     }
@@ -557,16 +608,21 @@ class HistorySaleController extends Controller
     {
         try {
             $historySale = HistorySale::withTrashed()->findOrFail($id);
+            $resiNumber = $historySale->no_resi;
+
             $historySale->forceDelete();
+
+            // Log activity
+            addActivity('sales', 'permanent_delete', 'Pengguna menghapus permanen catatan penjualan dengan resi: ' . $resiNumber, $id);
 
             return response()->json([
                 'status' => 'success',
-                'message' => 'History Sale permanently deleted'
+                'message' => 'Riwayat penjualan berhasil dihapus permanen'
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'status' => 'error',
-                'message' => 'An error occurred: ' . $e->getMessage()
+                'message' => 'Terjadi kesalahan: ' . $e->getMessage()
             ], 500);
         }
     }

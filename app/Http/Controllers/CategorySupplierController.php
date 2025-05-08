@@ -7,19 +7,32 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Yajra\DataTables\Facades\DataTables;
 use Illuminate\Validation\ValidationException;
+use Illuminate\Support\Facades\Auth;
 
 class CategorySupplierController extends Controller
 {
+    /**
+     * Constructor to apply permissions middleware
+     */
+    public function __construct()
+    {
+        $this->middleware('permission:Category Suppliers List', ['only' => ['index']]);
+        $this->middleware('permission:Category Suppliers Create', ['only' => ['store']]);
+        $this->middleware('permission:Category Suppliers Update', ['only' => ['edit', 'update']]);
+        $this->middleware('permission:Category Suppliers Delete', ['only' => ['destroy']]);
+        $this->middleware('permission:Category Suppliers View', ['only' => ['show']]);
+    }
+
     /**
      * Custom validation messages
      */
     private function getValidationMessages()
     {
         return [
-            'name.required' => 'Please enter the category name',
-            'name.string' => 'Category name must be text',
-            'name.max' => 'Category name is too long (maximum is 255 characters)',
-            'name.unique' => 'This category name is already in use. Please use a different name',
+            'name.required' => 'Silahkan masukkan nama kategori',
+            'name.string' => 'Nama kategori harus berupa teks',
+            'name.max' => 'Nama kategori terlalu panjang (maksimal 255 karakter)',
+            'name.unique' => 'Nama kategori ini sudah digunakan. Silahkan gunakan nama yang berbeda',
         ];
     }
 
@@ -65,8 +78,11 @@ class CategorySupplierController extends Controller
 
         // Get initial data for the view with pagination
         $items = [
-            'Category Supplier List' => route('category-suppliers.index'),
+            'Daftar Kategori Supplier' => route('category-suppliers.index'),
         ];
+
+        // Log activity
+        addActivity('category_supplier', 'view', 'Pengguna melihat daftar kategori supplier', null);
 
         return view('category-supplier.index', compact('items'));
     }
@@ -83,21 +99,24 @@ class CategorySupplierController extends Controller
 
             $categorySupplier = CategorySupplier::create($validated);
 
+            // Log activity
+            addActivity('category_supplier', 'create', 'Pengguna membuat kategori supplier baru: ' . $categorySupplier->name, $categorySupplier->id);
+
             return response()->json([
                 'success' => true,
-                'message' => 'Great! The category has been successfully added to the system.',
+                'message' => 'Berhasil! Kategori telah ditambahkan ke dalam sistem.',
                 'data' => $categorySupplier
             ]);
         } catch (ValidationException $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Validation Error',
+                'message' => 'Terjadi Kesalahan',
                 'errors' => $e->errors()
             ], 422);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Oops! Something went wrong while adding the category. Please try again.'
+                'message' => 'Maaf! Terjadi kesalahan saat menambahkan kategori. Silahkan coba lagi.'
             ], 500);
         }
     }
@@ -108,18 +127,21 @@ class CategorySupplierController extends Controller
     public function edit(CategorySupplier $categorySupplier)
     {
         try {
-            Log::info('Edit category supplier request received', ['categorySupplier' => $categorySupplier->toArray()]);
+            Log::info('Permintaan edit kategori supplier diterima', ['categorySupplier' => $categorySupplier->toArray()]);
+
+            // Log activity
+            addActivity('category_supplier', 'edit', 'Pengguna melihat form edit kategori supplier: ' . $categorySupplier->name, $categorySupplier->id);
 
             return response()->json([
                 'success' => true,
                 'data' => $categorySupplier
             ]);
         } catch (\Exception $e) {
-            Log::error('Error in edit category supplier', ['error' => $e->getMessage()]);
+            Log::error('Error pada edit kategori supplier', ['error' => $e->getMessage()]);
 
             return response()->json([
                 'success' => false,
-                'message' => 'Sorry! We could not find the category information. Please refresh and try again.'
+                'message' => 'Maaf! Kami tidak dapat menemukan informasi kategori. Silahkan muat ulang dan coba lagi.'
             ], 500);
         }
     }
@@ -134,23 +156,27 @@ class CategorySupplierController extends Controller
                 'name' => 'required|string|max:255|unique:category_suppliers,name,' . $categorySupplier->id,
             ], $this->getValidationMessages());
 
+            $oldName = $categorySupplier->name;
             $categorySupplier->update($validated);
+
+            // Log activity
+            addActivity('category_supplier', 'update', 'Pengguna mengubah kategori supplier dari "' . $oldName . '" menjadi "' . $categorySupplier->name . '"', $categorySupplier->id);
 
             return response()->json([
                 'success' => true,
-                'message' => 'Perfect! The category information has been successfully updated.',
+                'message' => 'Berhasil! Informasi kategori telah diperbarui.',
                 'data' => $categorySupplier
             ]);
         } catch (ValidationException $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Validation Error',
+                'message' => 'Terjadi Kesalahan',
                 'errors' => $e->errors()
             ], 422);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Oops! Something went wrong while updating the category. Please try again.'
+                'message' => 'Maaf! Terjadi kesalahan saat memperbarui kategori. Silahkan coba lagi.'
             ], 500);
         }
     }
@@ -161,16 +187,80 @@ class CategorySupplierController extends Controller
     public function destroy(CategorySupplier $categorySupplier)
     {
         try {
+            $categoryName = $categorySupplier->name;
+            $categoryId = $categorySupplier->id;
+
+            // Check if this category is being used by any suppliers using the relationship
+            $suppliersCount = $categorySupplier->suppliers()->count();
+
+            if ($suppliersCount > 0) {
+                // Get supplier names to show in the error message
+                $suppliers = $categorySupplier->suppliers()
+                    ->select('product_name')
+                    ->take(3)
+                    ->get()
+                    ->pluck('product_name')
+                    ->toArray();
+
+                $supplierNames = count($suppliers) > 0
+                    ? '"' . implode('", "', $suppliers) . '"' . (count($suppliers) < $suppliersCount ? ' dan ' . ($suppliersCount - count($suppliers)) . ' lainnya' : '')
+                    : '';
+
+                // Category is in use, prevent deletion
+                // Log activity
+                addActivity('category_supplier', 'delete_failed', 'Pengguna mencoba menghapus kategori supplier yang sedang digunakan: ' . $categoryName, $categoryId);
+
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Kategori ini tidak dapat dihapus karena sedang digunakan oleh ' . $suppliersCount . ' supplier' . ($suppliersCount > 1 ? '' : '') .
+                        ($supplierNames ? ' termasuk: ' . $supplierNames : '') . '. Silahkan ubah kategori atau hapus supplier tersebut terlebih dahulu.',
+                    'suppliers_count' => $suppliersCount
+                ], 422);
+            }
+
             $categorySupplier->delete();
+
+            // Log activity
+            addActivity('category_supplier', 'delete', 'Pengguna menghapus kategori supplier: ' . $categoryName, $categoryId);
 
             return response()->json([
                 'success' => true,
-                'message' => 'The category has been successfully removed from the system.'
+                'message' => 'Kategori telah berhasil dihapus dari sistem.'
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Sorry! We could not delete the category at this time. Please try again.'
+                'message' => 'Maaf! Kami tidak dapat menghapus kategori saat ini. Silahkan coba lagi.'
+            ], 500);
+        }
+    }
+
+    /**
+     * List all suppliers for a specific category
+     */
+    public function listSuppliers(CategorySupplier $categorySupplier)
+    {
+        try {
+            // Get all suppliers for this category with pagination
+            $suppliers = $categorySupplier->suppliers()
+                ->select(['id', 'code', 'product_name', 'unit'])
+                ->orderBy('product_name')
+                ->paginate(15);
+
+            // Log activity
+            addActivity('category_supplier', 'list_suppliers', 'Pengguna melihat supplier untuk kategori: ' . $categorySupplier->name, $categorySupplier->id);
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'category' => $categorySupplier->name,
+                    'suppliers' => $suppliers
+                ]
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal mengambil data supplier: ' . $e->getMessage()
             ], 500);
         }
     }

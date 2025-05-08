@@ -229,11 +229,11 @@
                                 <li><a class="dropdown-item" href="#" data-filter="create">Creation</a></li>
                             </ul>
                         </div>
-                        <div class="dropdown">
-                            <a class="avtar avtar-xs btn-link-secondary dropdown-toggle arrow-none" href="#"
-                                data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false"><i
-                                    class="material-icons-two-tone f-18">more_vert</i></a>
-                            <div class="dropdown-menu dropdown-menu-end">
+                    <div class="dropdown">
+                        <a class="avtar avtar-xs btn-link-secondary dropdown-toggle arrow-none" href="#"
+                            data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false"><i
+                                class="material-icons-two-tone f-18">more_vert</i></a>
+                        <div class="dropdown-menu dropdown-menu-end">
                                 <a class="dropdown-item" href="#">View All</a>
                                 <a class="dropdown-item" href="#">Export</a>
                             </div>
@@ -246,10 +246,10 @@
                             @php
                                 $activities = App\Models\Backend\Activity::with('user')
                                     ->orderBy('created_at', 'desc')
-                                    ->take(5)
-                                    ->get();
-                            @endphp
-                            @foreach ($activities as $activity)
+                                        ->take(5)
+                                        ->get();
+                                @endphp
+                                @foreach ($activities as $activity)
                                 @php
                                     // Determine icon class based on activity category/action
                                     $categoryIcon = 'bolt';
@@ -318,13 +318,13 @@
                                                 <h6 class="mb-0">
                                                     @if ($activity->user && !empty($activity->user->name))
                                                         {{ $activity->user->name }}
-                                                    @else
-                                                        <span class="text-danger">User deleted</span>
-                                                    @endif
+                                                        @else
+                                                            <span class="text-danger">User deleted</span>
+                                                        @endif
                                                     <span
                                                         class="badge {{ $categoryBg }} {{ $categoryColor }} ms-2 activity-badge">{{ ucfirst($filterCategory) }}</span>
-                                                </h6>
-                                            </div>
+                                                    </h6>
+                                                </div>
                                             <div class="d-flex align-items-center">
                                                 <span class="text-muted me-2 d-none d-md-inline"
                                                     title="{{ $activityDate }} at {{ $activityTime }}">{{ $activityDate }}</span>
@@ -346,7 +346,7 @@
                                         </div>
                                     </div>
                                 </div>
-                            @endforeach
+                                @endforeach
                         </div>
                         <div class="text-center mt-3">
                             <button id="load-more" class="btn btn-primary px-4 py-2" data-skip="5">
@@ -369,12 +369,12 @@
                             <option value="week">This Week</option>
                             <option value="month">This Month</option>
                         </select>
-                        <div class="dropdown">
-                            <a class="avtar avtar-xs btn-link-secondary dropdown-toggle arrow-none" href="#"
-                                data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false"><i
-                                    class="material-icons-two-tone f-18">more_vert</i></a>
-                            <div class="dropdown-menu dropdown-menu-end">
-                                <a class="dropdown-item" href="{{ route('activity') }}">View All</a>
+                    <div class="dropdown">
+                        <a class="avtar avtar-xs btn-link-secondary dropdown-toggle arrow-none" href="#"
+                            data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false"><i
+                                class="material-icons-two-tone f-18">more_vert</i></a>
+                        <div class="dropdown-menu dropdown-menu-end">
+                            <a class="dropdown-item" href="{{ route('activity') }}">View All</a>
                                 <a class="dropdown-item" href="#">Export</a>
                             </div>
                         </div>
@@ -411,14 +411,14 @@
                         @php
                             $authActivities = App\Models\Backend\Activity::with('user')
                                 ->where('category', 'auth')
-                                ->orderBy('created_at', 'desc')
-                                ->take(5)
-                                ->get();
-                        @endphp
-                        @foreach ($authActivities as $activity)
+                                        ->orderBy('created_at', 'desc')
+                                        ->take(5)
+                                        ->get();
+                                @endphp
+                                @foreach ($authActivities as $activity)
                             @php
-                                $iconClass = $activity->action == 'login' ? 'text-success' : 'text-danger';
-                                $icon = $activity->action == 'login' ? 'login' : 'logout';
+                                    $iconClass = $activity->action == 'login' ? 'text-success' : 'text-danger';
+                                    $icon = $activity->action == 'login' ? 'login' : 'logout';
                                 $bgClass = $activity->action == 'login' ? 'bg-light-success' : 'bg-light-danger';
 
                                 // Format date in more readable way
@@ -456,12 +456,12 @@
                                         <h6 class="mb-0 d-flex align-items-center">
                                             @if ($activity->user && !empty($activity->user->name))
                                                 {{ $activity->user->name }}
-                                            @else
-                                                <span class="text-danger">User deleted</span>
-                                            @endif
+                                                        @else
+                                                            <span class="text-danger">User deleted</span>
+                                                        @endif
                                             <span
                                                 class="badge {{ $bgClass }} {{ $iconClass }} ms-2 text-uppercase">{{ $activity->action }}</span>
-                                        </h6>
+                                                    </h6>
                                         <small class="text-muted badge bg-light">{{ $activityDay }}</small>
                                     </div>
                                     <p class="mb-0 text-muted">{{ $activity->note }}</p>
@@ -482,9 +482,9 @@
                                             </small>
                                         </div>
                                     </div>
-                                </div>
-                            </div>
-                        @endforeach
+                                                </div>
+                                            </div>
+                                @endforeach
                     </div>
                     <div class="text-center mt-3">
                         <button id="load-more-auth" class="btn btn-primary btn-sm px-3 py-2" data-skip="5">
@@ -783,7 +783,7 @@
                             } else {
                                 $(loadMoreButton).html('No More Activities');
                                 setTimeout(() => {
-                                    loadMoreButton.style.display = 'none';
+                                loadMoreButton.style.display = 'none';
                                 }, 2000);
                             }
                         },
@@ -919,7 +919,7 @@
                             } else {
                                 $(loadMoreAuthButton).html('No More Activities');
                                 setTimeout(() => {
-                                    loadMoreAuthButton.style.display = 'none';
+                                loadMoreAuthButton.style.display = 'none';
                                 }, 2000);
                             }
                         },

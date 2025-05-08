@@ -1,7 +1,7 @@
 @extends('layouts.main')
 
-@section('title', 'Category Supplier Management')
-@section('breadcrumb-item', 'Category Supplier')
+@section('title', 'Manajemen Kategori Supplier')
+@section('breadcrumb-item', 'Kategori Supplier')
 
 @section('css')
     <!-- CSRF Token -->
@@ -30,10 +30,10 @@
             <div class="card">
                 <div class="card-header">
                     <div class="d-flex justify-content-between align-items-center">
-                        <h5>Category Supplier List</h5>
+                        <h5>Daftar Kategori Supplier</h5>
                         <button type="button" class="btn btn-primary" data-bs-toggle="modal"
                             data-bs-target="#addCategorySupplierModal">
-                            <i class="fas fa-plus"></i> Add New Category
+                            <i class="fas fa-plus"></i> Tambah Kategori Baru
                         </button>
                     </div>
                 </div>
@@ -43,9 +43,8 @@
                             <thead>
                                 <tr>
                                     <th>No</th>
-                                    <th>Name</th>
-                                    <th>Created At</th>
-                                    <th>Actions</th>
+                                    <th>Nama</th>
+                                    <th>Aksi</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -65,21 +64,21 @@
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">Add New Category</h5>
+                    <h5 class="modal-title">Tambah Kategori Baru</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <form id="addCategorySupplierForm">
                     @csrf
                     <div class="modal-body">
                         <div class="mb-3">
-                            <label class="form-label">Name <span class="text-danger">*</span></label>
+                            <label class="form-label">Nama <span class="text-danger">*</span></label>
                             <input type="text" class="form-control" name="name" required>
                         </div>
                     </div>
                     <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                        <button type="button" class="btn btn-info" id="saveAndAddMore">Save & Add More</button>
-                        <button type="submit" class="btn btn-primary">Save</button>
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Tutup</button>
+                        <button type="button" class="btn btn-info" id="saveAndAddMore">Simpan & Tambah Lagi</button>
+                        <button type="submit" class="btn btn-primary">Simpan</button>
                     </div>
                 </form>
             </div>
@@ -91,7 +90,7 @@
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">Edit Category</h5>
+                    <h5 class="modal-title">Edit Kategori</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <form id="editCategorySupplierForm">
@@ -100,15 +99,56 @@
                     <input type="hidden" id="edit_category_supplier_id">
                     <div class="modal-body">
                         <div class="mb-3">
-                            <label class="form-label">Name <span class="text-danger">*</span></label>
+                            <label class="form-label">Nama <span class="text-danger">*</span></label>
                             <input type="text" class="form-control" name="name" id="edit_name" required>
                         </div>
                     </div>
                     <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                        <button type="submit" class="btn btn-primary">Update</button>
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Tutup</button>
+                        <button type="submit" class="btn btn-primary">Perbarui</button>
                     </div>
                 </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- View Suppliers Modal -->
+    <div class="modal fade" id="viewSuppliersModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Daftar Supplier - Kategori: <span id="supplierCategoryName"></span></h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i> Berikut adalah daftar supplier yang menggunakan kategori ini.
+                        Untuk
+                        menghapus kategori ini, Anda harus mengubah kategori atau menghapus supplier-supplier ini terlebih
+                        dahulu melalui menu Supplier.
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-striped table-bordered">
+                            <thead>
+                                <tr>
+                                    <th>Kode</th>
+                                    <th>Nama Produk</th>
+                                    <th>Satuan</th>
+                                </tr>
+                            </thead>
+                            <tbody id="suppliersList">
+                                <!-- Suppliers will be loaded here -->
+                            </tbody>
+                        </table>
+                    </div>
+                    <div id="paginationLinks" class="mt-3">
+                        <!-- Pagination links will be placed here -->
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <a href="{{ route('suppliers.index') }}" class="btn btn-primary">Ke Halaman Supplier</a>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Tutup</button>
+                </div>
             </div>
         </div>
     </div>
@@ -154,10 +194,6 @@
                         name: 'name'
                     },
                     {
-                        data: 'created_at',
-                        name: 'created_at'
-                    },
-                    {
                         data: 'action',
                         name: 'action',
                         orderable: false,
@@ -166,6 +202,9 @@
                             return `
                                 <button type="button" class="btn btn-sm btn-warning edit-btn" data-id="${row.id}">
                                     <i class="fas fa-edit"></i>
+                                </button>
+                                <button type="button" class="btn btn-sm btn-info view-suppliers-btn" data-id="${row.id}" data-name="${row.name}">
+                                    <i class="fas fa-list"></i>
                                 </button>
                                 <button type="button" class="btn btn-sm btn-danger delete-btn" data-id="${row.id}">
                                     <i class="fas fa-trash"></i>
@@ -181,7 +220,7 @@
                 dom: 'Bfrtip',
                 buttons: [{
                         extend: 'copy',
-                        text: '<i class="fas fa-copy"></i> Copy',
+                        text: '<i class="fas fa-copy"></i> Salin',
                         className: 'btn btn-secondary'
                     },
                     {
@@ -191,7 +230,7 @@
                     },
                     {
                         extend: 'print',
-                        text: '<i class="fas fa-print"></i> Print',
+                        text: '<i class="fas fa-print"></i> Cetak',
                         className: 'btn btn-info'
                     }
                 ]
@@ -225,7 +264,7 @@
 
                             // Show success message
                             Swal.fire({
-                                title: 'Success!',
+                                title: 'Berhasil!',
                                 text: data.message,
                                 icon: 'success',
                                 timer: 1500,
@@ -248,10 +287,10 @@
                             const errorMessages = Object.values(errors).flat();
 
                             Swal.fire({
-                                title: 'Please Check Your Input',
+                                title: 'Mohon Periksa Input Anda',
                                 html: errorMessages.join('<br>'),
                                 icon: 'warning',
-                                confirmButtonText: 'I\'ll Fix It',
+                                confirmButtonText: 'Saya Mengerti',
                                 confirmButtonColor: '#3085d6'
                             });
                         } else {
@@ -259,9 +298,9 @@
                             Swal.fire({
                                 title: 'Oops...',
                                 text: xhr.responseJSON?.message ||
-                                    'Something went wrong with the request.',
+                                    'Terjadi kesalahan pada permintaan.',
                                 icon: 'error',
-                                confirmButtonText: 'Try Again',
+                                confirmButtonText: 'Coba Lagi',
                                 confirmButtonColor: '#3085d6'
                             });
                         }
@@ -304,7 +343,7 @@
 
                             // Show success message
                             Swal.fire({
-                                title: 'Success!',
+                                title: 'Berhasil!',
                                 text: data.message,
                                 icon: 'success',
                                 timer: 1500,
@@ -324,10 +363,10 @@
                             const errorMessages = Object.values(errors).flat();
 
                             Swal.fire({
-                                title: 'Please Check Your Input',
+                                title: 'Mohon Periksa Input Anda',
                                 html: errorMessages.join('<br>'),
                                 icon: 'warning',
-                                confirmButtonText: 'I\'ll Fix It',
+                                confirmButtonText: 'Saya Mengerti',
                                 confirmButtonColor: '#3085d6'
                             });
                         } else {
@@ -335,9 +374,9 @@
                             Swal.fire({
                                 title: 'Oops...',
                                 text: xhr.responseJSON?.message ||
-                                    'Something went wrong with the request.',
+                                    'Terjadi kesalahan pada permintaan.',
                                 icon: 'error',
-                                confirmButtonText: 'Try Again',
+                                confirmButtonText: 'Coba Lagi',
                                 confirmButtonColor: '#3085d6'
                             });
                         }
@@ -375,8 +414,8 @@
 
                 // Show loading state
                 Swal.fire({
-                    title: 'Loading...',
-                    text: 'Fetching category data',
+                    title: 'Memuat...',
+                    text: 'Mengambil data kategori',
                     allowOutsideClick: false,
                     showConfirmButton: false,
                     willOpen: () => {
@@ -416,7 +455,7 @@
                             Swal.fire({
                                 title: 'Error',
                                 text: response.message ||
-                                    'Failed to fetch category data',
+                                    'Gagal mengambil data kategori',
                                 icon: 'error'
                             });
                         }
@@ -429,7 +468,7 @@
                         });
                         Swal.fire({
                             title: 'Error',
-                            text: 'Failed to fetch category data. Please try again.',
+                            text: 'Gagal mengambil data kategori. Silahkan coba lagi.',
                             icon: 'error'
                         });
                     }
@@ -448,8 +487,8 @@
 
                 // Show loading state
                 Swal.fire({
-                    title: 'Updating...',
-                    text: 'Saving category data',
+                    title: 'Memperbarui...',
+                    text: 'Menyimpan data kategori',
                     allowOutsideClick: false,
                     showConfirmButton: false,
                     willOpen: () => {
@@ -480,7 +519,7 @@
 
                             // Show success message
                             Swal.fire({
-                                title: 'Success!',
+                                title: 'Berhasil!',
                                 text: data.message,
                                 icon: 'success',
                                 timer: 1500,
@@ -499,18 +538,18 @@
                             const errorMessages = Object.values(errors).flat();
 
                             Swal.fire({
-                                title: 'Please Check Your Input',
+                                title: 'Mohon Periksa Input Anda',
                                 html: errorMessages.join('<br>'),
                                 icon: 'warning',
-                                confirmButtonText: 'I\'ll Fix It',
+                                confirmButtonText: 'Saya Mengerti',
                                 confirmButtonColor: '#3085d6'
                             });
                         } else {
                             // Other errors
                             Swal.fire({
-                                title: 'Update Failed',
+                                title: 'Gagal Memperbarui',
                                 text: xhr.responseJSON?.message ||
-                                    'Could not update the category at this time.',
+                                    'Tidak dapat memperbarui kategori saat ini.',
                                 icon: 'error',
                                 confirmButtonText: 'OK',
                                 confirmButtonColor: '#3085d6'
@@ -523,18 +562,139 @@
                 });
             });
 
+            // View Suppliers Button Click
+            $(document).on('click', '.view-suppliers-btn', function() {
+                var id = $(this).data('id');
+                var categoryName = $(this).data('name');
+
+                // Set category name in modal
+                $('#supplierCategoryName').text(categoryName);
+
+                // Show loading state
+                $('#suppliersList').html(
+                    '<tr><td colspan="3" class="text-center"><i class="fas fa-spinner fa-spin"></i> Memuat data supplier...</td></tr>'
+                );
+                $('#paginationLinks').html('');
+
+                // Show the modal
+                $('#viewSuppliersModal').modal('show');
+
+                // Fetch suppliers data
+                loadSuppliers(id);
+            });
+
+            // Function to load suppliers for a category
+            function loadSuppliers(categoryId, page = 1) {
+                $.ajax({
+                    url: `/category-suppliers/${categoryId}/suppliers`,
+                    method: 'GET',
+                    data: {
+                        page: page
+                    },
+                    success: function(response) {
+                        if (response.success) {
+                            const data = response.data;
+                            const suppliers = data.suppliers.data;
+
+                            // Clear the suppliers list
+                            $('#suppliersList').empty();
+
+                            if (suppliers.length > 0) {
+                                // Populate the table with suppliers
+                                suppliers.forEach(function(supplier) {
+                                    $('#suppliersList').append(`
+                                        <tr>
+                                            <td>${supplier.code}</td>
+                                            <td>${supplier.product_name}</td>
+                                            <td>${supplier.unit}</td>
+                                        </tr>
+                                    `);
+                                });
+
+                                // Create pagination links
+                                renderPagination(data.suppliers, categoryId);
+                            } else {
+                                $('#suppliersList').html(
+                                    '<tr><td colspan="3" class="text-center">Tidak ada supplier dalam kategori ini.</td></tr>'
+                                );
+                            }
+                        } else {
+                            $('#suppliersList').html(
+                                '<tr><td colspan="3" class="text-center text-danger">Error saat memuat data supplier. Silahkan coba lagi.</td></tr>'
+                            );
+                        }
+                    },
+                    error: function() {
+                        $('#suppliersList').html(
+                            '<tr><td colspan="3" class="text-center text-danger">Gagal memuat data supplier. Silahkan coba lagi nanti.</td></tr>'
+                        );
+                    }
+                });
+            }
+
+            // Function to render pagination links
+            function renderPagination(paginationData, categoryId) {
+                if (!paginationData.last_page || paginationData.last_page <= 1) {
+                    $('#paginationLinks').html('');
+                    return;
+                }
+
+                let links = '<ul class="pagination justify-content-center">';
+
+                // Previous page link
+                if (paginationData.current_page > 1) {
+                    links += `<li class="page-item">
+                        <a class="page-link" href="#" data-page="${paginationData.current_page - 1}" data-category="${categoryId}">Sebelumnya</a>
+                    </li>`;
+                } else {
+                    links += '<li class="page-item disabled"><span class="page-link">Sebelumnya</span></li>';
+                }
+
+                // Page number links
+                for (let i = 1; i <= paginationData.last_page; i++) {
+                    if (i === paginationData.current_page) {
+                        links += `<li class="page-item active"><span class="page-link">${i}</span></li>`;
+                    } else {
+                        links += `<li class="page-item">
+                            <a class="page-link" href="#" data-page="${i}" data-category="${categoryId}">${i}</a>
+                        </li>`;
+                    }
+                }
+
+                // Next page link
+                if (paginationData.current_page < paginationData.last_page) {
+                    links += `<li class="page-item">
+                        <a class="page-link" href="#" data-page="${paginationData.current_page + 1}" data-category="${categoryId}">Selanjutnya</a>
+                    </li>`;
+                } else {
+                    links += '<li class="page-item disabled"><span class="page-link">Selanjutnya</span></li>';
+                }
+
+                links += '</ul>';
+
+                $('#paginationLinks').html(links);
+
+                // Add click handlers for pagination links
+                $('#paginationLinks').on('click', '.page-link', function(e) {
+                    e.preventDefault();
+                    const page = $(this).data('page');
+                    const categoryId = $(this).data('category');
+                    loadSuppliers(categoryId, page);
+                });
+            }
+
             // Delete Button Click
             $(document).on('click', '.delete-btn', function() {
                 var id = $(this).data('id');
                 Swal.fire({
-                    title: 'Delete Confirmation',
-                    text: "Are you sure you want to remove this category? This action cannot be undone.",
+                    title: 'Konfirmasi Hapus',
+                    text: "Apakah Anda yakin ingin menghapus kategori ini? Tindakan ini tidak dapat dibatalkan.",
                     icon: 'warning',
                     showCancelButton: true,
                     confirmButtonColor: '#3085d6',
                     cancelButtonColor: '#d33',
-                    confirmButtonText: 'Yes, delete it!',
-                    cancelButtonText: 'No, keep it'
+                    confirmButtonText: 'Ya, Hapus!',
+                    cancelButtonText: 'Batal'
                 }).then((result) => {
                     if (result.isConfirmed) {
                         $.ajax({
@@ -547,7 +707,7 @@
                                 if (data.success) {
                                     table.ajax.reload();
                                     Swal.fire({
-                                        title: 'Deleted!',
+                                        title: 'Terhapus!',
                                         text: data.message,
                                         icon: 'success',
                                         timer: 1500,
@@ -558,14 +718,36 @@
                                 }
                             },
                             error: function(xhr) {
-                                Swal.fire({
-                                    title: 'Delete Failed',
-                                    text: xhr.responseJSON?.message ||
-                                        'Could not delete the category at this time.',
-                                    icon: 'error',
-                                    confirmButtonText: 'OK',
-                                    confirmButtonColor: '#3085d6'
-                                });
+                                if (xhr.status === 422 && xhr.responseJSON
+                                    ?.suppliers_count > 0) {
+                                    // Special handling for category in use
+                                    Swal.fire({
+                                        title: 'Tidak Dapat Menghapus Kategori',
+                                        html: xhr.responseJSON.message +
+                                            '<br><br>Silahkan pergi ke menu Supplier dan ubah kategori atau hapus supplier terkait terlebih dahulu.',
+                                        icon: 'warning',
+                                        showCancelButton: true,
+                                        confirmButtonColor: '#3085d6',
+                                        cancelButtonColor: '#d33',
+                                        confirmButtonText: 'Ke Halaman Supplier',
+                                        cancelButtonText: 'Tutup'
+                                    }).then((result) => {
+                                        if (result.isConfirmed) {
+                                            window.location.href =
+                                                "{{ route('suppliers.index') }}";
+                                        }
+                                    });
+                                } else {
+                                    // General error handling
+                                    Swal.fire({
+                                        title: 'Gagal Menghapus',
+                                        text: xhr.responseJSON?.message ||
+                                            'Tidak dapat menghapus kategori saat ini.',
+                                        icon: 'error',
+                                        confirmButtonText: 'OK',
+                                        confirmButtonColor: '#3085d6'
+                                    });
+                                }
                             }
                         });
                     }

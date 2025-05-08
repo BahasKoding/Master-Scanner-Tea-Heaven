@@ -8,30 +8,43 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Yajra\DataTables\Facades\DataTables;
 use Illuminate\Validation\ValidationException;
+use Illuminate\Support\Facades\Auth;
 
 class SupplierController extends Controller
 {
+    /**
+     * Constructor to apply permissions middleware
+     */
+    public function __construct()
+    {
+        $this->middleware('permission:Suppliers List', ['only' => ['index']]);
+        $this->middleware('permission:Suppliers Create', ['only' => ['store']]);
+        $this->middleware('permission:Suppliers Update', ['only' => ['edit', 'update']]);
+        $this->middleware('permission:Suppliers Delete', ['only' => ['destroy']]);
+        $this->middleware('permission:Suppliers View', ['only' => ['show']]);
+    }
+
     /**
      * Custom validation messages
      */
     private function getValidationMessages()
     {
         return [
-            'category_supplier_id.required' => 'Please select a category for the supplier',
-            'category_supplier_id.exists' => 'The selected category does not exist',
+            'category_supplier_id.required' => 'Silahkan pilih kategori untuk supplier',
+            'category_supplier_id.exists' => 'Kategori yang dipilih tidak ditemukan',
 
-            'code.required' => 'Please enter the supplier code',
-            'code.string' => 'Supplier code must be text',
-            'code.max' => 'Supplier code is too long (maximum is 255 characters)',
-            'code.unique' => 'This supplier code is already in use. Please use a different code',
+            'code.required' => 'Silahkan masukkan kode supplier',
+            'code.string' => 'Kode supplier harus berupa teks',
+            'code.max' => 'Kode supplier terlalu panjang (maksimal 255 karakter)',
+            'code.unique' => 'Kode supplier ini sudah digunakan. Silahkan gunakan kode yang berbeda',
 
-            'product_name.required' => 'Please enter the product name',
-            'product_name.string' => 'Product name must be text',
-            'product_name.max' => 'Product name is too long (maximum is 255 characters)',
+            'product_name.required' => 'Silahkan masukkan nama produk',
+            'product_name.string' => 'Nama produk harus berupa teks',
+            'product_name.max' => 'Nama produk terlalu panjang (maksimal 255 karakter)',
 
-            'unit.required' => 'Please select a unit for the product',
-            'unit.string' => 'Unit must be text',
-            'unit.max' => 'Unit name is too long (maximum is 255 characters)',
+            'unit.required' => 'Silahkan pilih satuan untuk produk',
+            'unit.string' => 'Satuan harus berupa teks',
+            'unit.max' => 'Nama satuan terlalu panjang (maksimal 255 karakter)',
         ];
     }
 
@@ -108,8 +121,11 @@ class SupplierController extends Controller
 
         // Get initial data for the view with pagination
         $items = [
-            'Supplier List' => route('suppliers.index'),
+            'Daftar Supplier' => route('suppliers.index'),
         ];
+
+        // Log activity
+        addActivity('supplier', 'view', 'Pengguna melihat daftar supplier', null);
 
         return view('supplier.index', compact('items', 'categories'));
     }
@@ -129,22 +145,25 @@ class SupplierController extends Controller
 
             $supplier = Supplier::create($validated);
 
+            // Log activity
+            addActivity('supplier', 'create', 'Pengguna membuat supplier baru: ' . $supplier->product_name, $supplier->id);
+
             return response()->json([
                 'success' => true,
-                'message' => 'Great! The supplier has been successfully added to the system.',
+                'message' => 'Berhasil! Supplier telah ditambahkan ke dalam sistem.',
                 'data' => $supplier
             ]);
         } catch (ValidationException $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Validation Error',
+                'message' => 'Terjadi Kesalahan',
                 'errors' => $e->errors()
             ], 422);
         } catch (\Exception $e) {
-            Log::error('Error creating supplier', ['error' => $e->getMessage()]);
+            Log::error('Error saat membuat supplier', ['error' => $e->getMessage()]);
             return response()->json([
                 'success' => false,
-                'message' => 'Oops! Something went wrong while adding the supplier. Please try again.'
+                'message' => 'Maaf! Terjadi kesalahan saat menambahkan supplier. Silahkan coba lagi.'
             ], 500);
         }
     }
@@ -158,18 +177,21 @@ class SupplierController extends Controller
             // Eager load the category
             $supplier->load('categorySupplier');
 
-            Log::info('Edit supplier request received', ['supplier' => $supplier->toArray()]);
+            Log::info('Permintaan edit supplier diterima', ['supplier' => $supplier->toArray()]);
+
+            // Log activity
+            addActivity('supplier', 'edit', 'Pengguna melihat form edit supplier: ' . $supplier->product_name, $supplier->id);
 
             return response()->json([
                 'success' => true,
                 'data' => $supplier
             ]);
         } catch (\Exception $e) {
-            Log::error('Error in edit supplier', ['error' => $e->getMessage()]);
+            Log::error('Error pada edit supplier', ['error' => $e->getMessage()]);
 
             return response()->json([
                 'success' => false,
-                'message' => 'Sorry! We could not find the supplier information. Please refresh and try again.'
+                'message' => 'Maaf! Kami tidak dapat menemukan informasi supplier. Silahkan muat ulang dan coba lagi.'
             ], 500);
         }
     }
@@ -187,24 +209,30 @@ class SupplierController extends Controller
                 'unit'                 => 'required|string|max:255',
             ], $this->getValidationMessages());
 
+            // Store old values for logging
+            $oldValues = $supplier->toArray();
+
             $supplier->update($validated);
+
+            // Log activity
+            addActivity('supplier', 'update', 'Pengguna mengubah supplier: ' . $supplier->product_name, $supplier->id);
 
             return response()->json([
                 'success' => true,
-                'message' => 'Perfect! The supplier information has been successfully updated.',
+                'message' => 'Berhasil! Informasi supplier telah diperbarui.',
                 'data' => $supplier
             ]);
         } catch (ValidationException $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Validation Error',
+                'message' => 'Terjadi Kesalahan',
                 'errors' => $e->errors()
             ], 422);
         } catch (\Exception $e) {
-            Log::error('Error updating supplier', ['error' => $e->getMessage()]);
+            Log::error('Error saat memperbarui supplier', ['error' => $e->getMessage()]);
             return response()->json([
                 'success' => false,
-                'message' => 'Oops! Something went wrong while updating the supplier. Please try again.'
+                'message' => 'Maaf! Terjadi kesalahan saat memperbarui supplier. Silahkan coba lagi.'
             ], 500);
         }
     }
@@ -215,17 +243,23 @@ class SupplierController extends Controller
     public function destroy(Supplier $supplier)
     {
         try {
+            $supplierName = $supplier->product_name;
+            $supplierId = $supplier->id;
+
             $supplier->delete();
+
+            // Log activity
+            addActivity('supplier', 'delete', 'Pengguna menghapus supplier: ' . $supplierName, $supplierId);
 
             return response()->json([
                 'success' => true,
-                'message' => 'The supplier has been successfully removed from the system.'
+                'message' => 'Supplier telah berhasil dihapus dari sistem.'
             ]);
         } catch (\Exception $e) {
-            Log::error('Error deleting supplier', ['error' => $e->getMessage()]);
+            Log::error('Error saat menghapus supplier', ['error' => $e->getMessage()]);
             return response()->json([
                 'success' => false,
-                'message' => 'Sorry! We could not delete the supplier at this time. Please try again.'
+                'message' => 'Maaf! Kami tidak dapat menghapus supplier saat ini. Silahkan coba lagi.'
             ], 500);
         }
     }

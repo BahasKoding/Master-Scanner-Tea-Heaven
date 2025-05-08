@@ -15,9 +15,9 @@ return new class extends Migration
             $table->id();
             $table->string('category')->nullable(false);
             $table->string('action')->nullable(false);
-            $table->bigInteger('action_id')->nullable(false);
-            $table->text('note')->nullable(false);
-            $table->unsignedBigInteger('user_id')->nullable(false);
+            $table->bigInteger('action_id')->nullable(true);
+            $table->text('note')->nullable(true);
+            $table->unsignedBigInteger('user_id')->nullable(true);
             $table->timestamps();
         });
     }

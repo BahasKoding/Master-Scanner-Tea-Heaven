@@ -6,17 +6,33 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\Models\Permission;
+use Illuminate\Support\Facades\Auth;
 
 class RoleController extends Controller
 {
-    protected $item = 'Roles Management';
+    protected $item = 'Role Management';
     protected $itemActive = 'Roles';
+
+    /**
+     * Constructor to apply permissions middleware
+     */
+    public function __construct()
+    {
+        $this->middleware('permission:Roles List', ['only' => ['index', 'data']]);
+        $this->middleware('permission:Roles Create', ['only' => ['create', 'store']]);
+        $this->middleware('permission:Roles Update', ['only' => ['edit', 'update', 'givePermissionTo']]);
+        $this->middleware('permission:Roles Delete', ['only' => ['destroy']]);
+        $this->middleware('permission:Roles View', ['only' => ['show', 'roleHasPermission']]);
+    }
 
     /**
      * Display a listing of the resource.
      */
     public function index()
     {
+        // Log activity
+        addActivity('role', 'view', 'User viewed roles list', null);
+
         $roles = Role::all();
         return view('backend.roles.index', compact('roles'))
             ->with('item', $this->item)
@@ -28,7 +44,12 @@ class RoleController extends Controller
      */
     public function create()
     {
-        //
+        // Log activity
+        addActivity('role', 'view_create_form', 'User viewed create role form', null);
+
+        return view('backend.roles.create')
+            ->with('item', $this->item)
+            ->with('itemActive', $this->itemActive);
     }
 
     /**
@@ -42,7 +63,12 @@ class RoleController extends Controller
         ]);
 
         try {
-            Role::create($request->all());
+            // Create the role
+            $role = Role::create($request->all());
+
+            // Log activity
+            addActivity('role', 'create', 'User created role: ' . $role->name, $role->id);
+
             return response()->json(['status' => 'success', 'message' => 'Role created successfully']);
         } catch (\Exception $e) {
             return response()->json(['status' => 'error', 'message' => 'Failed to create role'], 500);
@@ -64,6 +90,9 @@ class RoleController extends Controller
     {
         try {
             $role = Role::findOrFail($id);
+            // Log activity
+            addActivity('role', 'edit', 'User viewed edit form for role: ' . $role->name, $role->id);
+
             return response()->json([
                 'status' => 'success',
                 'data' => $role
@@ -109,7 +138,10 @@ class RoleController extends Controller
             $decodedData = json_decode(base64_decode($request->hash), true);
 
             if ($decodedData && isset($decodedData['name']) && isset($decodedData['guard_name'])) {
+                $oldName = $role->name;
                 $role->update($decodedData);
+                // Log activity
+                addActivity('role', 'update', 'User updated role from "' . $oldName . '" to "' . $role->name . '"', $role->id);
                 return response()->json(['status' => 'success', 'message' => 'Role updated successfully']);
             } else {
                 return response()->json(['status' => 'error', 'message' => 'Invalid data format'], 400);
@@ -126,7 +158,14 @@ class RoleController extends Controller
     {
         try {
             $role = Role::findOrFail($id);
+            $roleName = $role->name;
+            $roleId = $role->id;
+
             $role->delete();
+
+            // Log activity
+            addActivity('role', 'delete', 'User deleted role: ' . $roleName, $roleId);
+
             return response()->json([
                 'status' => 'success',
                 'message' => 'Role deleted successfully'
@@ -203,12 +242,18 @@ class RoleController extends Controller
         $permissions = Permission::whereIn('id', $validatedData['permissions'])->get();
         $role->syncPermissions($permissions);
 
+        // Log activity
+        addActivity('role', 'assign_permissions', 'User assigned ' . count($permissions) . ' permissions to role: ' . $role->name, $role->id);
+
         return response()->json(['status' => 'success', 'message' => 'Permissions updated successfully']);
     }
 
     public function roleHasPermission($roleId)
     {
         $role = Role::findOrFail($roleId);
+
+        // Log activity
+        addActivity('role', 'view_permissions', 'User viewed permissions for role: ' . $role->name, $role->id);
 
         return response()->json([
             'permissions' => Permission::all(),
