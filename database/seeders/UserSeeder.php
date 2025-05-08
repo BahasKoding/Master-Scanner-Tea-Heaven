@@ -15,15 +15,16 @@ class UserSeeder extends Seeder
      */
     public function run(): void
     {
-        // First ensure we have all required permissions
-        $this->createPermissions();
+        // Get existing roles
+        $superAdminRole = Role::where('name', 'Super Admin')->first();
+        $adminRole = Role::where('name', 'Admin')->first();
+        $operatorRole = Role::where('name', 'Operator')->first();
 
-        // Create roles if they don't exist
-        $superAdminRole = Role::firstOrCreate(['name' => 'Super Admin']);
-        $adminRole = Role::firstOrCreate(['name' => 'Admin']);
-        $operatorRole = Role::firstOrCreate(['name' => 'Operator']);
+        if (!$superAdminRole || !$adminRole || !$operatorRole) {
+            throw new \Exception('Roles not found. Make sure RolesSeeder has run first.');
+        }
 
-        // Assign permissions to roles
+        // Assign permissions to roles - Roles and permissions already created by RolesSeeder
         $this->assignPermissionsToRoles($superAdminRole, $adminRole, $operatorRole);
 
         // Create Super Admin user (Developer)
@@ -74,112 +75,6 @@ class UserSeeder extends Seeder
         $this->logActivity($admin, 'Admin account created/updated by system');
         $this->logActivity($employee1, 'Operator account created/updated by system');
         $this->logActivity($employee2, 'Operator account created/updated by system');
-    }
-
-    /**
-     * Create all needed permissions for the system
-     */
-    private function createPermissions(): void
-    {
-        // User management permissions
-        $userPermissions = [
-            'Users List',
-            'Users Create',
-            'Users Update',
-            'Users Delete',
-            'Users View',
-        ];
-
-        // Role management permissions
-        $rolePermissions = [
-            'Roles List',
-            'Roles Create',
-            'Roles Update',
-            'Roles Delete',
-            'Roles View',
-        ];
-
-        // Permission management permissions
-        $permissionPermissions = [
-            'Permissions List',
-            'Permissions Create',
-            'Permissions Update',
-            'Permissions Delete',
-            'Permissions View',
-        ];
-
-        // Menu management permissions
-        $menuPermissions = [
-            'Menus List',
-            'Menus Create',
-            'Menus Update',
-            'Menus Delete',
-            'Menus View',
-        ];
-
-        // Activity Log permissions
-        $activityPermissions = [
-            'Activity View',
-            'Activity List',
-        ];
-
-        // Supplier management permissions
-        $supplierPermissions = [
-            'Suppliers List',
-            'Suppliers Create',
-            'Suppliers Update',
-            'Suppliers Delete',
-            'Suppliers View',
-        ];
-
-        // Category Supplier permissions
-        $categorySupplierPermissions = [
-            'Category Suppliers List',
-            'Category Suppliers Create',
-            'Category Suppliers Update',
-            'Category Suppliers Delete',
-            'Category Suppliers View',
-        ];
-
-        // Category Product permissions
-        $categoryProductPermissions = [
-            'Category Products List',
-            'Category Products Create',
-            'Category Products Update',
-            'Category Products Delete',
-            'Category Products View',
-        ];
-
-        // Sales permissions
-        $salesPermissions = [
-            'Sales List',
-            'Sales Create',
-            'Sales Update',
-            'Sales Delete',
-            'Sales View',
-            'Sales Report',
-        ];
-
-        // Combine all permissions
-        $allPermissions = array_merge(
-            $userPermissions,
-            $rolePermissions,
-            $permissionPermissions,
-            $menuPermissions,
-            $activityPermissions,
-            $supplierPermissions,
-            $categorySupplierPermissions,
-            $categoryProductPermissions,
-            $salesPermissions
-        );
-
-        // Create each permission if it doesn't exist
-        foreach ($allPermissions as $permissionName) {
-            Permission::firstOrCreate([
-                'name' => $permissionName,
-                'guard_name' => 'web'
-            ]);
-        }
     }
 
     /**
