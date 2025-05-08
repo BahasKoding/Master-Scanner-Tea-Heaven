@@ -17,6 +17,7 @@ class DatabaseSeeder extends Seeder
             UserSeeder::class,         // Create users with their roles
             CategorySupplierSeeder::class,
             SupplierSeeder::class,
+            CategoryProductSeeder::class, // Tambahkan seeder untuk kategori produk
         ]);
     }
 }

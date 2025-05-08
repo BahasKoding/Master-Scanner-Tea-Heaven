@@ -141,6 +141,15 @@ class UserSeeder extends Seeder
             'Category Suppliers View',
         ];
 
+        // Category Product permissions
+        $categoryProductPermissions = [
+            'Category Products List',
+            'Category Products Create',
+            'Category Products Update',
+            'Category Products Delete',
+            'Category Products View',
+        ];
+
         // Sales permissions
         $salesPermissions = [
             'Sales List',
@@ -160,6 +169,7 @@ class UserSeeder extends Seeder
             $activityPermissions,
             $supplierPermissions,
             $categorySupplierPermissions,
+            $categoryProductPermissions,
             $salesPermissions
         );
 
@@ -214,6 +224,10 @@ class UserSeeder extends Seeder
             // Category Supplier operations (only view)
             'Category Suppliers List',
             'Category Suppliers View',
+
+            // Category Product operations (only view)
+            'Category Products List',
+            'Category Products View',
         ];
         $operatorRole->syncPermissions($operatorPermissions);
     }

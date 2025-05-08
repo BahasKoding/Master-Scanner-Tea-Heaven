@@ -11,6 +11,7 @@ use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\HistorySaleController;
 use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\CategorySupplierController;
+use App\Http\Controllers\CategoryProductController;
 use Illuminate\Support\Facades\Auth;
 
 /*
@@ -129,6 +130,7 @@ Route::middleware(['auth'])->group(function () {
     // Resource routes using Laravel's resource controller pattern
     Route::resource('suppliers', SupplierController::class);
     Route::resource('category-suppliers', CategorySupplierController::class);
+    Route::resource('category-products', CategoryProductController::class);
 
     // Additional route for listing suppliers by category
     Route::get('category-suppliers/{categorySupplier}/suppliers', [CategorySupplierController::class, 'listSuppliers'])
