@@ -82,49 +82,48 @@ class UserSeeder extends Seeder
      */
     private function assignPermissionsToRoles($superAdminRole, $adminRole, $operatorRole): void
     {
-        // Super Admin gets all permissions
-        $allPermissions = Permission::all()->pluck('name')->toArray();
-        $superAdminRole->syncPermissions($allPermissions);
+        // Buat terlebih dahulu daftar permission dari DB - lebih aman daripada hardcode
+        $existingPermissions = Permission::pluck('name')->toArray();
 
-        // Admin gets most permissions, but not all role and permission management
-        $adminPermissions = Permission::whereNotIn('name', [
-            'Roles Create',
-            'Roles Update',
-            'Roles Delete',
-            'Permissions Create',
-            'Permissions Update',
-            'Permissions Delete',
-        ])->pluck('name')->toArray();
+        // Debug - tampilkan semua permission yang ada
+        \Illuminate\Support\Facades\Log::info('Available permissions: ' . implode(', ', $existingPermissions));
+
+        // Super Admin gets all permissions
+        $superAdminRole->syncPermissions($existingPermissions);
+
+        // Admin gets most permissions, but not role/permission management
+        $adminPermissions = Permission::where(function ($query) {
+            $query->where('name', 'not like', '%Roles Create%')
+                ->where('name', 'not like', '%Roles Update%')
+                ->where('name', 'not like', '%Roles Delete%')
+                ->where('name', 'not like', '%Permissions Create%')
+                ->where('name', 'not like', '%Permissions Update%')
+                ->where('name', 'not like', '%Permissions Delete%');
+        })->pluck('name')->toArray();
         $adminRole->syncPermissions($adminPermissions);
 
-        // Operator gets limited permissions
-        $operatorPermissions = [
-            // User management (only view own profile)
-            'Users View',
+        // Get selected permissions for operator by querying DB with 'like'
+        $operatorViewPermissions = Permission::where(function ($query) {
+            // Only necessary View permissions
+            $query->where('name', 'like', '%Users View%')
+                ->orWhere('name', 'like', '%Activity View%')
+                ->orWhere('name', 'like', '%Activity List%')
+                ->orWhere('name', 'like', '%Sales List%')
+                ->orWhere('name', 'like', '%Sales Create%')
+                ->orWhere('name', 'like', '%Sales Update%')
+                ->orWhere('name', 'like', '%Sales View%')
+                ->orWhere('name', 'like', '%Suppliers List%')
+                ->orWhere('name', 'like', '%Suppliers View%')
+                ->orWhere('name', 'like', '%Category Suppliers List%')
+                ->orWhere('name', 'like', '%Category Suppliers View%')
+                ->orWhere('name', 'like', '%Category Products List%')
+                ->orWhere('name', 'like', '%Category Products View%');
+        })->pluck('name')->toArray();
 
-            // Activity
-            'Activity View',
-            'Activity List',
+        // Debug - log operator permissions
+        \Illuminate\Support\Facades\Log::info('Operator permissions: ' . implode(', ', $operatorViewPermissions));
 
-            // Sales operations
-            'Sales List',
-            'Sales Create',
-            'Sales Update',
-            'Sales View',
-
-            // Supplier operations (only view)
-            'Suppliers List',
-            'Suppliers View',
-
-            // Category Supplier operations (only view)
-            'Category Suppliers List',
-            'Category Suppliers View',
-
-            // Category Product operations (only view)
-            'Category Products List',
-            'Category Products View',
-        ];
-        $operatorRole->syncPermissions($operatorPermissions);
+        $operatorRole->syncPermissions($operatorViewPermissions);
     }
 
     /**
