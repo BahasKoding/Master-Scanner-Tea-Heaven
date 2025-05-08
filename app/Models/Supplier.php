@@ -10,10 +10,17 @@ class Supplier extends Model
     use HasFactory;
     protected $table = 'suppliers';
     protected $fillable = [
-        'category',
+        'category_supplier_id',
         'code',
         'product_name',
         'unit'
     ];
 
+    /**
+     * Get the category supplier that owns the supplier.
+     */
+    public function categorySupplier()
+    {
+        return $this->belongsTo(CategorySupplier::class, 'category_supplier_id');
+    }
 }

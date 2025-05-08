@@ -1,7 +1,7 @@
 @extends('layouts.main')
 
-@section('title', 'Supplier Management')
-@section('breadcrumb-item', 'Supplier')
+@section('title', 'Category Supplier Management')
+@section('breadcrumb-item', 'Category Supplier')
 
 @section('css')
     <!-- CSRF Token -->
@@ -11,8 +11,6 @@
     <!-- data tables css -->
     <link rel="stylesheet" href="{{ URL::asset('build/css/plugins/datatables/dataTables.bootstrap5.min.css') }}">
     <link rel="stylesheet" href="{{ URL::asset('build/css/plugins/datatables/buttons.bootstrap5.min.css') }}">
-    <!-- Choices css -->
-    <link rel="stylesheet" href="{{ URL::asset('build/css/plugins/choices.min.css') }}">
     <!-- [Page specific CSS] end -->
     <style>
         .form-section {
@@ -27,68 +25,26 @@
 @section('content')
     <!-- [ Main Content ] start -->
     <div class="row">
-        <!-- Supplier Table start -->
+        <!-- Category Supplier Table start -->
         <div class="col-sm-12">
             <div class="card">
                 <div class="card-header">
                     <div class="d-flex justify-content-between align-items-center">
-                        <h5>Supplier List</h5>
-                        <div>
-                            <button id="clear-filters" class="btn btn btn-secondary">
-                                <i class="fas fa-filter"></i> Clear Filters
-                            </button>
-                            <button type="button" class="btn btn-primary" data-bs-toggle="modal"
-                                data-bs-target="#addSupplierModal">
-                                <i class="fas fa-plus"></i> Add New Supplier
-                            </button>
-                        </div>
+                        <h5>Category Supplier List</h5>
+                        <button type="button" class="btn btn-primary" data-bs-toggle="modal"
+                            data-bs-target="#addCategorySupplierModal">
+                            <i class="fas fa-plus"></i> Add New Category
+                        </button>
                     </div>
                 </div>
                 <div class="card-body">
-                    <!-- Filter Section -->
-                    <div class="mb-3 p-3 border rounded bg-light">
-                        <div class="row">
-                            <div class="col-md-3">
-                                <label for="filter-category" class="form-label small">Category</label>
-                                <select class="form-control form-control-sm" name="filter-category" id="filter-category">
-                                    <option value="">All Categories</option>
-                                    @foreach ($categories as $category)
-                                        <option value="{{ $category->name }}">{{ $category->name }}</option>
-                                    @endforeach
-                                </select>
-                            </div>
-                            <div class="col-md-3">
-                                <label for="filter-code" class="form-label small">Code</label>
-                                <input type="text" id="filter-code" class="form-control form-control-sm"
-                                    placeholder="Filter by code">
-                            </div>
-                            <div class="col-md-3">
-                                <label for="filter-product-name" class="form-label small">Product Name</label>
-                                <input type="text" id="filter-product-name" class="form-control form-control-sm"
-                                    placeholder="Filter by name">
-                            </div>
-                            <div class="col-md-3">
-                                <label for="filter-unit" class="form-label small">Unit</label>
-                                <select id="filter-unit" class="form-select form-select-sm">
-                                    <option value="">All Units</option>
-                                    <option value="PCS">PCS</option>
-                                    <option value="GRAM">GRAM</option>
-                                    <option value="KG">KG</option>
-                                </select>
-                            </div>
-                        </div>
-                    </div>
-                    <!-- End Filter Section -->
-
                     <div class="dt-responsive table-responsive">
-                        <table id="supplier-table" class="table table-striped table-bordered nowrap">
+                        <table id="category-supplier-table" class="table table-striped table-bordered nowrap">
                             <thead>
                                 <tr>
                                     <th>No</th>
-                                    <th>Category</th>
-                                    <th>Code</th>
-                                    <th>Product Name</th>
-                                    <th>Unit</th>
+                                    <th>Name</th>
+                                    <th>Created At</th>
                                     <th>Actions</th>
                                 </tr>
                             </thead>
@@ -100,50 +56,29 @@
                 </div>
             </div>
         </div>
-        <!-- Supplier Table end -->
+        <!-- Category Supplier Table end -->
     </div>
     <!-- [ Main Content ] end -->
 
-    <!-- Add Supplier Modal -->
-    <div class="modal fade" id="addSupplierModal" tabindex="-1">
+    <!-- Add Category Supplier Modal -->
+    <div class="modal fade" id="addCategorySupplierModal" tabindex="-1">
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">Add New Supplier</h5>
+                    <h5 class="modal-title">Add New Category</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
-                <form id="addSupplierForm">
+                <form id="addCategorySupplierForm">
                     @csrf
                     <div class="modal-body">
                         <div class="mb-3">
-                            <label class="form-label">Category <span class="text-danger">*</span></label>
-                            <select class="form-control" name="category_supplier_id" id="add-category-supplier" required>
-                                <option value="">Select Category</option>
-                                @foreach ($categories as $category)
-                                    <option value="{{ $category->id }}">{{ $category->name }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Code <span class="text-danger">*</span></label>
-                            <input type="text" class="form-control" name="code" required>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Product Name <span class="text-danger">*</span></label>
-                            <input type="text" class="form-control" name="product_name" required>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Unit <span class="text-danger">*</span></label>
-                            <select class="form-select" name="unit" required>
-                                <option value="">Select Unit</option>
-                                <option value="PCS">PCS</option>
-                                <option value="GRAM">GRAM</option>
-                                <option value="KG">KG</option>
-                            </select>
+                            <label class="form-label">Name <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" name="name" required>
                         </div>
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                        <button type="button" class="btn btn-info" id="saveAndAddMore">Save & Add More</button>
                         <button type="submit" class="btn btn-primary">Save</button>
                     </div>
                 </form>
@@ -151,46 +86,22 @@
         </div>
     </div>
 
-    <!-- Edit Supplier Modal -->
-    <div class="modal fade" id="editSupplierModal" tabindex="-1">
+    <!-- Edit Category Supplier Modal -->
+    <div class="modal fade" id="editCategorySupplierModal" tabindex="-1">
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">Edit Supplier</h5>
+                    <h5 class="modal-title">Edit Category</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
-                <form id="editSupplierForm">
+                <form id="editCategorySupplierForm">
                     @csrf
                     @method('PUT')
-                    <input type="hidden" id="edit_supplier_id">
+                    <input type="hidden" id="edit_category_supplier_id">
                     <div class="modal-body">
                         <div class="mb-3">
-                            <label class="form-label">Category <span class="text-danger">*</span></label>
-                            <select class="form-control" name="category_supplier_id" id="edit-category-supplier"
-                                required>
-                                <option value="">Select Category</option>
-                                @foreach ($categories as $category)
-                                    <option value="{{ $category->id }}">{{ $category->name }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Code <span class="text-danger">*</span></label>
-                            <input type="text" class="form-control" name="code" id="edit_code" required>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Product Name <span class="text-danger">*</span></label>
-                            <input type="text" class="form-control" name="product_name" id="edit_product_name"
-                                required>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Unit <span class="text-danger">*</span></label>
-                            <select class="form-select" name="unit" required>
-                                <option value="">Select Unit</option>
-                                <option value="PCS">PCS</option>
-                                <option value="GRAM">GRAM</option>
-                                <option value="KG">KG</option>
-                            </select>
+                            <label class="form-label">Name <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" name="name" id="edit_name" required>
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -222,54 +133,15 @@
     <script src="{{ URL::asset('build/js/plugins/buttons.print.min.js') }}"></script>
     <script src="{{ URL::asset('build/js/plugins/buttons.colVis.min.js') }}"></script>
 
-    <!-- Choices JS -->
-    <script src="{{ URL::asset('build/js/plugins/choices.min.js') }}"></script>
-
     <script type="text/javascript">
         $(document).ready(function() {
-            // Debounce function to limit how often a function can trigger
-            function debounce(func, wait) {
-                let timeout;
-                return function() {
-                    const context = this;
-                    const args = arguments;
-                    clearTimeout(timeout);
-                    timeout = setTimeout(() => func.apply(context, args), wait);
-                };
-            }
-
-            // Initialize Choices.js for add form
-            var addCategoryChoices = new Choices('#add-category-supplier', {
-                searchEnabled: true,
-                searchPlaceholderValue: "Search for a category",
-                itemSelectText: '',
-                placeholder: true,
-                placeholderValue: "Select a category"
-            });
-
-            // Initialize Choices.js for edit form
-            var editCategoryChoices = new Choices('#edit-category-supplier', {
-                searchEnabled: true,
-                searchPlaceholderValue: "Search for a category",
-                itemSelectText: '',
-                placeholder: true,
-                placeholderValue: "Select a category"
-            });
-
             // Initialize DataTable
-            var table = $('#supplier-table').DataTable({
+            var table = $('#category-supplier-table').DataTable({
                 processing: true,
                 serverSide: true,
                 ajax: {
-                    url: "{{ route('suppliers.index') }}",
-                    type: "GET",
-                    data: function(d) {
-                        d.category = $('#filter-category').val();
-                        d.code = $('#filter-code').val();
-                        d.product_name = $('#filter-product-name').val();
-                        d.unit = $('#filter-unit').val();
-                        return d;
-                    }
+                    url: "{{ route('category-suppliers.index') }}",
+                    type: "GET"
                 },
                 columns: [{
                         data: 'DT_RowIndex',
@@ -278,20 +150,12 @@
                         searchable: false
                     },
                     {
-                        data: 'category',
-                        name: 'category'
+                        data: 'name',
+                        name: 'name'
                     },
                     {
-                        data: 'code',
-                        name: 'code'
-                    },
-                    {
-                        data: 'product_name',
-                        name: 'product_name'
-                    },
-                    {
-                        data: 'unit',
-                        name: 'unit'
+                        data: 'created_at',
+                        name: 'created_at'
                     },
                     {
                         data: 'action',
@@ -311,7 +175,7 @@
                     }
                 ],
                 order: [
-                    [2, 'asc']
+                    [2, 'desc']
                 ],
                 pageLength: 25,
                 dom: 'Bfrtip',
@@ -333,25 +197,84 @@
                 ]
             });
 
-            // Apply filters when dropdown values change
-            $('#filter-category, #filter-unit').on('change', function() {
-                table.ajax.reload();
+            // Save and Add More Button Click
+            $('#saveAndAddMore').on('click', function(e) {
+                e.preventDefault();
+                var form = $('#addCategorySupplierForm');
+                var submitButton = $(this);
+
+                // Disable submit button to prevent double submission
+                submitButton.prop('disabled', true);
+
+                var formData = new FormData(form[0]);
+
+                $.ajax({
+                    url: "{{ route('category-suppliers.store') }}",
+                    method: 'POST',
+                    data: formData,
+                    processData: false,
+                    contentType: false,
+                    success: function(data) {
+                        if (data.success) {
+                            // Reset form but keep the modal open
+                            form[0].reset();
+                            submitButton.prop('disabled', false);
+
+                            // Reload table
+                            table.ajax.reload(null, false);
+
+                            // Show success message
+                            Swal.fire({
+                                title: 'Success!',
+                                text: data.message,
+                                icon: 'success',
+                                timer: 1500,
+                                showConfirmButton: false,
+                                toast: true,
+                                position: 'top-end'
+                            });
+
+                            // Focus on the name input for next entry
+                            form.find('input[name="name"]').focus();
+                        }
+                    },
+                    error: function(xhr) {
+                        // Re-enable submit button on error
+                        submitButton.prop('disabled', false);
+
+                        if (xhr.status === 422) {
+                            // Validation errors
+                            const errors = xhr.responseJSON.errors;
+                            const errorMessages = Object.values(errors).flat();
+
+                            Swal.fire({
+                                title: 'Please Check Your Input',
+                                html: errorMessages.join('<br>'),
+                                icon: 'warning',
+                                confirmButtonText: 'I\'ll Fix It',
+                                confirmButtonColor: '#3085d6'
+                            });
+                        } else {
+                            // Other errors
+                            Swal.fire({
+                                title: 'Oops...',
+                                text: xhr.responseJSON?.message ||
+                                    'Something went wrong with the request.',
+                                icon: 'error',
+                                confirmButtonText: 'Try Again',
+                                confirmButtonColor: '#3085d6'
+                            });
+                        }
+                    },
+                    complete: function() {
+                        // Re-enable the button
+                        submitButton.prop('disabled', false);
+                    }
+                });
             });
 
-            // Apply filters when text inputs change with debounce (300ms delay)
-            $('#filter-code, #filter-product-name').on('keyup', debounce(function() {
-                table.ajax.reload();
-            }, 300));
-
-            // Clear filters function
-            $('#clear-filters').on('click', function() {
-                $('#filter-category, #filter-unit').val('');
-                $('#filter-code, #filter-product-name').val('');
-                table.ajax.reload();
-            });
-
-            // Add Supplier Form Submit
-            $('#addSupplierForm').on('submit', function(e) {
+            // Add Category Supplier Form Submit
+            $('#addCategorySupplierForm').on('submit', function(e) {
                 e.preventDefault();
                 var form = $(this);
                 var submitButton = form.find('button[type="submit"]');
@@ -362,22 +285,19 @@
                 var formData = new FormData(this);
 
                 $.ajax({
-                    url: "{{ route('suppliers.store') }}",
+                    url: "{{ route('category-suppliers.store') }}",
                     method: 'POST',
                     data: formData,
                     processData: false,
                     contentType: false,
                     success: function(data) {
                         if (data.success) {
-                            // Reset form and choices
+                            // Reset form first
                             form[0].reset();
-                            addCategoryChoices.setChoiceByValue('');
                             submitButton.prop('disabled', false);
 
-                            // Properly hide modal and remove backdrop
-                            $('#addSupplierModal').modal('hide');
-                            $('body').removeClass('modal-open');
-                            $('.modal-backdrop').remove();
+                            // Properly hide modal
+                            $('#addCategorySupplierModal').modal('hide');
 
                             // Reload table
                             table.ajax.reload(null, false);
@@ -423,13 +343,30 @@
                         }
                     },
                     complete: function() {
-                        // Always ensure the UI is restored
+                        // Always ensure the submit button is re-enabled
                         submitButton.prop('disabled', false);
-                        $('body').removeClass('modal-open');
-                        $('.modal-backdrop').remove();
                     }
                 });
             });
+
+            // Fix for modal backdrop issue
+            $(document).on('click', '[data-bs-toggle="modal"][data-bs-target="#addCategorySupplierModal"]',
+                function() {
+                    // Remove any existing backdrop before showing new modal
+                    $('.modal-backdrop').remove();
+                    $('body').removeClass('modal-open');
+                    $('body').css('padding-right', '');
+
+                    // Reset the form
+                    $('#addCategorySupplierForm')[0].reset();
+
+                    // Show the modal properly
+                    setTimeout(function() {
+                        $('#addCategorySupplierModal').modal('show');
+                    }, 100);
+
+                    return false;
+                });
 
             // Edit Button Click
             $(document).on('click', '.edit-btn', function() {
@@ -439,7 +376,7 @@
                 // Show loading state
                 Swal.fire({
                     title: 'Loading...',
-                    text: 'Fetching supplier data',
+                    text: 'Fetching category data',
                     allowOutsideClick: false,
                     showConfirmButton: false,
                     willOpen: () => {
@@ -448,7 +385,7 @@
                 });
 
                 $.ajax({
-                    url: "{{ url('suppliers') }}/" + id + "/edit",
+                    url: "{{ url('category-suppliers') }}/" + id + "/edit",
                     method: 'GET',
                     success: function(response) {
                         console.log('Server response:', response);
@@ -456,58 +393,30 @@
 
                         if (response.success) {
                             const data = response.data;
-                            console.log('Supplier data:', data);
+                            console.log('Category supplier data:', data);
 
                             // Set hidden ID
-                            $('#edit_supplier_id').val(data.id);
+                            $('#edit_category_supplier_id').val(data.id);
 
-                            // Set category supplier with Choices.js
-                            editCategoryChoices.setChoiceByValue(data.category_supplier_id
-                                .toString());
+                            // Set name
+                            $('#edit_name').val(data.name);
 
-                            // Set code
-                            $('#edit_code').val(data.code);
-
-                            // Set product name
-                            $('#edit_product_name').val(data.product_name);
-
-                            // Set unit
-                            $('#editSupplierModal select[name="unit"]').val(data.unit);
-
-                            // Log the current values
-                            console.log('Form values after setting:', {
-                                id: $('#edit_supplier_id').val(),
-                                category_supplier_id: $('#edit-category-supplier')
-                                    .val(),
-                                code: $('#edit_code').val(),
-                                product_name: $('#edit_product_name').val(),
-                                unit: $('#editSupplierModal select[name="unit"]').val()
-                            });
+                            // Clean up any existing modal backdrop
+                            $('.modal-backdrop').remove();
+                            $('body').removeClass('modal-open');
+                            $('body').css('padding-right', '');
 
                             // Show the modal
-                            var editModal = new bootstrap.Modal(document.getElementById(
-                                'editSupplierModal'));
-                            editModal.show();
-
-                            // Double check values after modal is shown
-                            setTimeout(() => {
-                                console.log('Values after modal shown:', {
-                                    id: $('#edit_supplier_id').val(),
-                                    category_supplier_id: $(
-                                        '#edit-category-supplier').val(),
-                                    code: $('#edit_code').val(),
-                                    product_name: $('#edit_product_name').val(),
-                                    unit: $(
-                                            '#editSupplierModal select[name="unit"]'
-                                        )
-                                        .val()
-                                });
-                            }, 500);
+                            setTimeout(function() {
+                                var editModal = new bootstrap.Modal(document
+                                    .getElementById('editCategorySupplierModal'));
+                                editModal.show();
+                            }, 100);
                         } else {
                             Swal.fire({
                                 title: 'Error',
                                 text: response.message ||
-                                    'Failed to fetch supplier data',
+                                    'Failed to fetch category data',
                                 icon: 'error'
                             });
                         }
@@ -520,19 +429,19 @@
                         });
                         Swal.fire({
                             title: 'Error',
-                            text: 'Failed to fetch supplier data. Please try again.',
+                            text: 'Failed to fetch category data. Please try again.',
                             icon: 'error'
                         });
                     }
                 });
             });
 
-            // Edit Supplier Form Submit
-            $('#editSupplierForm').on('submit', function(e) {
+            // Edit Category Supplier Form Submit
+            $('#editCategorySupplierForm').on('submit', function(e) {
                 e.preventDefault();
                 var form = $(this);
                 var submitButton = form.find('button[type="submit"]');
-                var id = $('#edit_supplier_id').val();
+                var id = $('#edit_category_supplier_id').val();
 
                 // Disable submit button to prevent double submission
                 submitButton.prop('disabled', true);
@@ -540,7 +449,7 @@
                 // Show loading state
                 Swal.fire({
                     title: 'Updating...',
-                    text: 'Saving supplier data',
+                    text: 'Saving category data',
                     allowOutsideClick: false,
                     showConfirmButton: false,
                     willOpen: () => {
@@ -552,7 +461,7 @@
                 formData.append('_method', 'PUT');
 
                 $.ajax({
-                    url: `/suppliers/${id}`,
+                    url: `/category-suppliers/${id}`,
                     method: 'POST',
                     data: formData,
                     processData: false,
@@ -564,8 +473,7 @@
                         if (data.success) {
                             // Reset form and close modal
                             form[0].reset();
-                            editCategoryChoices.setChoiceByValue('');
-                            $('#editSupplierModal').modal('hide');
+                            $('#editCategorySupplierModal').modal('hide');
 
                             // Reload table
                             table.ajax.reload(null, false);
@@ -602,7 +510,7 @@
                             Swal.fire({
                                 title: 'Update Failed',
                                 text: xhr.responseJSON?.message ||
-                                    'Could not update the supplier at this time.',
+                                    'Could not update the category at this time.',
                                 icon: 'error',
                                 confirmButtonText: 'OK',
                                 confirmButtonColor: '#3085d6'
@@ -620,7 +528,7 @@
                 var id = $(this).data('id');
                 Swal.fire({
                     title: 'Delete Confirmation',
-                    text: "Are you sure you want to remove this supplier? This action cannot be undone.",
+                    text: "Are you sure you want to remove this category? This action cannot be undone.",
                     icon: 'warning',
                     showCancelButton: true,
                     confirmButtonColor: '#3085d6',
@@ -630,7 +538,7 @@
                 }).then((result) => {
                     if (result.isConfirmed) {
                         $.ajax({
-                            url: `/suppliers/${id}`,
+                            url: `/category-suppliers/${id}`,
                             method: 'DELETE',
                             headers: {
                                 'X-CSRF-TOKEN': '{{ csrf_token() }}'
@@ -653,7 +561,7 @@
                                 Swal.fire({
                                     title: 'Delete Failed',
                                     text: xhr.responseJSON?.message ||
-                                        'Could not delete the supplier at this time.',
+                                        'Could not delete the category at this time.',
                                     icon: 'error',
                                     confirmButtonText: 'OK',
                                     confirmButtonColor: '#3085d6'
@@ -665,14 +573,26 @@
             });
 
             // Clean up modal when it's hidden
-            $('#editSupplierModal').on('hidden.bs.modal', function() {
+            $('#editCategorySupplierModal').on('hidden.bs.modal', function() {
                 console.log('Modal hidden - cleaning up');
                 $(this).find('form')[0].reset();
-                editCategoryChoices.setChoiceByValue('');
+                // Clean up any lingering modal artifacts
+                $('.modal-backdrop').remove();
+                $('body').removeClass('modal-open');
+                $('body').css('padding-right', '');
+            });
+
+            // Clean up add modal when it's hidden
+            $('#addCategorySupplierModal').on('hidden.bs.modal', function() {
+                console.log('Add modal hidden - cleaning up');
+                // Clean up any lingering modal artifacts
+                $('.modal-backdrop').remove();
+                $('body').removeClass('modal-open');
+                $('body').css('padding-right', '');
             });
 
             // Prevent form reset when modal is shown
-            $('#editSupplierModal').on('show.bs.modal', function() {
+            $('#editCategorySupplierModal').on('show.bs.modal', function() {
                 console.log('Modal showing - preventing auto reset');
                 return true;
             });
