@@ -28,7 +28,9 @@ class DatabaseSeeder extends Seeder
         $this->call([
             CategorySupplierSeeder::class,
             SupplierSeeder::class,
+            LabelSeeder::class,
             CategoryProductSeeder::class,
+            ProductListSeeder::class,
         ]);
     }
 
@@ -92,6 +94,13 @@ class DatabaseSeeder extends Seeder
             'Sales Delete',
             'Sales View',
             'Sales Report',
+
+              // Label permissions
+              'Labels List',
+              'Labels Create',
+              'Labels Update',
+              'Labels Delete',
+              'Labels View',
         ];
 
         foreach ($permissions as $permission) {

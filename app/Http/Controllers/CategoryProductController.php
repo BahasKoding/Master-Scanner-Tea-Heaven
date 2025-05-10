@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\CategoryProduct;
+use App\Models\Label;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Yajra\DataTables\Facades\DataTables;
@@ -33,6 +34,8 @@ class CategoryProductController extends Controller
             'name.string' => 'Nama kategori harus berupa teks',
             'name.max' => 'Nama kategori terlalu panjang (maksimal 255 karakter)',
             'name.unique' => 'Nama kategori ini sudah digunakan. Silahkan gunakan nama yang berbeda',
+            'label_id.required' => 'Silahkan pilih label kategori',
+            'label_id.exists' => 'Label yang dipilih tidak valid',
         ];
     }
 
@@ -42,13 +45,19 @@ class CategoryProductController extends Controller
     public function index(Request $request)
     {
         if ($request->ajax()) {
-            $query = CategoryProduct::query()
+            $query = CategoryProduct::with('label')
                 ->select([
-                    'id',
-                    'name',
-                    'created_at',
-                    'updated_at'
+                    'category_products.id',
+                    'category_products.name',
+                    'category_products.label_id',
+                    'category_products.created_at',
+                    'category_products.updated_at'
                 ]);
+
+            // Filter by label if provided
+            if ($request->has('label_id') && !empty($request->label_id)) {
+                $query->where('category_products.label_id', $request->label_id);
+            }
 
             return DataTables::of($query)
                 ->addIndexColumn()
@@ -58,8 +67,16 @@ class CategoryProductController extends Controller
                 ->addColumn('action', function ($row) {
                     return $row->id;
                 })
+                ->addColumn('label', function ($row) {
+                    return $row->label ? $row->label->name : '';
+                })
                 ->filterColumn('name', function ($query, $keyword) {
-                    $query->where('name', 'like', "%{$keyword}%");
+                    $query->where('category_products.name', 'like', "%{$keyword}%");
+                })
+                ->filterColumn('label', function ($query, $keyword) {
+                    $query->whereHas('label', function ($q) use ($keyword) {
+                        $q->where('name', 'like', "%{$keyword}%");
+                    });
                 })
                 ->rawColumns(['action'])
                 ->smart(true)
@@ -67,15 +84,40 @@ class CategoryProductController extends Controller
                 ->make(true);
         }
 
-        // Get initial data for the view with pagination
-        $items = [
-            'Daftar Kategori Produk' => route('category-products.index'),
-        ];
+        try {
+            // Get all labels for the form with error handling
+            $labels = Label::orderBy('name')->get();
 
-        // Log activity
-        addActivity('category_product', 'view', 'Pengguna melihat daftar kategori produk', null);
+            // Log if no labels were found as this may indicate a problem
+            if ($labels->isEmpty()) {
+                Log::warning('No labels found in the database for CategoryProduct form');
+            } else {
+                Log::info('Labels loaded successfully for CategoryProduct form', ['count' => $labels->count()]);
+            }
 
-        return view('category-product.index', compact('items'));
+            // Get initial data for the view with pagination
+            $items = [
+                'Daftar Kategori Produk' => route('category-products.index'),
+            ];
+
+            // Log activity
+            addActivity('category_product', 'view', 'Pengguna melihat daftar kategori produk', null);
+
+            return view('category-product.index', compact('items', 'labels'));
+        } catch (\Exception $e) {
+            // Log the error
+            Log::error('Failed to load labels for CategoryProduct index', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            // Return view with error message and empty labels collection
+            return view('category-product.index', [
+                'items' => ['Daftar Kategori Produk' => route('category-products.index')],
+                'labels' => collect([]),
+                'error_message' => 'Gagal memuat data label. Silakan coba refresh halaman.'
+            ]);
+        }
     }
 
     /**
@@ -86,12 +128,16 @@ class CategoryProductController extends Controller
         try {
             $validated = $request->validate([
                 'name' => 'required|string|max:255|unique:category_products',
+                'label_id' => 'required|exists:labels,id',
             ], $this->getValidationMessages());
 
             $categoryProduct = CategoryProduct::create($validated);
 
-            // Log activity
-            addActivity('category_product', 'create', 'Pengguna membuat kategori produk baru: ' . $categoryProduct->name, $categoryProduct->id);
+            // Get the label name for logging
+            $labelName = Label::find($validated['label_id'])->name;
+
+            // Log activity with label information
+            addActivity('category_product', 'create', 'Pengguna membuat kategori produk baru: ' . $categoryProduct->name . ' dengan label: ' . $labelName, $categoryProduct->id);
 
             return response()->json([
                 'success' => true,
@@ -118,6 +164,9 @@ class CategoryProductController extends Controller
     public function edit(CategoryProduct $categoryProduct)
     {
         try {
+            // Load the relation
+            $categoryProduct->load('label');
+
             Log::info('Permintaan edit kategori produk diterima', ['categoryProduct' => $categoryProduct->toArray()]);
 
             // Log activity
@@ -145,13 +194,24 @@ class CategoryProductController extends Controller
         try {
             $validated = $request->validate([
                 'name' => 'required|string|max:255|unique:category_products,name,' . $categoryProduct->id,
+                'label_id' => 'required|exists:labels,id',
             ], $this->getValidationMessages());
 
             $oldName = $categoryProduct->name;
+            $oldLabelName = $categoryProduct->label ? $categoryProduct->label->name : 'Tidak ada';
+
             $categoryProduct->update($validated);
 
-            // Log activity
-            addActivity('category_product', 'update', 'Pengguna mengubah kategori produk dari "' . $oldName . '" menjadi "' . $categoryProduct->name . '"', $categoryProduct->id);
+            // Get the new label name
+            $newLabelName = Label::find($validated['label_id'])->name;
+
+            // Log activity with label information
+            addActivity(
+                'category_product',
+                'update',
+                'Pengguna mengubah kategori produk dari "' . $oldName . '" menjadi "' . $categoryProduct->name . '" dan label dari "' . $oldLabelName . '" menjadi "' . $newLabelName . '"',
+                $categoryProduct->id
+            );
 
             return response()->json([
                 'success' => true,
@@ -182,7 +242,15 @@ class CategoryProductController extends Controller
             $categoryId = $categoryProduct->id;
 
             // Check if this category is being used by any products
-            // For now, assume no relationships
+            $productCount = $categoryProduct->products()->count();
+
+            if ($productCount > 0) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Kategori ini sedang digunakan oleh ' . $productCount . ' produk. Silahkan ubah atau hapus produk tersebut terlebih dahulu.'
+                ], 422);
+            }
+
             $categoryProduct->delete();
 
             // Log activity

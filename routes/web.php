@@ -2,7 +2,6 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\HomeController;
-use App\Http\Controllers\Backend\MenuController;
 use App\Http\Controllers\Backend\UserController;
 use App\Http\Controllers\Backend\RoleController;
 use App\Http\Controllers\Backend\PermissionController;
@@ -12,6 +11,7 @@ use App\Http\Controllers\HistorySaleController;
 use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\CategorySupplierController;
 use App\Http\Controllers\CategoryProductController;
+use App\Http\Controllers\LabelController;
 use Illuminate\Support\Facades\Auth;
 
 /*
@@ -59,7 +59,6 @@ Route::middleware(['auth'])->group(function () {
         Route::delete('/{user}', [UserController::class, 'destroy'])->name('destroy');
         Route::post('/data', [UserController::class, 'data'])->name('data');
         Route::post('/get-users', [UserController::class, 'getUsers'])->name('get-users');
-        Route::get('/debug', [UserController::class, 'debug'])->name('debug');
     });
 
     // Role routes
@@ -88,17 +87,6 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/data', [PermissionController::class, 'data'])->name('data');
     });
 
-    // Menu routes
-    Route::prefix('menus')->name('menus.')->group(function () {
-        Route::get('/', [MenuController::class, 'index'])->name('index');
-        Route::get('/create', [MenuController::class, 'create'])->name('create');
-        Route::post('/', [MenuController::class, 'store'])->name('store');
-        Route::get('/{menu}', [MenuController::class, 'show'])->name('show');
-        Route::get('/{menu}/edit', [MenuController::class, 'edit'])->name('edit');
-        Route::put('/{menu}', [MenuController::class, 'update'])->name('update');
-        Route::delete('/{menu}', [MenuController::class, 'destroy'])->name('destroy');
-        Route::post('/data', [MenuController::class, 'data'])->name('data');
-    });
 
     /*
     |--------------------------------------------------------------------------
@@ -131,10 +119,19 @@ Route::middleware(['auth'])->group(function () {
     Route::resource('suppliers', SupplierController::class);
     Route::resource('category-suppliers', CategorySupplierController::class);
     Route::resource('category-products', CategoryProductController::class);
+    Route::resource('labels', LabelController::class);
 
     // Additional route for listing suppliers by category
     Route::get('category-suppliers/{categorySupplier}/suppliers', [CategorySupplierController::class, 'listSuppliers'])
         ->name('category-suppliers.list-suppliers');
+
+    // Additional route for listing products by label
+    Route::get('labels/{label}/products', [LabelController::class, 'listProducts'])
+        ->name('labels.list-products');
+
+    // Development route for seeding labels (only for authenticated users)
+    Route::post('labels/seed', [LabelController::class, 'runSeeder'])
+        ->name('labels.seed');
 
     /*
     |--------------------------------------------------------------------------

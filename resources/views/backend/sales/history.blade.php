@@ -1,6 +1,6 @@
 @extends('layouts.main')
 
-@section('title', 'Riwayat Penjualan')
+@section('title', 'History Sales')
 @section('breadcrumb-item', $item)
 
 @section('css')

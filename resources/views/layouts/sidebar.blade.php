@@ -21,7 +21,8 @@
                 </div>
             </div> --}}
         </div>
-        <div class="card pc-user-card">
+        <div class="card pc-user-card"
+            style="margin-top: auto; border-radius: 0; border: none; border-top: 1px solid #f0f0f0;">
             <div class="card-body">
                 <div class="d-flex align-items-center">
                     <div class="flex-shrink-0">
@@ -29,45 +30,16 @@
                             class="user-avtar wid-45 rounded-circle">
                     </div>
                     <div class="flex-grow-1 ms-3">
-                        <div class="dropdown">
-                            <a href="#" class="arrow-none dropdown-toggle" data-bs-toggle="dropdown"
-                                aria-expanded="false" data-bs-offset="0,20">
-                                <div class="d-flex align-items-center">
-                                    <div class="flex-grow-1 me-2">
-                                        <h6 class="mb-0">{{ Auth::user()->name }}</h6>
-                                        <small>{{ Auth::user()->getRoleNames()->first() }}</small>
-                                    </div>
-                                    <div class="flex-shrink-0">
-                                        <div class="btn btn-icon btn-link-secondary avtar">
-                                            <i class="ph-duotone ph-windows-logo"></i>
-                                        </div>
-                                    </div>
-                                </div>
-                            </a>
-                            <div class="dropdown-menu">
-                                <ul>
-                                    <li><a class="pc-user-links">
-                                            <i class="ph-duotone ph-user"></i>
-                                            <span>My Account</span>
-                                        </a></li>
-                                    <li><a class="pc-user-links">
-                                            <i class="ph-duotone ph-gear"></i>
-                                            <span>Settings</span>
-                                        </a></li>
-                                    <li><a class="pc-user-links">
-                                            <i class="ph-duotone ph-lock-key"></i>
-                                            <span>Lock Screen</span>
-                                        </a></li>
-                                    <li><a class="pc-user-links" href="{{ route('logout') }}"
-                                            onclick="event.preventDefault();
-                                              document.getElementById('logout-form').submit();">
-                                            <i class="ph-duotone ph-power"></i>
-                                            <span>Logout</span>
-                                        </a>
-                                    </li>
-                                </ul>
-                            </div>
-                        </div>
+                        <h6 class="mb-0">{{ Auth::user()->name }}</h6>
+                        <small class="text-muted">{{ Auth::user()->getRoleNames()->first() }}</small>
+                    </div>
+                    <div class="flex-shrink-0">
+                        <a class="btn btn-icon btn-link-secondary" href="javascript:void(0);" id="sidebar-logout-btn">
+                            <i class="ph-duotone ph-sign-out"></i>
+                        </a>
+                        <form id="sidebar-logout-form" action="{{ route('logout') }}" method="POST" class="d-none">
+                            @csrf
+                        </form>
                     </div>
                 </div>
             </div>
@@ -75,3 +47,34 @@
     </div>
 </nav>
 <!-- [ Sidebar Menu ] end -->
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Get the sidebar logout button and form
+        const sidebarLogoutBtn = document.getElementById('sidebar-logout-btn');
+        const sidebarLogoutForm = document.getElementById('sidebar-logout-form');
+
+        // Handle sidebar logout button click
+        if (sidebarLogoutBtn && sidebarLogoutForm) {
+            sidebarLogoutBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+
+                // Show SweetAlert confirmation
+                Swal.fire({
+                    title: 'Konfirmasi Logout',
+                    text: 'Apakah Anda yakin ingin keluar dari sistem?',
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonColor: '#228B22',
+                    cancelButtonColor: '#d33',
+                    confirmButtonText: 'Ya, Logout',
+                    cancelButtonText: 'Batal'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        sidebarLogoutForm.submit();
+                    }
+                });
+            });
+        }
+    });
+</script>
