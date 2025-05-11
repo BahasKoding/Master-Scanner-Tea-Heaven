@@ -806,6 +806,9 @@
          *    - Shows success/error message
          *    - Resets form on completion
          */
+        // Declare table variable globally
+        var table;
+
         $(document).ready(function() {
             // Prevent DataTables from showing error messages in console
             $.fn.dataTable.ext.errMode = 'none';
@@ -1415,7 +1418,7 @@
                 }
 
                 // Initialize DataTable with optimized configuration
-                var table = $('#history-sales-table').DataTable({
+                table = $('#history-sales-table').DataTable({
                     processing: true,
                     serverSide: true,
                     responsive: true,

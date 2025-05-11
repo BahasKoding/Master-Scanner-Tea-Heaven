@@ -256,6 +256,16 @@
             const form = document.getElementById('userForm');
             const formData = new FormData(form);
 
+            // Show loading indicator
+            Swal.fire({
+                title: 'Saving...',
+                text: 'Creating new user',
+                allowOutsideClick: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                }
+            });
+
             fetch('{{ route('users.store') }}', {
                     method: 'POST',
                     headers: {
@@ -267,20 +277,46 @@
                 .then(response => response.json())
                 .then(data => {
                     if (data.status === 'success') {
-                        alert('User created successfully!');
-                        window.location.reload();
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Success',
+                            text: 'User created successfully!',
+                            timer: 1500,
+                            showConfirmButton: false
+                        }).then(() => {
+                            window.location.reload();
+                        });
                     } else {
-                        alert('Error: ' + data.message);
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error',
+                            text: data.message || 'Failed to create user'
+                        });
                     }
                 })
                 .catch(error => {
-                    alert('Error: ' + error);
+                    console.error('Error creating user:', error);
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: 'An error occurred while creating the user'
+                    });
                 });
         }
 
         // Function to show edit user modal
         function editUser(userId) {
-            fetch(`{{ route('users.edit', '') }}/${userId}`, {
+            // Show loading indicator
+            Swal.fire({
+                title: 'Loading...',
+                text: 'Fetching user data',
+                allowOutsideClick: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                }
+            });
+
+            fetch(`{{ url('users') }}/${userId}/edit`, {
                     headers: {
                         'X-CSRF-TOKEN': '{{ csrf_token() }}',
                         'Accept': 'application/json'
@@ -288,9 +324,18 @@
                 })
                 .then(response => response.json())
                 .then(data => {
+                    // Close loading indicator
+                    Swal.close();
+
+                    // Debug data in console
+                    console.log('User data received:', data);
+
+                    // Determine structure of the response
                     const userData = data.data || data;
 
-                    if (userData) {
+                    console.log('Extracted user data:', userData);
+
+                    if (userData && userData.name) {
                         // Set form values
                         document.getElementById('edit-user-id').value = userId;
                         document.getElementById('edit-name').value = userData.name;
@@ -310,11 +355,20 @@
                         const bsModal = new bootstrap.Modal(modal);
                         bsModal.show();
                     } else {
-                        alert('Error: Invalid user data received');
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error',
+                            text: 'Invalid user data received'
+                        });
                     }
                 })
                 .catch(error => {
-                    alert('Error: ' + error);
+                    console.error('Error fetching user data:', error);
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: 'Failed to load user data'
+                    });
                 });
         }
 
@@ -324,7 +378,17 @@
             const userId = document.getElementById('edit-user-id').value;
             const formData = new FormData(form);
 
-            fetch(`{{ route('users.update', '') }}/${userId}`, {
+            // Show loading indicator
+            Swal.fire({
+                title: 'Updating...',
+                text: 'Saving user information',
+                allowOutsideClick: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                }
+            });
+
+            fetch(`{{ url('users') }}/${userId}`, {
                     method: 'POST',
                     headers: {
                         'X-CSRF-TOKEN': '{{ csrf_token() }}',
@@ -335,41 +399,106 @@
                 .then(response => response.json())
                 .then(data => {
                     if (data.status === 'success') {
-                        alert('User updated successfully!');
-                        window.location.reload();
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Success',
+                            text: 'User updated successfully!',
+                            timer: 1500,
+                            showConfirmButton: false
+                        }).then(() => {
+                            window.location.reload();
+                        });
                     } else {
-                        alert('Error: ' + data.message);
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Update Failed',
+                            text: data.message || 'An error occurred'
+                        });
                     }
                 })
                 .catch(error => {
-                    alert('Error: ' + error);
+                    console.error('Error updating user:', error);
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: 'An error occurred while updating the user'
+                    });
                 });
         }
 
         // Function to delete user
         function deleteUser(userId) {
-            if (confirm('Are you sure you want to delete this user?')) {
-                fetch(`{{ route('users.destroy', '') }}/${userId}`, {
-                        method: 'DELETE',
-                        headers: {
-                            'X-CSRF-TOKEN': '{{ csrf_token() }}',
-                            'Accept': 'application/json',
-                            'Content-Type': 'application/json'
-                        }
-                    })
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.status === 'success') {
-                            alert('User deleted successfully!');
-                            window.location.reload();
-                        } else {
-                            alert('Error: ' + data.message);
-                        }
-                    })
-                    .catch(error => {
-                        alert('Error: An error occurred while deleting the user');
-                    });
+            // Get the current user's ID from the session
+            const currentUserId = {{ Auth::id() }};
+
+            // Check if the user is trying to delete themselves
+            if (userId === currentUserId) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Action Not Allowed',
+                    text: 'You cannot delete your own account!'
+                });
+                return;
             }
+
+            Swal.fire({
+                title: 'Are you sure?',
+                text: "You won't be able to revert this!",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#3085d6',
+                cancelButtonColor: '#d33',
+                confirmButtonText: 'Yes, delete it!'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    // Show loading indicator
+                    Swal.fire({
+                        title: 'Deleting...',
+                        text: 'Processing your request',
+                        allowOutsideClick: false,
+                        didOpen: () => {
+                            Swal.showLoading();
+                        }
+                    });
+
+                    fetch(`{{ url('users') }}/${userId}`, {
+                            method: 'DELETE',
+                            headers: {
+                                'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                                'Accept': 'application/json',
+                                'Content-Type': 'application/json'
+                            }
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.status === 'success') {
+                                Swal.fire({
+                                    icon: 'success',
+                                    title: 'Deleted!',
+                                    text: 'User has been deleted.',
+                                    timer: 1500,
+                                    showConfirmButton: false
+                                }).then(() => {
+                                    window.location.reload();
+                                });
+                            } else {
+                                Swal.fire({
+                                    icon: 'error',
+                                    title: 'Error',
+                                    text: data.message || 'Failed to delete user'
+                                });
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Error deleting user:', error);
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Error',
+                                text: 'An error occurred while deleting the user'
+                            });
+                        });
+                }
+            });
         }
     </script>
 @endsection

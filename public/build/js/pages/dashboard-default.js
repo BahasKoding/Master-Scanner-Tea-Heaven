@@ -1,109 +1,107 @@
-"use strict";
-document.addEventListener("DOMContentLoaded", function () {
+'use strict';
+document.addEventListener('DOMContentLoaded', function () {
   setTimeout(function () {
     floatchart();
   }, 500);
 });
 
 function floatchart() {
+
   (function () {
     // map
     var map = new jsVectorMap({
-      selector: "#world-map-markers",
-      map: "world",
-      markersSelectable: true,
-      markers: [
-        {
-          coords: [-14.235, -51.9253],
+        selector: "#world-map-markers",
+        map: "world",
+        markersSelectable: true,
+        markers: [{
+                coords: [-14.2350, -51.9253]
+            },
+            {
+                coords: [35.8617, 104.1954]
+            },
+            {
+                coords: [61, 105]
+            },
+            {
+                coords: [26.8206, 30.8025]
+            }
+        ],
+        markerStyle: {
+            initial: {
+                fill: '#3f4d67',
+            },
+            hover: {
+                fill: '#04A9F5',
+            },
         },
-        {
-          coords: [35.8617, 104.1954],
+        markerLabelStyle: {
+            initial: {
+                fontFamily: "'Inter', sans-serif",
+                fontSize: 13,
+                fontWeight: 500,
+                fill: '#3f4d67',
+            },
         },
-        {
-          coords: [61, 105],
-        },
-        {
-          coords: [26.8206, 30.8025],
-        },
-      ],
-      markerStyle: {
-        initial: {
-          fill: "#3f4d67",
-        },
-        hover: {
-          fill: "#04A9F5",
-        },
-      },
-      markerLabelStyle: {
-        initial: {
-          fontFamily: "'Inter', sans-serif",
-          fontSize: 13,
-          fontWeight: 500,
-          fill: "#3f4d67",
-        },
-      },
     });
 
     // chart
     var options = {
       chart: {
-        type: "line",
+        type: 'line',
         height: 200,
         toolbar: {
-          show: false,
-        },
+          show: false
+        }
       },
-      colors: ["#0d6efd"],
+      colors: ['#0d6efd'],
       dataLabels: {
-        enabled: false,
+        enabled: false
       },
       markers: {
         size: 7,
-        colors: "#0d6efd",
-        strokeColors: "#fff",
+        colors: '#0d6efd',
+        strokeColors: '#fff',
         strokeWidth: 3,
         hover: {
           size: 4,
-        },
-      },
+        }
+    },
       stroke: {
         width: 1,
-        curve: "smooth",
+        curve: 'smooth',
       },
       plotOptions: {
         bar: {
-          columnWidth: "45%",
-          borderRadius: 4,
-        },
+          columnWidth: '45%',
+          borderRadius: 4
+        }
       },
       grid: {
-        strokeDashArray: 4,
+        strokeDashArray: 4
       },
       series: [
         {
-          data: [30, 60, 40, 70, 50, 90],
-        },
+          data: [30, 60, 40, 70, 50, 90]
+        }
       ],
       yaxis: {
-        show: false,
+         show: false,
       },
       xaxis: {
-        categories: ["Jan", "Feb", "Mar", "Apr", "May", "Jun"],
+        categories: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
         labels: {
           hideOverlappingLabels: true,
         },
         axisBorder: {
-          show: false,
+          show: false
         },
         axisTicks: {
-          show: false,
-        },
-      },
+          show: false
+        }
+      }
     };
-    var chart = new ApexCharts(
-      document.querySelector("#earnings-users-chart"),
-      options
-    );
+    var chart = new ApexCharts(document.querySelector("#earnings-users-chart"), options);
     chart.render();
   })();
+
 }

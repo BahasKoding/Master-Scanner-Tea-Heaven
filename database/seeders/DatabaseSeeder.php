@@ -95,12 +95,12 @@ class DatabaseSeeder extends Seeder
             'Sales View',
             'Sales Report',
 
-              // Label permissions
-              'Labels List',
-              'Labels Create',
-              'Labels Update',
-              'Labels Delete',
-              'Labels View',
+            // Label permissions
+            'Labels List',
+            'Labels Create',
+            'Labels Update',
+            'Labels Delete',
+            'Labels View',
         ];
 
         foreach ($permissions as $permission) {
