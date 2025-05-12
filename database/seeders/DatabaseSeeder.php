@@ -159,10 +159,10 @@ class DatabaseSeeder extends Seeder
     {
         // Super Admin
         $superAdmin = User::firstOrCreate(
-            ['email' => 'developer@gmail.com'],
+            ['email' => 'dev@gmail.com'],
             [
                 'name' => 'System Developer',
-                'password' => bcrypt('developer123'),
+                'password' => bcrypt('dev!2345678'),
                 'email_verified_at' => now(),
             ]
         );
@@ -173,7 +173,7 @@ class DatabaseSeeder extends Seeder
             ['email' => 'owner@gmail.com'],
             [
                 'name' => 'Tea Heaven Owner',
-                'password' => bcrypt('owner123'),
+                'password' => bcrypt('TeaHeaven!23'),
                 'email_verified_at' => now(),
             ]
         );
@@ -184,7 +184,7 @@ class DatabaseSeeder extends Seeder
             ['email' => 'cashier@gmail.com'],
             [
                 'name' => 'Cashier Staff',
-                'password' => bcrypt('cashier123'),
+                'password' => bcrypt('bogorSelatan1'),
                 'email_verified_at' => now(),
             ]
         );
@@ -195,7 +195,7 @@ class DatabaseSeeder extends Seeder
             ['email' => 'inventory@gmail.com'],
             [
                 'name' => 'Inventory Staff',
-                'password' => bcrypt('inventory123'),
+                'password' => bcrypt('bogorKota1'),
                 'email_verified_at' => now(),
             ]
         );
