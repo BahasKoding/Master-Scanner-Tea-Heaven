@@ -810,6 +810,30 @@
         var table;
 
         $(document).ready(function() {
+            $(document).on('keydown', function(e) {
+                // Check if Enter key was pressed (key code 13)
+                if (e.keyCode === 13) {
+                    // Prevent default form submission
+                    e.preventDefault();
+                    
+                    // Check if we're not inside a modal (to avoid conflicts with modal forms)
+                    if ($('.modal.show').length === 0) {
+                        // Check if at least one SKU field has a value
+                        let hasValidSku = false;
+                        $('.sku-input').each(function() {
+                            if ($(this).val().trim() !== '') {
+                                hasValidSku = true;
+                                return false; // Break the loop
+                            }
+                        });
+                        
+                        // If we have at least one valid SKU, trigger the submit button click
+                        if (hasValidSku) {
+                            $('#submitManualBtn').click();
+                        }
+                    }
+                }
+            });
             // Prevent DataTables from showing error messages in console
             $.fn.dataTable.ext.errMode = 'none';
 
@@ -1096,16 +1120,26 @@
                 // Add a visual hint that we're now scanning SKUs
                 showAlert('success', 'No Resi Valid', 'Silakan pindai No SKU', 1000);
 
-                // Only auto-focus if scanner is active
-                if (STATE.isScannerActive) {
+                // Ensure focus moves to SKU input field after validation
+                // Clear any existing timeouts to prevent race conditions
+                if (window.focusTimeout) {
+                    clearTimeout(window.focusTimeout);
+                }
+                
+                // Use a slightly longer delay to ensure the alert doesn't steal focus
+                window.focusTimeout = setTimeout(() => {
+                    // Force blur on current element first
+                    document.activeElement.blur();
+                    // Then focus on the SKU input with a small delay
                     setTimeout(() => {
                         $('.sku-input:first').focus();
+                        // Verify focus was set correctly
+                        if (document.activeElement !== $('.sku-input:first')[0]) {
+                            $('.sku-input:first').trigger('focus');
+                        }
                         $('#resiScanningIndicator').removeClass('active');
-                    }, CONFIG.SCAN_DELAY);
-                } else {
-                    $('#resiScanningIndicator').removeClass('active');
-                    // Focus stays on No Resi field when scanner is inactive
-                }
+                    }, 50);
+                }, CONFIG.SCAN_DELAY + 100);
             }
 
             function handleInvalidResi(message) {
