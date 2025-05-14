@@ -15,8 +15,6 @@ class ProductList extends Model
         'sku',
         'pack',
         'product_name',
-        'supplier_id',
-        'gramasi'
     ];
 
     /**
@@ -27,11 +25,4 @@ class ProductList extends Model
         return $this->belongsTo(CategoryProduct::class, 'category_id');
     }
 
-    /**
-     * Get the supplier associated with this product.
-     */
-    public function supplier()
-    {
-        return $this->belongsTo(Supplier::class, 'supplier_id');
-    }
 }

@@ -11,8 +11,6 @@
     <!-- data tables css -->
     <link rel="stylesheet" href="{{ URL::asset('build/css/plugins/datatables/dataTables.bootstrap5.min.css') }}">
     <link rel="stylesheet" href="{{ URL::asset('build/css/plugins/datatables/buttons.bootstrap5.min.css') }}">
-    <!-- Choices css - only used for filter -->
-    <link rel="stylesheet" href="{{ URL::asset('build/css/plugins/choices.min.css') }}">
     <!-- [Page specific CSS] end -->
     <style>
         .form-section {
@@ -69,29 +67,12 @@
                     </div>
                 </div>
                 <div class="card-body">
-                    <!-- Filter Section -->
-                    <div class="mb-3 p-3 border rounded bg-light">
-                        <div class="row">
-                            <div class="col-md-12">
-                                <label for="filter-label" class="form-label small">Filter Berdasarkan Label</label>
-                                <select class="form-control" name="filter-label" id="filter-label">
-                                    <option value="">Semua Label</option>
-                                    @foreach ($labels as $label)
-                                        <option value="{{ $label->id }}">{{ $label->name }}</option>
-                                    @endforeach
-                                </select>
-                            </div>
-                        </div>
-                    </div>
-                    <!-- End Filter Section -->
-
                     <div class="dt-responsive table-responsive">
                         <table id="category-product-table" class="table table-striped table-bordered nowrap">
                             <thead>
                                 <tr>
                                     <th>No</th>
                                     <th>Nama</th>
-                                    <th>Label</th>
                                     <th>Aksi</th>
                                 </tr>
                             </thead>
@@ -122,15 +103,6 @@
                             <label class="form-label">Nama <span class="text-danger">*</span></label>
                             <input type="text" class="form-control" name="name" required>
                         </div>
-                        <div class="mb-3">
-                            <label class="form-label">Label <span class="text-danger">*</span></label>
-                            <select class="form-select" name="label_id" id="add-label" required>
-                                <option value="">-- Pilih Label --</option>
-                                @foreach ($labels as $label)
-                                    <option value="{{ $label->id }}">{{ $label->name }}</option>
-                                @endforeach
-                            </select>
-                        </div>
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Tutup</button>
@@ -158,15 +130,6 @@
                         <div class="mb-3">
                             <label class="form-label">Nama <span class="text-danger">*</span></label>
                             <input type="text" class="form-control" name="name" id="edit_name" required>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Label <span class="text-danger">*</span></label>
-                            <select class="form-control" name="label_id" id="edit-label" required>
-                                <option value="">-- Pilih Label --</option>
-                                @foreach ($labels as $label)
-                                    <option value="{{ $label->id }}">{{ $label->name }}</option>
-                                @endforeach
-                            </select>
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -198,9 +161,6 @@
     <script src="{{ URL::asset('build/js/plugins/buttons.print.min.js') }}"></script>
     <script src="{{ URL::asset('build/js/plugins/buttons.colVis.min.js') }}"></script>
 
-    <!-- Choices JS - only for filter -->
-    <script src="{{ URL::asset('build/js/plugins/choices.min.js') }}"></script>
-
     <script type="text/javascript">
         $(document).ready(function() {
             // Debounce function to limit how often a function can trigger
@@ -214,66 +174,6 @@
                 };
             }
 
-            // Initialize Choices.js for filter labels only
-            var filterLabelChoices = new Choices('#filter-label', {
-                searchEnabled: true,
-                searchPlaceholderValue: "Cari label",
-                itemSelectText: '',
-                placeholder: true,
-                placeholderValue: "Semua Label",
-                classNames: {
-                    containerOuter: 'choices form-control-sm'
-                },
-                shouldSort: false,
-                removeItemButton: true
-            });
-
-            // Manually set the choices to ensure they're available
-            @if (isset($labels) && $labels->count() > 0)
-                // Reset current choices
-                filterLabelChoices.clearChoices();
-
-                // Add empty option first
-                filterLabelChoices.setChoices([{
-                        value: '',
-                        label: 'Semua Label'
-                    },
-                    @foreach ($labels as $label)
-                        {
-                            value: '{{ $label->id }}',
-                            label: '{{ $label->name }}'
-                        },
-                    @endforeach
-                ], 'value', 'label', false);
-            @endif
-
-            // Initialize Choices.js for edit form
-            var editLabelChoices = new Choices('#edit-label', {
-                searchEnabled: true,
-                searchPlaceholderValue: "Cari label",
-                itemSelectText: '',
-                placeholder: true,
-                placeholderValue: "Pilih label",
-                shouldSort: false,
-                removeItemButton: true
-            });
-
-            // Manually set the choices to ensure they're available
-            @if (isset($labels) && $labels->count() > 0)
-                // Reset current choices
-                editLabelChoices.clearChoices();
-
-                // Add all labels as choices
-                editLabelChoices.setChoices([
-                    @foreach ($labels as $label)
-                        {
-                            value: '{{ $label->id }}',
-                            label: '{{ $label->name }}'
-                        },
-                    @endforeach
-                ], 'value', 'label', false);
-            @endif
-
             // Initialize DataTable
             var table = $('#category-product-table').DataTable({
                 processing: true,
@@ -281,10 +181,6 @@
                 ajax: {
                     url: "{{ route('category-products.index') }}",
                     type: "GET",
-                    data: function(d) {
-                        d.label_id = $('#filter-label').val();
-                        return d;
-                    }
                 },
                 columns: [{
                         data: 'DT_RowIndex',
@@ -295,10 +191,6 @@
                     {
                         data: 'name',
                         name: 'name'
-                    },
-                    {
-                        data: 'label',
-                        name: 'label'
                     },
                     {
                         data: 'action',
@@ -340,15 +232,9 @@
                 ]
             });
 
-            // Apply filters when dropdown values change
-            $('#filter-label').on('change', function() {
-                table.ajax.reload();
-            });
-
             // Clear filters function
             $('#clear-filters').on('click', function() {
-                filterLabelChoices.setChoiceByValue('');
-                table.ajax.reload();
+                table.search('').columns().search('').draw();
             });
 
             // Save and Add More Button Click
@@ -554,7 +440,6 @@
 
                             // Set form fields
                             $('#edit_name').val(data.name);
-                            editLabelChoices.setChoiceByValue(data.label_id.toString());
 
                             // Clean up any existing modal backdrop
                             $('.modal-backdrop').remove();
@@ -628,7 +513,6 @@
                         if (data.success) {
                             // Reset form and close modal
                             form[0].reset();
-                            editLabelChoices.setChoiceByValue('');
                             $('#editCategoryProductModal').modal('hide');
 
                             // Reload table
@@ -733,7 +617,6 @@
             $('#editCategoryProductModal').on('hidden.bs.modal', function() {
                 console.log('Modal hidden - cleaning up');
                 $(this).find('form')[0].reset();
-                editLabelChoices.setChoiceByValue('');
                 // Clean up any lingering modal artifacts
                 $('.modal-backdrop').remove();
                 $('body').removeClass('modal-open');

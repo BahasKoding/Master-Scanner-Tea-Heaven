@@ -486,6 +486,9 @@ class HistorySaleController extends Controller
     public function export(Request $request)
     {
         try {
+            // Set memory limit higher for large exports
+            ini_set('memory_limit', '512M');
+
             $query = HistorySale::query();
 
             // Apply date range filter if provided
@@ -495,40 +498,73 @@ class HistorySaleController extends Controller
                 $query->whereBetween('created_at', [$startDate, $endDate]);
             }
 
-            // Process in chunks to avoid memory issues
+            // Get total count for logging
+            $totalRecords = $query->count();
+            Log::info("Starting export of {$totalRecords} records");
+
+            // Process in chunks to avoid memory issues (reduced chunk size for better memory usage)
             $data = [];
             $query->orderBy('created_at', 'desc')
-                ->chunk(1000, function ($historySales) use (&$data) {
+                ->chunk(500, function ($historySales) use (&$data) {
                     foreach ($historySales as $historySale) {
-                        $skus = is_string($historySale->no_sku) ? json_decode($historySale->no_sku, true) : $historySale->no_sku;
-                        $quantities = is_string($historySale->qty) ? json_decode($historySale->qty, true) : $historySale->qty;
+                        try {
+                            $skus = is_string($historySale->no_sku) ? json_decode($historySale->no_sku, true) : $historySale->no_sku;
+                            $quantities = is_string($historySale->qty) ? json_decode($historySale->qty, true) : $historySale->qty;
 
-                        $skuQtyPairs = [];
-                        foreach ($skus as $index => $sku) {
-                            $qty = $quantities[$index] ?? 1;
-                            $skuQtyPairs[] = $sku . ' (Jumlah: ' . $qty . ')';
+                            // Format the SKUs and quantities with clear separation using commas and spaces
+                            $skuLines = [];
+                            $qtyLines = [];
+
+                            if (is_array($skus) && count($skus) > 0) {
+                                foreach ($skus as $index => $sku) {
+                                    $skuLines[] = $sku;
+                                    $qtyLines[] = isset($quantities[$index]) ? $quantities[$index] : 1;
+                                }
+                            }
+
+                            // Create a single record with all SKUs and quantities
+                            $data[] = [
+                                'ID' => $historySale->id,
+                                'No Resi' => $historySale->no_resi,
+                                'SKU' => implode(", ", $skuLines), // Use comma and space for better Excel display
+                                'Jumlah' => implode(", ", $qtyLines), // Use comma and space for better Excel display
+                                'Dibuat Pada' => $historySale->created_at->format('Y-m-d H:i:s'),
+                                'Diperbarui Pada' => $historySale->updated_at->format('Y-m-d H:i:s'),
+                            ];
+                        } catch (\Exception $e) {
+                            Log::error("Error processing record ID {$historySale->id}: " . $e->getMessage());
+                            // Add error record for missing data
+                            $data[] = [
+                                'ID' => $historySale->id,
+                                'No Resi' => $historySale->no_resi,
+                                'SKU' => 'ERROR: ' . substr($e->getMessage(), 0, 30) . '...',
+                                'Jumlah' => 'ERROR',
+                                'Dibuat Pada' => $historySale->created_at->format('Y-m-d H:i:s'),
+                                'Diperbarui Pada' => $historySale->updated_at->format('Y-m-d H:i:s'),
+                            ];
                         }
-
-                        $data[] = [
-                            'ID' => $historySale->id,
-                            'No Resi' => $historySale->no_resi,
-                            'SKU & Jumlah' => implode(', ', $skuQtyPairs),
-                            'Dibuat Pada' => $historySale->created_at->format('Y-m-d H:i:s'),
-                            'Diperbarui Pada' => $historySale->updated_at->format('Y-m-d H:i:s'),
-                        ];
                     }
                 });
 
             // Log activity
-            addActivity('sales', 'export', 'Pengguna mengekspor data penjualan' .
-                ($request->filled('start_date') && $request->filled('end_date') ?
-                    ' dari ' . $request->input('start_date') . ' sampai ' . $request->input('end_date') : ''), null);
+            $exportDescription = 'Pengguna mengekspor data penjualan';
+            if ($request->filled('start_date') && $request->filled('end_date')) {
+                $exportDescription .= ' dari ' . $request->input('start_date') . ' sampai ' . $request->input('end_date');
+            } else {
+                $exportDescription .= ' (semua data)';
+            }
+            $exportDescription .= " ({$totalRecords} data)";
+
+            addActivity('sales', 'export', $exportDescription, null);
+            Log::info("Export completed successfully for {$totalRecords} records");
 
             return response()->json([
                 'status' => 'success',
-                'data' => $data
+                'data' => $data,
+                'count' => count($data)
             ]);
         } catch (\Exception $e) {
+            Log::error('Export error: ' . $e->getMessage());
             return response()->json([
                 'status' => 'error',
                 'message' => 'Terjadi kesalahan saat mengekspor data: ' . $e->getMessage()

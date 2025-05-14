@@ -451,6 +451,9 @@
     <script src="{{ URL::asset('build/js/plugins/buttons.print.min.js') }}"></script>
     <script src="{{ URL::asset('build/js/plugins/buttons.colVis.min.js') }}"></script>
 
+    <!-- SheetJS library for Excel export -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
     <!-- Date picker enhancement -->
     <script src="{{ URL::asset('build/js/plugins/flatpickr.min.js') }}"></script>
 
@@ -722,53 +725,131 @@
                         return;
                     }
 
-                    // Confirm export for large datasets
-                    if (recordsTotal > 1000) {
-                        Swal.fire({
-                            title: 'Ekspor Data Besar',
-                            html: `Anda akan mengekspor <strong>${recordsTotal}</strong> data. Ini mungkin memerlukan waktu dan bisa memperlambat browser Anda.<br><br>Apakah Anda ingin melanjutkan?`,
-                            icon: 'warning',
-                            showCancelButton: true,
-                            confirmButtonText: 'Ya, ekspor semua',
-                            cancelButtonText: 'Batal',
-                            confirmButtonColor: '#28a745'
-                        }).then((result) => {
-                            if (result.isConfirmed) {
-                                performExport();
+                    // Update export status
+                    $exportStatus.show();
+                    $('#exportStatusText').text('Mempersiapkan data untuk ekspor...');
+
+                    // Perform the AJAX request to get data
+                    $.ajax({
+                        url: "{{ route('history-sales.export') }}",
+                        type: "POST",
+                        data: {
+                            _token: "{{ csrf_token() }}",
+                            start_date: $startDate.val(),
+                            end_date: $endDate.val()
+                        },
+                        success: function(response) {
+                            if (response.status === 'success') {
+                                // Show row count in status
+                                $('#exportStatusText').text(
+                                    `Mengekspor ${response.count} baris data...`);
+
+                                // Export data to Excel
+                                setTimeout(() => {
+                                    exportToExcel(response.data, 'Laporan_Penjualan_' +
+                                        formatDateForFileName($startDate.val()) +
+                                        '_to_' + formatDateForFileName($endDate
+                                            .val()));
+                                    showSuccess(
+                                        `${response.count} data berhasil diekspor ke Excel dengan format satu baris per No Resi dan nilai SKU/Quantity yang dipisahkan dengan koma`
+                                    );
+                                    $exportStatus.hide();
+                                }, 500);
+                            } else {
+                                showError(response.message ||
+                                    'Terjadi kesalahan saat mengekspor data');
+                                $exportStatus.hide();
                             }
-                        });
-                    } else {
-                        performExport();
-                    }
+                        },
+                        error: function(xhr) {
+                            $exportStatus.hide();
+                            showError('Terjadi kesalahan: ' + (xhr.responseJSON && xhr
+                                .responseJSON.message ? xhr.responseJSON.message :
+                                'Tidak dapat menghubungi server'));
+                        }
+                    });
                 }
                 isInitialLoad = false;
             });
 
-            // Optimized export function
-            function performExport() {
-                // Show export status indicator for better UX
-                $exportStatus.show();
-                $('#exportStatusText').text('Preparing data for export...');
+            // Helper function to format date for filename
+            function formatDateForFileName(dateString) {
+                if (!dateString) return 'all';
+                return dateString.replace(/-/g, '');
+            }
 
-                // Use setTimeout to allow UI to update before processing
-                setTimeout(() => {
-                    // Set all records to be exported
-                    const currentPageLen = table.page.len();
-                    table.page.len(-1).draw('page');
+            // Function to export data to Excel
+            function exportToExcel(data, fileName) {
+                // Create a new workbook
+                const wb = XLSX.utils.book_new();
 
-                    // Trigger the export
-                    setTimeout(() => {
-                        table.button('.buttons-excel').trigger();
+                // Convert the data to a worksheet
+                const ws = XLSX.utils.json_to_sheet(data);
 
-                        // Reset pagination after a delay
-                        setTimeout(() => {
-                            table.page.len(currentPageLen).draw('page');
-                            $exportStatus.hide();
+                // Set column widths for better readability - increase the width for SKU and Quantity columns
+                const colWidths = [{
+                        wch: 8
+                    }, // ID
+                    {
+                        wch: 25
+                    }, // No Resi
+                    {
+                        wch: 60
+                    }, // SKU - significantly increased width for multiple comma-separated SKUs
+                    {
+                        wch: 25
+                    }, // Jumlah - increased width for comma-separated quantities
+                    {
+                        wch: 20
+                    }, // Dibuat Pada
+                    {
+                        wch: 20
+                    } // Diperbarui Pada
+                ];
 
-                            showSuccess('Export completed successfully');
-                        }, 1000);
-                    }, 100);
-                }, 100);
+                ws['!cols'] = colWidths;
+
+                // Configure cell styles to ensure text wrapping for long content
+                if (!ws['!rows']) ws['!rows'] = [];
+
+                // Process each cell to ensure proper text wrapping and formatting
+                for (let i = 0; i < data.length; i++) {
+                    const rowIndex = i + 1; // +1 to skip header
+                    const skuValue = data[i]['SKU'] || '';
+                    const qtyValue = data[i]['Jumlah'] || '';
+
+                    // Estimate minimum needed height based on text length and typical width
+                    const approximateLines = Math.max(
+                        Math.ceil(skuValue.length / 40), // Estimate line breaks based on characters
+                        Math.ceil(qtyValue.length / 15),
+                        1 // Minimum 1 line
+                    );
+
+                    // Set row height for better readability
+                    ws['!rows'][rowIndex] = {
+                        hpt: Math.min(approximateLines * 18, 200) // Adjust height, cap at 200pt
+                    };
+                }
+
+                // Add autofilter to enable Excel filtering
+                const range = XLSX.utils.decode_range(ws['!ref']);
+                ws['!autofilter'] = {
+                    ref: XLSX.utils.encode_range({
+                            r: 0,
+                            c: 0
+                        }, // Start at first row, first column (header)
+                        {
+                            r: 0,
+                            c: range.e.c
+                        } // End at first row, last column
+                    )
+                };
+
+                // Add the worksheet to the workbook
+                XLSX.utils.book_append_sheet(wb, ws, 'Laporan Penjualan');
+
+                // Generate Excel file and trigger download
+                XLSX.writeFile(wb, fileName + '.xlsx');
             }
 
             // Clear button with confirmation for better UX
@@ -833,143 +914,65 @@
                     if (result.isConfirmed) {
                         // Show export status indicator
                         $exportStatus.show();
-                        $('#exportStatusText').text('Preparing all data for export...');
+                        $('#exportStatusText').text('Mempersiapkan semua data untuk ekspor...');
 
-                        // Clear date filters temporarily for this export
-                        const currentStartDate = $startDate.val();
-                        const currentEndDate = $endDate.val();
+                        // Disable buttons during export
+                        const $buttons = $('#filterBtn, #exportBtn, #exportAllBtn, #clearBtn');
+                        $buttons.prop('disabled', true);
 
-                        // Clear filters for the AJAX request
-                        $startDate.val('');
-                        $endDate.val('');
+                        // Perform the AJAX request to get all data
+                        $.ajax({
+                            url: "{{ route('history-sales.export') }}",
+                            type: "POST",
+                            data: {
+                                _token: "{{ csrf_token() }}"
+                                // No date filters for exporting all data
+                            },
+                            success: function(response) {
+                                if (response.status === 'success') {
+                                    // Show row count in status
+                                    $('#exportStatusText').text(
+                                        `Mengekspor ${response.count} baris data...`
+                                    );
 
-                        // Set a timeout to avoid UI blocking and show loading state
-                        setTimeout(() => {
-                            try {
-                                // Disable all buttons during export
-                                const $buttons = $(
-                                    '#filterBtn, #exportBtn, #exportAllBtn, #clearBtn');
-                                $buttons.prop('disabled', true);
-
-                                // Update DataTable with no filters
-                                table.ajax.reload(function() {
-                                    // After data loaded without filters, export with retry mechanism
+                                    // Export all data to Excel with a small delay to allow UI update
                                     setTimeout(() => {
-                                        try {
-                                            // Set page length to all for export
-                                            table.page.len(-1).draw('page');
-
-                                            setTimeout(() => {
-                                                try {
-                                                    // Trigger export
-                                                    table.button(
-                                                            '.buttons-excel'
-                                                        )
-                                                        .trigger();
-
-                                                    // Restore filters and pagination after export
-                                                    setTimeout(
-                                                        () => {
-                                                            try {
-                                                                // Restore date filters
-                                                                $startDate
-                                                                    .val(
-                                                                        currentStartDate
-                                                                    );
-                                                                $endDate
-                                                                    .val(
-                                                                        currentEndDate
-                                                                    );
-
-                                                                // Re-enable buttons
-                                                                $buttons
-                                                                    .prop(
-                                                                        'disabled',
-                                                                        false
-                                                                    );
-
-                                                                // Restore table state
-                                                                table
-                                                                    .page
-                                                                    .len(
-                                                                        parseInt(
-                                                                            $pageLength
-                                                                            .val()
-                                                                        )
-                                                                    )
-                                                                    .draw(
-                                                                        'page'
-                                                                    );
-                                                                $exportStatus
-                                                                    .hide();
-
-                                                                // Reload with original filters to restore view
-                                                                table
-                                                                    .ajax
-                                                                    .reload();
-
-                                                                showSuccess
-                                                                    (
-                                                                        'All data exported successfully'
-                                                                    );
-                                                            } catch (
-                                                                e
-                                                            ) {
-                                                                handleExportError
-                                                                    (e, $buttons,
-                                                                        currentStartDate,
-                                                                        currentEndDate
-                                                                    );
-                                                            }
-                                                        }, 1500);
-                                                } catch (e) {
-                                                    handleExportError
-                                                        (e, $buttons,
-                                                            currentStartDate,
-                                                            currentEndDate
-                                                        );
-                                                }
-                                            }, 500);
-                                        } catch (e) {
-                                            handleExportError(e, $buttons,
-                                                currentStartDate,
-                                                currentEndDate);
-                                        }
+                                        exportToExcel(response.data,
+                                            'Laporan_Penjualan_Lengkap_' +
+                                            getCurrentDate());
+                                        showSuccess(
+                                            `${response.count} data berhasil diekspor ke Excel dengan format satu baris per No Resi dan nilai SKU/Quantity yang dipisahkan dengan koma`
+                                        );
+                                        $exportStatus.hide();
+                                        $buttons.prop('disabled', false);
                                     }, 500);
-                                });
-                            } catch (e) {
-                                handleExportError(e, $buttons, currentStartDate,
-                                    currentEndDate);
+                                } else {
+                                    showError(response.message ||
+                                        'Terjadi kesalahan saat mengekspor data');
+                                    $exportStatus.hide();
+                                    $buttons.prop('disabled', false);
+                                }
+                            },
+                            error: function(xhr) {
+                                $exportStatus.hide();
+                                $buttons.prop('disabled', false);
+                                showError('Terjadi kesalahan: ' + (xhr.responseJSON &&
+                                    xhr.responseJSON.message ? xhr.responseJSON
+                                    .message : 'Tidak dapat menghubungi server'
+                                ));
                             }
-                        }, 100);
+                        });
                     }
                 });
             });
 
-            // Add a helper function to handle export errors
-            function handleExportError(error, $buttons, originalStartDate, originalEndDate) {
-                console.error('Export error:', error);
-
-                // Re-enable all buttons
-                $buttons.prop('disabled', false);
-
-                // Restore original date values
-                $startDate.val(originalStartDate);
-                $endDate.val(originalEndDate);
-
-                // Hide export status
-                $exportStatus.hide();
-
-                // Show error message
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Export Failed',
-                    text: 'There was an error exporting the data. Please try again with a smaller date range or contact support.',
-                    confirmButtonColor: '#dc3545'
-                });
-
-                // Reload table to restore view
-                table.ajax.reload();
+            // Helper function to get current date for filename
+            function getCurrentDate() {
+                const now = new Date();
+                const year = now.getFullYear();
+                const month = String(now.getMonth() + 1).padStart(2, '0');
+                const day = String(now.getDate()).padStart(2, '0');
+                return `${year}${month}${day}`;
             }
 
             // Function to update the date filter info display

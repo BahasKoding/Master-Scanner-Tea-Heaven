@@ -17,20 +17,12 @@ return new class extends Migration
             $table->string('sku')->unique();
             $table->string('pack');
             $table->string('product_name');
-            $table->unsignedBigInteger('supplier_id');
-            $table->string('gramasi');
             $table->timestamps();
 
             // Add foreign key to category_products table
             $table->foreign('category_id')
                 ->references('id')
                 ->on('category_products')
-                ->onDelete('restrict');
-
-            // Add foreign key to suppliers table
-            $table->foreign('supplier_id')
-                ->references('id')
-                ->on('suppliers')
                 ->onDelete('restrict');
         });
     }

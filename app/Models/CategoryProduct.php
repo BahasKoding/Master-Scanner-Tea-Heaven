@@ -10,15 +10,7 @@ class CategoryProduct extends Model
     use HasFactory;
 
     protected $table = 'category_products';
-    protected $fillable = ['name', 'label_id'];
-
-    /**
-     * Get the label associated with this category product.
-     */
-    public function label()
-    {
-        return $this->belongsTo(Label::class, 'label_id');
-    }
+    protected $fillable = ['name'];
 
     /**
      * Get the products that belong to this category.

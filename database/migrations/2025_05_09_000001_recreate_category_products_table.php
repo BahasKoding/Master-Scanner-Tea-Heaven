@@ -16,14 +16,7 @@ return new class extends Migration
         Schema::create('category_products', function (Blueprint $table) {
             $table->id();
             $table->string('name');
-            $table->unsignedBigInteger('label_id');
             $table->timestamps();
-
-            // Add foreign key to labels table
-            $table->foreign('label_id')
-                ->references('id')
-                ->on('labels')
-                ->onDelete('restrict');
         });
     }
 

@@ -11,6 +11,7 @@ use App\Http\Controllers\HistorySaleController;
 use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\CategorySupplierController;
 use App\Http\Controllers\CategoryProductController;
+use App\Http\Controllers\ProductListController;
 use App\Http\Controllers\LabelController;
 use Illuminate\Support\Facades\Auth;
 
@@ -119,19 +120,11 @@ Route::middleware(['auth'])->group(function () {
     Route::resource('suppliers', SupplierController::class);
     Route::resource('category-suppliers', CategorySupplierController::class);
     Route::resource('category-products', CategoryProductController::class);
-    Route::resource('labels', LabelController::class);
+    Route::resource('products', ProductListController::class);
 
     // Additional route for listing suppliers by category
     Route::get('category-suppliers/{categorySupplier}/suppliers', [CategorySupplierController::class, 'listSuppliers'])
         ->name('category-suppliers.list-suppliers');
-
-    // Additional route for listing products by label
-    Route::get('labels/{label}/products', [LabelController::class, 'listProducts'])
-        ->name('labels.list-products');
-
-    // Development route for seeding labels (only for authenticated users)
-    Route::post('labels/seed', [LabelController::class, 'runSeeder'])
-        ->name('labels.seed');
 
     /*
     |--------------------------------------------------------------------------
