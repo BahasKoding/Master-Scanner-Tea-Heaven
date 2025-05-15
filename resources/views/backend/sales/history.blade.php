@@ -603,7 +603,8 @@
                             </div>
                             <div class="countdown-timer" id="autoSubmitTimer" style="display: none;">
                                 <i class="fas fa-clock me-1"></i> Menyimpan dalam <span id="submitCountdown">10</span> detik
-                                <br><small class="text-muted">(atau klik "Simpan Data" untuk menyimpan sekarang)</small>
+                                <br><small class="text-muted">(atau klik "Simpan Data" / tekan CTRL+ENTER untuk menyimpan
+                                    sekarang)</small>
                             </div>
                         </div>
                     </div>
@@ -658,6 +659,10 @@
                                     <small class="text-muted d-block mt-1">
                                         <i class="fas fa-info-circle"></i> Masukkan nomor SKU produk dan jumlahnya. Isian
                                         baru akan muncul otomatis.
+                                    </small>
+                                    <small class="text-muted d-block mt-1">
+                                        <i class="fas fa-keyboard"></i> Tekan tombol <kbd>CTRL</kbd>+<kbd>ENTER</kbd> untuk
+                                        menyimpan data secara cepat.
                                     </small>
                                 </div>
 
@@ -810,30 +815,7 @@
         var table;
 
         $(document).ready(function() {
-            $(document).on('keydown', function(e) {
-                // Check if Enter key was pressed (key code 13)
-                if (e.keyCode === 13) {
-                    // Prevent default form submission
-                    e.preventDefault();
-                    
-                    // Check if we're not inside a modal (to avoid conflicts with modal forms)
-                    if ($('.modal.show').length === 0) {
-                        // Check if at least one SKU field has a value
-                        let hasValidSku = false;
-                        $('.sku-input').each(function() {
-                            if ($(this).val().trim() !== '') {
-                                hasValidSku = true;
-                                return false; // Break the loop
-                            }
-                        });
-                        
-                        // If we have at least one valid SKU, trigger the submit button click
-                        if (hasValidSku) {
-                            $('#submitManualBtn').click();
-                        }
-                    }
-                }
-            });
+
             // Prevent DataTables from showing error messages in console
             $.fn.dataTable.ext.errMode = 'none';
 
@@ -1001,6 +983,38 @@
                         }
                     }
                 });
+
+                // Add ENTER key event to manually submit the form - but only when explicitly pressed
+                // as a separate action, not during scanning
+                $(document).on('keydown', function(e) {
+                    // Check if the key pressed is Enter (key code 13)
+                    if (e.which === 13 && STATE.hasValidResi && hasSKUsWithContent()) {
+                        // Get the active element to determine context
+                        const activeElement = document.activeElement;
+
+                        // Only process ENTER key when:
+                        // 1. Focus is NOT on any input field (document body has focus) OR
+                        // 2. User explicitly presses CTRL+ENTER in any input
+                        if (
+                            (activeElement === document.body) ||
+                            (e.ctrlKey === true)
+                        ) {
+                            // This is an explicit submission request, not part of scanning
+                            e.preventDefault();
+
+                            // Stop countdown and clear timers
+                            clearInterval(STATE.countdownInterval);
+                            clearTimeout(STATE.submitTimer);
+                            $('#autoSubmitTimer').hide();
+
+                            // Show a brief flash notification
+                            showAlert('info', 'Menyimpan Data', 'Menyimpan dengan tombol ENTER', 800);
+
+                            // Submit the form
+                            submitForm();
+                        }
+                    }
+                });
             }
 
             // Check if any SKU inputs have content
@@ -1120,26 +1134,16 @@
                 // Add a visual hint that we're now scanning SKUs
                 showAlert('success', 'No Resi Valid', 'Silakan pindai No SKU', 1000);
 
-                // Ensure focus moves to SKU input field after validation
-                // Clear any existing timeouts to prevent race conditions
-                if (window.focusTimeout) {
-                    clearTimeout(window.focusTimeout);
-                }
-                
-                // Use a slightly longer delay to ensure the alert doesn't steal focus
-                window.focusTimeout = setTimeout(() => {
-                    // Force blur on current element first
-                    document.activeElement.blur();
-                    // Then focus on the SKU input with a small delay
+                // Only auto-focus if scanner is active
+                if (STATE.isScannerActive) {
                     setTimeout(() => {
                         $('.sku-input:first').focus();
-                        // Verify focus was set correctly
-                        if (document.activeElement !== $('.sku-input:first')[0]) {
-                            $('.sku-input:first').trigger('focus');
-                        }
                         $('#resiScanningIndicator').removeClass('active');
-                    }, 50);
-                }, CONFIG.SCAN_DELAY + 100);
+                    }, CONFIG.SCAN_DELAY);
+                } else {
+                    $('#resiScanningIndicator').removeClass('active');
+                    // Focus stays on No Resi field when scanner is inactive
+                }
             }
 
             function handleInvalidResi(message) {
@@ -1230,19 +1234,19 @@
                 const lastSkuInput = $('.sku-input:last');
                 if (lastSkuInput.val().trim().length >= CONFIG.MIN_SKU_LENGTH) {
                     const newSkuContainer = `
-                    <div class="sku-input-container">
-                        <input type="text" class="form-control scanner-input sku-input" 
-                            name="no_sku[]" required placeholder="Scan SKU...">
-                        <input type="number" class="form-control qty-input" 
-                            name="qty[]" value="1" min="1">
-                        <button type="button" class="btn btn-danger btn-remove-sku" title="Hapus SKU">
-                            <i class="fas fa-minus"></i>
-                        </button>
-                        <span class="scanning-indicator">
-                            <i class="fas fa-circle-notch fa-spin"></i> Scanning...
-                        </span>
-                    </div>
-                `;
+                        <div class="sku-input-container">
+                            <input type="text" class="form-control scanner-input sku-input" 
+                                name="no_sku[]" required placeholder="Scan SKU...">
+                            <input type="number" class="form-control qty-input" 
+                                name="qty[]" value="1" min="1">
+                            <button type="button" class="btn btn-danger btn-remove-sku" title="Hapus SKU">
+                                <i class="fas fa-minus"></i>
+                            </button>
+                            <span class="scanning-indicator">
+                                <i class="fas fa-circle-notch fa-spin"></i> Scanning...
+                            </span>
+                        </div>
+                    `;
                     $('#sku-container').append(newSkuContainer);
                     $('.sku-input:last').focus();
                 }
@@ -1629,13 +1633,13 @@
                 // Add SKU button click handler in edit modal
                 $('#add-edit-sku-btn').on('click', function() {
                     const skuHtml = `
-                    <div class="edit-sku-container d-flex mb-2">
-                        <input type="text" class="form-control me-2" name="edit_no_sku[]" placeholder="SKU">
-                        <input type="number" class="form-control me-2" name="edit_qty[]" value="1" min="1" style="width: 120px;">
-                        <button type="button" class="btn btn-danger remove-edit-sku">
-                            <i class="fas fa-minus"></i>
-                        </button>
-                    </div>`;
+                        <div class="edit-sku-container d-flex mb-2">
+                            <input type="text" class="form-control me-2" name="edit_no_sku[]" placeholder="SKU">
+                            <input type="number" class="form-control me-2" name="edit_qty[]" value="1" min="1" style="width: 120px;">
+                            <button type="button" class="btn btn-danger remove-edit-sku">
+                                <i class="fas fa-minus"></i>
+                            </button>
+                        </div>`;
                     $('#edit-sku-container').append(skuHtml);
                 });
 
