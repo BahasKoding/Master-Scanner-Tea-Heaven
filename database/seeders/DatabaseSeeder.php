@@ -27,7 +27,9 @@ class DatabaseSeeder extends Seeder
         // 4. Panggil seeder lainnya
         $this->call([
             CategorySupplierSeeder::class,
+            CategoryProductSeeder::class,
             SupplierSeeder::class,
+            ProductSeeder::class,
         ]);
     }
 
