@@ -20,7 +20,7 @@
         <li class="pc-item"><a class="pc-link" href="{{ route('category-suppliers.index') }}">Category Supplier</a></li>
         <li class="pc-item"><a class="pc-link" href="{{ route('suppliers.index') }}">Supplier</a></li>
         <li class="pc-item"><a class="pc-link" href="{{ route('category-products.index') }}">Category Product</a></li>
-        <li class="pc-item"><a class="pc-link" href="#">Product</a></li>
+        <li class="pc-item"><a class="pc-link" href="{{ route('products.index') }}">Product</a></li>
     </ul>
 </li>
 

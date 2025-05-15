@@ -84,6 +84,13 @@ class DatabaseSeeder extends Seeder
             'Category Products Delete',
             'Category Products View',
 
+            // Product
+            'Product List',
+            'Product Create',
+            'Product Update',
+            'Product Delete',
+            'Product View',
+
             // Sales
             'Sales List',
             'Sales Create',
@@ -144,7 +151,9 @@ class DatabaseSeeder extends Seeder
             'Category Suppliers List',
             'Category Suppliers View',
             'Category Products List',
-            'Category Products View'
+            'Category Products View',
+            'Product List',
+            'Product View'
         ])->get();
         $operator->syncPermissions($operatorPermissions);
     }
