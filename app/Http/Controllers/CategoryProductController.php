@@ -204,9 +204,27 @@ class CategoryProductController extends Controller
             $productCount = $categoryProduct->products()->count();
 
             if ($productCount > 0) {
+                // Get product names to show in the error message
+                $products = $categoryProduct->products()
+                    ->select('name')
+                    ->take(3)
+                    ->get()
+                    ->pluck('name')
+                    ->toArray();
+
+                $productNames = count($products) > 0
+                    ? '"' . implode('", "', $products) . '"' . (count($products) < $productCount ? ' dan ' . ($productCount - count($products)) . ' lainnya' : '')
+                    : '';
+
+                // Category is in use, prevent deletion
+                // Log activity
+                addActivity('category_product', 'delete_failed', 'Pengguna mencoba menghapus kategori produk yang sedang digunakan: ' . $categoryName, $categoryId);
+
                 return response()->json([
                     'success' => false,
-                    'message' => 'Kategori ini sedang digunakan oleh ' . $productCount . ' produk. Silahkan ubah atau hapus produk tersebut terlebih dahulu.'
+                    'message' => 'Kategori ini tidak dapat dihapus karena sedang digunakan oleh ' . $productCount . ' produk' . ($productCount > 1 ? '' : '') .
+                        ($productNames ? ' termasuk: ' . $productNames : '') . '. Silahkan ubah kategori atau hapus produk tersebut terlebih dahulu.',
+                    'productCount' => $productCount
                 ], 422);
             }
 
@@ -223,6 +241,42 @@ class CategoryProductController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Maaf! Kami tidak dapat menghapus kategori saat ini. Silahkan coba lagi.'
+            ], 500);
+        }
+    }
+
+    /**
+     * List all products for a specific category
+     */
+    public function listProducts(CategoryProduct $categoryProduct)
+    {
+        try {
+            // Get all products for this category with pagination
+            $products = $categoryProduct->products()
+                ->select(['id', 'sku as code', 'name_product as name', 'packaging as unit'])
+                ->orderBy('name_product')
+                ->paginate(15);
+
+            // Log activity
+            addActivity('category_product', 'list_products', 'Pengguna melihat produk untuk kategori: ' . $categoryProduct->name, $categoryProduct->id);
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'category' => $categoryProduct->name,
+                    'products' => $products
+                ]
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error listing products for category: ', [
+                'category_id' => $categoryProduct->id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal mengambil data produk: ' . $e->getMessage()
             ], 500);
         }
     }

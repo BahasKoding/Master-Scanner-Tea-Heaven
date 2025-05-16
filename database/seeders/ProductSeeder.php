@@ -114,3 +114,6 @@ class ProductSeeder extends Seeder
         $this->command->info('Products seeded successfully.');
     }
 }
+
+
+

@@ -140,6 +140,46 @@
             </div>
         </div>
     </div>
+
+    <!-- View Products Modal -->
+    <div class="modal fade" id="viewProductsModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Daftar Produk - Kategori: <span id="productCategoryName"></span></h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i> Berikut adalah daftar produk yang menggunakan kategori ini.
+                        Untuk menghapus kategori ini, Anda harus mengubah kategori atau menghapus produk-produk ini terlebih
+                        dahulu melalui menu Produk.
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-striped table-bordered">
+                            <thead>
+                                <tr>
+                                    <th>Kode</th>
+                                    <th>Nama Produk</th>
+                                    <th>Satuan</th>
+                                </tr>
+                            </thead>
+                            <tbody id="productsList">
+                                <!-- Products will be loaded here -->
+                            </tbody>
+                        </table>
+                    </div>
+                    <div id="paginationLinks" class="mt-3">
+                        <!-- Pagination links will be placed here -->
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <a href="{{ route('products.index') }}" class="btn btn-primary">Ke Halaman Produk</a>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Tutup</button>
+                </div>
+            </div>
+        </div>
+    </div>
 @endsection
 
 @section('scripts')
@@ -201,6 +241,9 @@
                             return `
                                 <button type="button" class="btn btn-sm btn-warning edit-btn" data-id="${row.id}">
                                     <i class="fas fa-edit"></i>
+                                </button>
+                                <button type="button" class="btn btn-sm btn-info view-products-btn" data-id="${row.id}" data-name="${row.name}">
+                                    <i class="fas fa-list"></i>
                                 </button>
                                 <button type="button" class="btn btn-sm btn-danger delete-btn" data-id="${row.id}">
                                     <i class="fas fa-trash"></i>
@@ -563,6 +606,127 @@
                 });
             });
 
+            // View Products Button Click
+            $(document).on('click', '.view-products-btn', function() {
+                var id = $(this).data('id');
+                var categoryName = $(this).data('name');
+
+                // Set category name in modal
+                $('#productCategoryName').text(categoryName);
+
+                // Show loading state
+                $('#productsList').html(
+                    '<tr><td colspan="3" class="text-center"><i class="fas fa-spinner fa-spin"></i> Memuat data produk...</td></tr>'
+                );
+                $('#paginationLinks').html('');
+
+                // Show the modal
+                $('#viewProductsModal').modal('show');
+
+                // Fetch products data
+                loadProducts(id);
+            });
+
+            // Function to load products for a category
+            function loadProducts(categoryId, page = 1) {
+                $.ajax({
+                    url: `/category-products/${categoryId}/products`,
+                    method: 'GET',
+                    data: {
+                        page: page
+                    },
+                    success: function(response) {
+                        if (response.success) {
+                            const data = response.data;
+                            const products = data.products.data;
+
+                            // Clear the products list
+                            $('#productsList').empty();
+
+                            if (products.length > 0) {
+                                // Populate the table with products
+                                products.forEach(function(product) {
+                                    $('#productsList').append(`
+                                        <tr>
+                                            <td>${product.code || '-'}</td>
+                                            <td>${product.name}</td>
+                                            <td>${product.unit || '-'}</td>
+                                        </tr>
+                                    `);
+                                });
+
+                                // Create pagination links
+                                renderPagination(data.products, categoryId);
+                            } else {
+                                $('#productsList').html(
+                                    '<tr><td colspan="3" class="text-center">Tidak ada produk dalam kategori ini.</td></tr>'
+                                );
+                            }
+                        } else {
+                            $('#productsList').html(
+                                '<tr><td colspan="3" class="text-center text-danger">Error saat memuat data produk. Silahkan coba lagi.</td></tr>'
+                            );
+                        }
+                    },
+                    error: function() {
+                        $('#productsList').html(
+                            '<tr><td colspan="3" class="text-center text-danger">Gagal memuat data produk. Silahkan coba lagi nanti.</td></tr>'
+                        );
+                    }
+                });
+            }
+
+            // Function to render pagination links
+            function renderPagination(paginationData, categoryId) {
+                if (!paginationData.last_page || paginationData.last_page <= 1) {
+                    $('#paginationLinks').html('');
+                    return;
+                }
+
+                let links = '<ul class="pagination justify-content-center">';
+
+                // Previous page link
+                if (paginationData.current_page > 1) {
+                    links += `<li class="page-item">
+                        <a class="page-link" href="#" data-page="${paginationData.current_page - 1}" data-category="${categoryId}">Sebelumnya</a>
+                    </li>`;
+                } else {
+                    links += '<li class="page-item disabled"><span class="page-link">Sebelumnya</span></li>';
+                }
+
+                // Page number links
+                for (let i = 1; i <= paginationData.last_page; i++) {
+                    if (i === paginationData.current_page) {
+                        links += `<li class="page-item active"><span class="page-link">${i}</span></li>`;
+                    } else {
+                        links += `<li class="page-item">
+                            <a class="page-link" href="#" data-page="${i}" data-category="${categoryId}">${i}</a>
+                        </li>`;
+                    }
+                }
+
+                // Next page link
+                if (paginationData.current_page < paginationData.last_page) {
+                    links += `<li class="page-item">
+                        <a class="page-link" href="#" data-page="${paginationData.current_page + 1}" data-category="${categoryId}">Selanjutnya</a>
+                    </li>`;
+                } else {
+                    links += '<li class="page-item disabled"><span class="page-link">Selanjutnya</span></li>';
+                }
+
+                links += '</ul>';
+
+                $('#paginationLinks').html(links);
+
+                // Add click handlers for pagination links
+                $('#paginationLinks').on('click', '.page-link', function(e) {
+                    e.preventDefault();
+                    const page = $(this).data('page');
+                    const categoryId = $(this).data('category');
+                    loadProducts(categoryId, page);
+                });
+            }
+
             // Delete Button Click
             $(document).on('click', '.delete-btn', function() {
                 var id = $(this).data('id');
@@ -598,15 +762,36 @@
                                 }
                             },
                             error: function(xhr) {
-                                // General error handling
-                                Swal.fire({
-                                    title: 'Gagal Menghapus',
-                                    text: xhr.responseJSON?.message ||
-                                        'Tidak dapat menghapus kategori saat ini.',
-                                    icon: 'error',
-                                    confirmButtonText: 'OK',
-                                    confirmButtonColor: '#3085d6'
-                                });
+                                if (xhr.status === 422 && xhr.responseJSON
+                                    ?.productCount > 0) {
+                                    // Special handling for category in use
+                                    Swal.fire({
+                                        title: 'Tidak Dapat Menghapus Kategori',
+                                        html: xhr.responseJSON.message +
+                                            '<br><br>Silahkan pergi ke menu Produk dan ubah kategori atau hapus produk terkait terlebih dahulu.',
+                                        icon: 'warning',
+                                        showCancelButton: true,
+                                        confirmButtonColor: '#3085d6',
+                                        cancelButtonColor: '#d33',
+                                        confirmButtonText: 'Ke Halaman Produk',
+                                        cancelButtonText: 'Tutup'
+                                    }).then((result) => {
+                                        if (result.isConfirmed) {
+                                            window.location.href =
+                                                "{{ route('products.index') }}";
+                                        }
+                                    });
+                                } else {
+                                    // General error handling
+                                    Swal.fire({
+                                        title: 'Gagal Menghapus',
+                                        text: xhr.responseJSON?.message ||
+                                            'Tidak dapat menghapus kategori saat ini.',
+                                        icon: 'error',
+                                        confirmButtonText: 'OK',
+                                        confirmButtonColor: '#3085d6'
+                                    });
+                                }
                             }
                         });
                     }

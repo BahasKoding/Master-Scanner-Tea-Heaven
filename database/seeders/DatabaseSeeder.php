@@ -29,7 +29,15 @@ class DatabaseSeeder extends Seeder
             CategorySupplierSeeder::class,
             CategoryProductSeeder::class,
             SupplierSeeder::class,
-            ProductSeeder::class,
+            // ProductSeeder::class,
+            ArtisanTeaProductSeeder::class,
+            ChineseTeaProductSeeder::class,
+            ClassicTeaCollectionSeeder::class,
+            CraftedTeasSeeder::class,
+            JapaneseTeaProductSeeder::class,
+            JapaneseTeabagsSeeder::class,
+            LattePowderSeeder::class,
+            PurePowderSeeder::class,
         ]);
     }
 

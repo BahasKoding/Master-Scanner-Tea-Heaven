@@ -126,6 +126,10 @@ Route::middleware(['auth'])->group(function () {
     Route::get('category-suppliers/{categorySupplier}/suppliers', [CategorySupplierController::class, 'listSuppliers'])
         ->name('category-suppliers.list-suppliers');
 
+    // Additional route for listing products by category
+    Route::get('category-products/{categoryProduct}/products', [CategoryProductController::class, 'listProducts'])
+        ->name('category-products.list-products');
+
     /*
     |--------------------------------------------------------------------------
     | Activity Monitoring Routes
