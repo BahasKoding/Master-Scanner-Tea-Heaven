@@ -38,6 +38,9 @@ class DatabaseSeeder extends Seeder
             JapaneseTeabagsSeeder::class,
             LattePowderSeeder::class,
             PurePowderSeeder::class,
+            PureTisaneSeeder::class,
+            SweetPowderSeeder::class,
+            TeaWareSeeder::class,
         ]);
     }
 
