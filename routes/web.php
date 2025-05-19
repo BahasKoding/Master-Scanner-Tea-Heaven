@@ -11,8 +11,9 @@ use App\Http\Controllers\HistorySaleController;
 use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\CategorySupplierController;
 use App\Http\Controllers\CategoryProductController;
-// use App\Http\Controllers\ProductListController;
 use App\Http\Controllers\ProductController;
+use App\Http\Controllers\CatatanProduksiController;
+use App\Http\Controllers\FinishedGoodsController;
 use Illuminate\Support\Facades\Auth;
 
 /*
@@ -121,6 +122,8 @@ Route::middleware(['auth'])->group(function () {
     Route::resource('category-suppliers', CategorySupplierController::class);
     Route::resource('category-products', CategoryProductController::class);
     Route::resource('products', ProductController::class);
+    Route::resource('catatan-produksi', CatatanProduksiController::class);
+    Route::resource('finished-goods', FinishedGoodsController::class);
 
     // Additional route for listing suppliers by category
     Route::get('category-suppliers/{categorySupplier}/suppliers', [CategorySupplierController::class, 'listSuppliers'])

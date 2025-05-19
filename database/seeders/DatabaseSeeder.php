@@ -118,6 +118,20 @@ class DatabaseSeeder extends Seeder
             'Labels Update',
             'Labels Delete',
             'Labels View',
+
+            // Catatan Produksi
+            'Catatan Produksi List',
+            'Catatan Produksi Create',
+            'Catatan Produksi Update',
+            'Catatan Produksi Delete',
+            'Catatan Produksi View',
+
+            // Finished Goods
+            'Finished Goods List',
+            'Finished Goods Create',
+            'Finished Goods Update',
+            'Finished Goods Delete',
+            'Finished Goods View',
         ];
 
         foreach ($permissions as $permission) {
