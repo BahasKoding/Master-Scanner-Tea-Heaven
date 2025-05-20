@@ -10,26 +10,43 @@
     </a>
 </li>
 
+<!-- Master Data -->
+<li class="pc-item pc-caption">
+    <label>Master Data</label>
+</li>
 <li class="pc-item pc-hasmenu">
     <a href="#!" class="pc-link">
-        <span class="pc-micon"><i class="ph-duotone ph-tree-structure"></i></span>
-        <span class="pc-mtext" style="font-size: smaller;">MASTER DATABASES</span>
+        <span class="pc-micon"><i class="ph-duotone ph-archive-box"></i></span>
+        <span class="pc-mtext">Products</span>
         <span class="pc-arrow"><i data-feather="chevron-right"></i></span>
     </a>
     <ul class="pc-submenu">
-        <li class="pc-item"><a class="pc-link" href="{{ route('category-suppliers.index') }}">Category Supplier</a></li>
-        <li class="pc-item"><a class="pc-link" href="{{ route('suppliers.index') }}">Supplier</a></li>
-        <li class="pc-item"><a class="pc-link" href="{{ route('category-products.index') }}">Category Product</a></li>
-        <li class="pc-item"><a class="pc-link" href="{{ route('products.index') }}">Product</a></li>
-        <li class="pc-item"><a class="pc-link" href="{{ route('catatan-produksi.index') }}">Catatan Produksi</a></li>
+        <li class="pc-item"><a class="pc-link" href="{{ route('category-products.index') }}">Product Categories</a></li>
+        <li class="pc-item"><a class="pc-link" href="{{ route('products.index') }}">Products</a></li>
         <li class="pc-item"><a class="pc-link" href="{{ route('finished-goods.index') }}">Finished Goods</a></li>
+        <li class="pc-item"><a class="pc-link" href="{{ route('bahan-baku.index') }}">Bahan Baku</a></li>
+    </ul>
+</li>
+
+<!-- Transactions -->
+<li class="pc-item pc-caption">
+    <label>Transactions</label>
+</li>
+<li class="pc-item pc-hasmenu">
+    <a href="#!" class="pc-link">
+        <span class="pc-micon"><i class="ph-duotone ph-factory"></i></span>
+        <span class="pc-mtext">Production</span>
+        <span class="pc-arrow"><i data-feather="chevron-right"></i></span>
+    </a>
+    <ul class="pc-submenu">
+        <li class="pc-item"><a class="pc-link" href="{{ route('catatan-produksi.index') }}">Production Records</a></li>
     </ul>
 </li>
 
 <li class="pc-item pc-hasmenu">
     <a href="#!" class="pc-link">
         <span class="pc-micon"><i class="ph-duotone ph-chart-line-up"></i></span>
-        <span class="pc-mtext" style="font-size: smaller;">SALES</span>
+        <span class="pc-mtext">Sales</span>
         <span class="pc-arrow"><i data-feather="chevron-right"></i></span>
     </a>
     <ul class="pc-submenu">
@@ -38,17 +55,21 @@
     </ul>
 </li>
 
+<!-- System -->
+<li class="pc-item pc-caption">
+    <label>System</label>
+</li>
 <li class="pc-item pc-hasmenu">
     <a href="#!" class="pc-link">
         <span class="pc-micon"><i class="ph-duotone ph-shield-check"></i></span>
-        <span class="pc-mtext" style="font-size: smaller;">USER MANAGEMENT</span>
+        <span class="pc-mtext">User Management</span>
         <span class="pc-arrow"><i data-feather="chevron-right"></i></span>
     </a>
     <ul class="pc-submenu">
-        <li class="pc-item"><a class="pc-link" href="{{ route('users.index') }}">User</a></li>
+        <li class="pc-item"><a class="pc-link" href="{{ route('users.index') }}">Users</a></li>
         @if (auth()->user()->hasRole('Super Admin'))
-            <li class="pc-item"><a class="pc-link" href="{{ route('roles.index') }}">Role</a></li>
-            <li class="pc-item"><a class="pc-link" href="{{ route('permissions.index') }}">Permission</a></li>
+            <li class="pc-item"><a class="pc-link" href="{{ route('roles.index') }}">Roles</a></li>
+            <li class="pc-item"><a class="pc-link" href="{{ route('permissions.index') }}">Permissions</a></li>
         @endif
     </ul>
 </li>
@@ -58,6 +79,6 @@
         <span class="pc-micon">
             <i class="ph-duotone ph-clock-clockwise"></i>
         </span>
-        <span class="pc-mtext">Activity</span>
+        <span class="pc-mtext">Activity Log</span>
     </a>
 </li>

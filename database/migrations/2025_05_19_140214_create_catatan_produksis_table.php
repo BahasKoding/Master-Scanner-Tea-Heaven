@@ -14,16 +14,16 @@ return new class extends Migration
         Schema::create('catatan_produksis', function (Blueprint $table) {
 
             $table->id();
-            $table->string('sku_product');
-            $table->string('nama_product');
+            $table->foreignId('product_id');
             $table->string('packaging');
             $table->integer('quantity');
             $table->json('sku_induk');
             $table->json('gramasi');
-            $table->string('total_terpakai');
+            $table->json('total_terpakai');
             // gramasi * quantity
             $table->timestamps();
 
+            $table->foreign('product_id')->references('id')->on('products');
         });
     }
 

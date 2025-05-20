@@ -8,12 +8,11 @@ use App\Http\Controllers\Backend\PermissionController;
 use App\Http\Controllers\Backend\ActivityController;
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\HistorySaleController;
-use App\Http\Controllers\SupplierController;
-use App\Http\Controllers\CategorySupplierController;
 use App\Http\Controllers\CategoryProductController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\CatatanProduksiController;
 use App\Http\Controllers\FinishedGoodsController;
+use App\Http\Controllers\BahanBakuController;
 use Illuminate\Support\Facades\Auth;
 
 /*
@@ -118,16 +117,11 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/validate-no-resi', [HistorySaleController::class, 'validateNoResi'])->name('history-sales.validate-no-resi');
 
     // Resource routes using Laravel's resource controller pattern
-    Route::resource('suppliers', SupplierController::class);
-    Route::resource('category-suppliers', CategorySupplierController::class);
     Route::resource('category-products', CategoryProductController::class);
     Route::resource('products', ProductController::class);
     Route::resource('catatan-produksi', CatatanProduksiController::class);
     Route::resource('finished-goods', FinishedGoodsController::class);
-
-    // Additional route for listing suppliers by category
-    Route::get('category-suppliers/{categorySupplier}/suppliers', [CategorySupplierController::class, 'listSuppliers'])
-        ->name('category-suppliers.list-suppliers');
+    Route::resource('bahan-baku', BahanBakuController::class);
 
     // Additional route for listing products by category
     Route::get('category-products/{categoryProduct}/products', [CategoryProductController::class, 'listProducts'])

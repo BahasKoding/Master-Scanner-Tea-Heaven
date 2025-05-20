@@ -1,7 +1,7 @@
 @extends('layouts.main')
 
-@section('title', 'Manajemen Supplier')
-@section('breadcrumb-item', 'Supplier')
+@section('title', 'Manajemen Bahan Baku')
+@section('breadcrumb-item', 'Bahan Baku')
 
 @section('css')
     <!-- CSRF Token -->
@@ -27,19 +27,19 @@
 @section('content')
     <!-- [ Main Content ] start -->
     <div class="row">
-        <!-- Supplier Table start -->
+        <!-- Bahan Baku Table start -->
         <div class="col-sm-12">
             <div class="card">
                 <div class="card-header">
                     <div class="d-flex justify-content-between align-items-center">
-                        <h5>Daftar Supplier</h5>
+                        <h5>Daftar Bahan Baku</h5>
                         <div>
                             <button id="clear-filters" class="btn btn btn-secondary">
                                 <i class="fas fa-filter"></i> Hapus Filter
                             </button>
                             <button type="button" class="btn btn-primary" data-bs-toggle="modal"
-                                data-bs-target="#addSupplierModal">
-                                <i class="fas fa-plus"></i> Tambah Supplier Baru
+                                data-bs-target="#addBahanBakuModal">
+                                <i class="fas fa-plus"></i> Tambah Bahan Baku Baru
                             </button>
                         </div>
                     </div>
@@ -49,31 +49,33 @@
                     <div class="mb-3 p-3 border rounded bg-light">
                         <div class="row">
                             <div class="col-md-3">
-                                <label for="filter-category" class="form-label small">Kategori</label>
-                                <select class="form-control form-control-sm" name="filter-category" id="filter-category">
+                                <label for="filter-kategori" class="form-label small">Kategori</label>
+                                <select class="form-control form-control-sm" name="filter-kategori" id="filter-kategori">
                                     <option value="">Semua Kategori</option>
-                                    @foreach ($categories as $category)
-                                        <option value="{{ $category->name }}">{{ $category->name }}</option>
+                                    @foreach ($kategoriOptions as $key => $kategori)
+                                        <option value="{{ $key }}">{{ $kategori }}</option>
                                     @endforeach
                                 </select>
                             </div>
                             <div class="col-md-3">
-                                <label for="filter-code" class="form-label small">Kode</label>
-                                <input type="text" id="filter-code" class="form-control form-control-sm"
-                                    placeholder="Filter berdasarkan kode">
+                                <label for="filter-sku-induk" class="form-label small">SKU Induk</label>
+                                <input type="text" id="filter-sku-induk" class="form-control form-control-sm"
+                                    placeholder="Filter berdasarkan SKU Induk">
                             </div>
                             <div class="col-md-3">
-                                <label for="filter-product-name" class="form-label small">Nama Produk</label>
-                                <input type="text" id="filter-product-name" class="form-control form-control-sm"
+                                <label for="filter-nama-barang" class="form-label small">Nama Barang</label>
+                                <input type="text" id="filter-nama-barang" class="form-control form-control-sm"
                                     placeholder="Filter berdasarkan nama">
                             </div>
                             <div class="col-md-3">
-                                <label for="filter-unit" class="form-label small">Satuan</label>
-                                <select id="filter-unit" class="form-select form-select-sm">
+                                <label for="filter-satuan" class="form-label small">Satuan</label>
+                                <select id="filter-satuan" class="form-select form-select-sm">
                                     <option value="">Semua Satuan</option>
                                     <option value="PCS">PCS</option>
                                     <option value="GRAM">GRAM</option>
                                     <option value="KG">KG</option>
+                                    <option value="LITER">LITER</option>
+                                    <option value="ML">ML</option>
                                 </select>
                             </div>
                         </div>
@@ -81,13 +83,13 @@
                     <!-- End Filter Section -->
 
                     <div class="dt-responsive table-responsive">
-                        <table id="supplier-table" class="table table-striped table-bordered nowrap">
+                        <table id="bahan-baku-table" class="table table-striped table-bordered nowrap">
                             <thead>
                                 <tr>
                                     <th>No</th>
                                     <th>Kategori</th>
-                                    <th>Kode</th>
-                                    <th>Nama Produk</th>
+                                    <th>SKU Induk</th>
+                                    <th>Nama Barang</th>
                                     <th>Satuan</th>
                                     <th>Aksi</th>
                                 </tr>
@@ -100,45 +102,47 @@
                 </div>
             </div>
         </div>
-        <!-- Supplier Table end -->
+        <!-- Bahan Baku Table end -->
     </div>
     <!-- [ Main Content ] end -->
 
-    <!-- Add Supplier Modal -->
-    <div class="modal fade" id="addSupplierModal" tabindex="-1">
+    <!-- Add Bahan Baku Modal -->
+    <div class="modal fade" id="addBahanBakuModal" tabindex="-1">
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">Tambah Supplier Baru</h5>
+                    <h5 class="modal-title">Tambah Bahan Baku Baru</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
-                <form id="addSupplierForm">
+                <form id="addBahanBakuForm">
                     @csrf
                     <div class="modal-body">
                         <div class="mb-3">
                             <label class="form-label">Kategori <span class="text-danger">*</span></label>
-                            <select class="form-control" name="category_supplier_id" id="add-category-supplier" required>
+                            <select class="form-control" name="kategori" id="add-kategori" required>
                                 <option value="">Pilih Kategori</option>
-                                @foreach ($categories as $category)
-                                    <option value="{{ $category->id }}">{{ $category->name }}</option>
+                                @foreach ($kategoriOptions as $key => $kategori)
+                                    <option value="{{ $key }}">{{ $kategori }}</option>
                                 @endforeach
                             </select>
                         </div>
                         <div class="mb-3">
-                            <label class="form-label">Kode <span class="text-danger">*</span></label>
-                            <input type="text" class="form-control" name="code" required>
+                            <label class="form-label">SKU Induk <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" name="sku_induk" required>
                         </div>
                         <div class="mb-3">
-                            <label class="form-label">Nama Produk <span class="text-danger">*</span></label>
-                            <input type="text" class="form-control" name="product_name" required>
+                            <label class="form-label">Nama Barang <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" name="nama_barang" required>
                         </div>
                         <div class="mb-3">
                             <label class="form-label">Satuan <span class="text-danger">*</span></label>
-                            <select class="form-select" name="unit" required>
+                            <select class="form-select" name="satuan" id="add-satuan" required>
                                 <option value="">Pilih Satuan</option>
                                 <option value="PCS">PCS</option>
                                 <option value="GRAM">GRAM</option>
                                 <option value="KG">KG</option>
+                                <option value="LITER">LITER</option>
+                                <option value="ML">ML</option>
                             </select>
                         </div>
                     </div>
@@ -151,45 +155,46 @@
         </div>
     </div>
 
-    <!-- Edit Supplier Modal -->
-    <div class="modal fade" id="editSupplierModal" tabindex="-1">
+    <!-- Edit Bahan Baku Modal -->
+    <div class="modal fade" id="editBahanBakuModal" tabindex="-1">
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">Edit Supplier</h5>
+                    <h5 class="modal-title">Edit Bahan Baku</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
-                <form id="editSupplierForm">
+                <form id="editBahanBakuForm">
                     @csrf
                     @method('PUT')
-                    <input type="hidden" id="edit_supplier_id">
+                    <input type="hidden" id="edit_bahan_baku_id">
                     <div class="modal-body">
                         <div class="mb-3">
                             <label class="form-label">Kategori <span class="text-danger">*</span></label>
-                            <select class="form-control" name="category_supplier_id" id="edit-category-supplier"
-                                required>
+                            <select class="form-control" name="kategori" id="edit-kategori" required>
                                 <option value="">Pilih Kategori</option>
-                                @foreach ($categories as $category)
-                                    <option value="{{ $category->id }}">{{ $category->name }}</option>
+                                @foreach ($kategoriOptions as $key => $kategori)
+                                    <option value="{{ $key }}">{{ $kategori }}</option>
                                 @endforeach
                             </select>
                         </div>
                         <div class="mb-3">
-                            <label class="form-label">Kode <span class="text-danger">*</span></label>
-                            <input type="text" class="form-control" name="code" id="edit_code" required>
+                            <label class="form-label">SKU Induk <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" name="sku_induk" id="edit_sku_induk" required>
                         </div>
                         <div class="mb-3">
-                            <label class="form-label">Nama Produk <span class="text-danger">*</span></label>
-                            <input type="text" class="form-control" name="product_name" id="edit_product_name"
+                            <label class="form-label">Nama Barang <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" name="nama_barang" id="edit_nama_barang"
                                 required>
                         </div>
                         <div class="mb-3">
                             <label class="form-label">Satuan <span class="text-danger">*</span></label>
-                            <select class="form-select" name="unit" required>
+                            <select class="form-select" name="satuan" id="edit_satuan" required>
                                 <option value="">Pilih Satuan</option>
                                 <option value="PCS">PCS</option>
                                 <option value="GRAM">GRAM</option>
                                 <option value="KG">KG</option>
+                                <option value="LITER">LITER</option>
+                                <option value="ML">ML</option>
                             </select>
                         </div>
                     </div>
@@ -239,16 +244,24 @@
             }
 
             // Initialize Choices.js for add form
-            var addCategoryChoices = new Choices('#add-category-supplier', {
+            var addKategoriChoices = new Choices('#add-kategori', {
                 searchEnabled: true,
                 searchPlaceholderValue: "Cari kategori",
                 itemSelectText: '',
                 placeholder: true,
                 placeholderValue: "Pilih kategori"
+            });
+
+            var addSatuanChoices = new Choices('#add-satuan', {
+                searchEnabled: true,
+                searchPlaceholderValue: "Cari satuan",
+                itemSelectText: '',
+                placeholder: true,
+                placeholderValue: "Pilih satuan"
             });
 
             // Initialize Choices.js for edit form
-            var editCategoryChoices = new Choices('#edit-category-supplier', {
+            var editKategoriChoices = new Choices('#edit-kategori', {
                 searchEnabled: true,
                 searchPlaceholderValue: "Cari kategori",
                 itemSelectText: '',
@@ -256,19 +269,26 @@
                 placeholderValue: "Pilih kategori"
             });
 
+            var editSatuanChoices = new Choices('#edit_satuan', {
+                searchEnabled: true,
+                searchPlaceholderValue: "Cari satuan",
+                itemSelectText: '',
+                placeholder: true,
+                placeholderValue: "Pilih satuan"
+            });
+
             // Initialize DataTable
-            var table = $('#supplier-table').DataTable({
+            var table = $('#bahan-baku-table').DataTable({
                 processing: true,
                 serverSide: true,
                 ajax: {
-                    url: "{{ route('suppliers.index') }}",
+                    url: "{{ route('bahan-baku.index') }}",
                     type: "GET",
                     data: function(d) {
-                        d.category = $('#filter-category').val();
-                        d.code = $('#filter-code').val();
-                        d.product_name = $('#filter-product-name').val();
-                        d.unit = $('#filter-unit').val();
-                        return d;
+                        d.kategori = $('#filter-kategori').val();
+                        d.sku_induk = $('#filter-sku-induk').val();
+                        d.nama_barang = $('#filter-nama-barang').val();
+                        d.satuan = $('#filter-satuan').val();
                     }
                 },
                 columns: [{
@@ -278,20 +298,20 @@
                         searchable: false
                     },
                     {
-                        data: 'category',
-                        name: 'category'
+                        data: 'kategori',
+                        name: 'kategori'
                     },
                     {
-                        data: 'code',
-                        name: 'code'
+                        data: 'sku_induk',
+                        name: 'sku_induk'
                     },
                     {
-                        data: 'product_name',
-                        name: 'product_name'
+                        data: 'nama_barang',
+                        name: 'nama_barang'
                     },
                     {
-                        data: 'unit',
-                        name: 'unit'
+                        data: 'satuan',
+                        name: 'satuan'
                     },
                     {
                         data: 'action',
@@ -311,7 +331,7 @@
                     }
                 ],
                 order: [
-                    [2, 'asc']
+                    [1, 'asc']
                 ],
                 pageLength: 25,
                 dom: 'Bfrtip',
@@ -334,24 +354,24 @@
             });
 
             // Apply filters when dropdown values change
-            $('#filter-category, #filter-unit').on('change', function() {
-                table.ajax.reload();
+            $('#filter-kategori, #filter-satuan').on('change', function() {
+                table.draw();
             });
 
             // Apply filters when text inputs change with debounce (300ms delay)
-            $('#filter-code, #filter-product-name').on('keyup', debounce(function() {
-                table.ajax.reload();
+            $('#filter-sku-induk, #filter-nama-barang').on('keyup', debounce(function() {
+                table.draw();
             }, 300));
 
-            // Clear filters function
+            // Clear filters button
             $('#clear-filters').on('click', function() {
-                $('#filter-category, #filter-unit').val('');
-                $('#filter-code, #filter-product-name').val('');
-                table.ajax.reload();
+                $('#filter-kategori, #filter-satuan').val('');
+                $('#filter-sku-induk, #filter-nama-barang').val('');
+                table.draw();
             });
 
-            // Add Supplier Form Submit
-            $('#addSupplierForm').on('submit', function(e) {
+            // Add Bahan Baku Form Submit
+            $('#addBahanBakuForm').on('submit', function(e) {
                 e.preventDefault();
                 var form = $(this);
                 var submitButton = form.find('button[type="submit"]');
@@ -362,7 +382,7 @@
                 var formData = new FormData(this);
 
                 $.ajax({
-                    url: "{{ route('suppliers.store') }}",
+                    url: "{{ route('bahan-baku.store') }}",
                     method: 'POST',
                     data: formData,
                     processData: false,
@@ -371,11 +391,12 @@
                         if (data.success) {
                             // Reset form and choices
                             form[0].reset();
-                            addCategoryChoices.setChoiceByValue('');
+                            addKategoriChoices.setChoiceByValue('');
+                            addSatuanChoices.setChoiceByValue('');
                             submitButton.prop('disabled', false);
 
                             // Properly hide modal and remove backdrop
-                            $('#addSupplierModal').modal('hide');
+                            $('#addBahanBakuModal').modal('hide');
                             $('body').removeClass('modal-open');
                             $('.modal-backdrop').remove();
 
@@ -439,7 +460,7 @@
                 // Show loading state
                 Swal.fire({
                     title: 'Memuat...',
-                    text: 'Mengambil data supplier',
+                    text: 'Mengambil data bahan baku',
                     allowOutsideClick: false,
                     showConfirmButton: false,
                     willOpen: () => {
@@ -448,7 +469,7 @@
                 });
 
                 $.ajax({
-                    url: "{{ url('suppliers') }}/" + id + "/edit",
+                    url: "{{ url('bahan-baku') }}/" + id + "/edit",
                     method: 'GET',
                     success: function(response) {
                         console.log('Server response:', response);
@@ -456,58 +477,52 @@
 
                         if (response.success) {
                             const data = response.data;
-                            console.log('Supplier data:', data);
+                            console.log('Bahan baku data:', data);
 
                             // Set hidden ID
-                            $('#edit_supplier_id').val(data.id);
+                            $('#edit_bahan_baku_id').val(data.id);
 
-                            // Set category supplier with Choices.js
-                            editCategoryChoices.setChoiceByValue(data.category_supplier_id
-                                .toString());
+                            // Set kategori with Choices.js
+                            editKategoriChoices.setChoiceByValue(data.kategori.toString());
 
-                            // Set code
-                            $('#edit_code').val(data.code);
+                            // Set SKU induk
+                            $('#edit_sku_induk').val(data.sku_induk);
 
-                            // Set product name
-                            $('#edit_product_name').val(data.product_name);
+                            // Set nama barang
+                            $('#edit_nama_barang').val(data.nama_barang);
 
-                            // Set unit
-                            $('#editSupplierModal select[name="unit"]').val(data.unit);
+                            // Set satuan with Choices.js
+                            editSatuanChoices.setChoiceByValue(data.satuan);
 
                             // Log the current values
                             console.log('Form values after setting:', {
-                                id: $('#edit_supplier_id').val(),
-                                category_supplier_id: $('#edit-category-supplier')
-                                    .val(),
-                                code: $('#edit_code').val(),
-                                product_name: $('#edit_product_name').val(),
-                                unit: $('#editSupplierModal select[name="unit"]').val()
+                                id: $('#edit_bahan_baku_id').val(),
+                                kategori: $('#edit-kategori').val(),
+                                sku_induk: $('#edit_sku_induk').val(),
+                                nama_barang: $('#edit_nama_barang').val(),
+                                satuan: $('#edit_satuan').val()
                             });
 
                             // Show the modal
                             var editModal = new bootstrap.Modal(document.getElementById(
-                                'editSupplierModal'));
+                                'editBahanBakuModal'));
                             editModal.show();
 
                             // Double check values after modal is shown
                             setTimeout(() => {
                                 console.log('Values after modal shown:', {
-                                    id: $('#edit_supplier_id').val(),
-                                    category_supplier_id: $(
-                                        '#edit-category-supplier').val(),
-                                    code: $('#edit_code').val(),
-                                    product_name: $('#edit_product_name').val(),
-                                    unit: $(
-                                            '#editSupplierModal select[name="unit"]'
-                                        )
-                                        .val()
+                                    id: $('#edit_bahan_baku_id').val(),
+                                    kategori: $('#edit-kategori').val(),
+                                    sku_induk: $('#edit_sku_induk').val(),
+                                    nama_barang: $('#edit_nama_barang').val(),
+                                    satuan: $('#edit_satuan').val()
                                 });
                             }, 500);
                         } else {
                             Swal.fire({
                                 title: 'Error',
                                 text: response.message ||
-                                    'Gagal mengambil data supplier',
+                                    'Gagal mengambil data bahan baku',
                                 icon: 'error'
                             });
                         }
@@ -520,19 +535,19 @@
                         });
                         Swal.fire({
                             title: 'Error',
-                            text: 'Gagal mengambil data supplier. Silahkan coba lagi.',
+                            text: 'Gagal mengambil data bahan baku. Silahkan coba lagi.',
                             icon: 'error'
                         });
                     }
                 });
             });
 
-            // Edit Supplier Form Submit
-            $('#editSupplierForm').on('submit', function(e) {
+            // Edit Bahan Baku Form Submit
+            $('#editBahanBakuForm').on('submit', function(e) {
                 e.preventDefault();
                 var form = $(this);
                 var submitButton = form.find('button[type="submit"]');
-                var id = $('#edit_supplier_id').val();
+                var id = $('#edit_bahan_baku_id').val();
 
                 // Disable submit button to prevent double submission
                 submitButton.prop('disabled', true);
@@ -540,7 +555,7 @@
                 // Show loading state
                 Swal.fire({
                     title: 'Memperbarui...',
-                    text: 'Menyimpan data supplier',
+                    text: 'Menyimpan data bahan baku',
                     allowOutsideClick: false,
                     showConfirmButton: false,
                     willOpen: () => {
@@ -552,7 +567,7 @@
                 formData.append('_method', 'PUT');
 
                 $.ajax({
-                    url: `/suppliers/${id}`,
+                    url: `/bahan-baku/${id}`,
                     method: 'POST',
                     data: formData,
                     processData: false,
@@ -564,8 +579,9 @@
                         if (data.success) {
                             // Reset form and close modal
                             form[0].reset();
-                            editCategoryChoices.setChoiceByValue('');
-                            $('#editSupplierModal').modal('hide');
+                            editKategoriChoices.setChoiceByValue('');
+                            editSatuanChoices.setChoiceByValue('');
+                            $('#editBahanBakuModal').modal('hide');
 
                             // Reload table
                             table.ajax.reload(null, false);
@@ -602,7 +618,7 @@
                             Swal.fire({
                                 title: 'Gagal Memperbarui',
                                 text: xhr.responseJSON?.message ||
-                                    'Tidak dapat memperbarui supplier saat ini.',
+                                    'Tidak dapat memperbarui bahan baku saat ini.',
                                 icon: 'error',
                                 confirmButtonText: 'OK',
                                 confirmButtonColor: '#3085d6'
@@ -620,7 +636,7 @@
                 var id = $(this).data('id');
                 Swal.fire({
                     title: 'Konfirmasi Hapus',
-                    text: "Apakah Anda yakin ingin menghapus supplier ini? Tindakan ini tidak dapat dibatalkan.",
+                    text: "Apakah Anda yakin ingin menghapus bahan baku ini? Tindakan ini tidak dapat dibatalkan.",
                     icon: 'warning',
                     showCancelButton: true,
                     confirmButtonColor: '#3085d6',
@@ -630,7 +646,7 @@
                 }).then((result) => {
                     if (result.isConfirmed) {
                         $.ajax({
-                            url: `/suppliers/${id}`,
+                            url: `/bahan-baku/${id}`,
                             method: 'DELETE',
                             headers: {
                                 'X-CSRF-TOKEN': '{{ csrf_token() }}'
@@ -653,7 +669,7 @@
                                 Swal.fire({
                                     title: 'Gagal Menghapus',
                                     text: xhr.responseJSON?.message ||
-                                        'Tidak dapat menghapus supplier saat ini.',
+                                        'Tidak dapat menghapus bahan baku saat ini.',
                                     icon: 'error',
                                     confirmButtonText: 'OK',
                                     confirmButtonColor: '#3085d6'
@@ -665,14 +681,31 @@
             });
 
             // Clean up modal when it's hidden
-            $('#editSupplierModal').on('hidden.bs.modal', function() {
+            $('#editBahanBakuModal').on('hidden.bs.modal', function() {
                 console.log('Modal hidden - cleaning up');
                 $(this).find('form')[0].reset();
-                editCategoryChoices.setChoiceByValue('');
+                editKategoriChoices.setChoiceByValue('');
+                editSatuanChoices.setChoiceByValue('');
+                // Clean up any lingering modal artifacts
+                $('.modal-backdrop').remove();
+                $('body').removeClass('modal-open');
+                $('body').css('padding-right', '');
+            });
+
+            // Clean up add modal when it's hidden
+            $('#addBahanBakuModal').on('hidden.bs.modal', function() {
+                console.log('Add modal hidden - cleaning up');
+                $(this).find('form')[0].reset();
+                addKategoriChoices.setChoiceByValue('');
+                addSatuanChoices.setChoiceByValue('');
+                // Clean up any lingering modal artifacts
+                $('.modal-backdrop').remove();
+                $('body').removeClass('modal-open');
+                $('body').css('padding-right', '');
             });
 
             // Prevent form reset when modal is shown
-            $('#editSupplierModal').on('show.bs.modal', function() {
+            $('#editBahanBakuModal').on('show.bs.modal', function() {
                 console.log('Modal showing - preventing auto reset');
                 return true;
             });

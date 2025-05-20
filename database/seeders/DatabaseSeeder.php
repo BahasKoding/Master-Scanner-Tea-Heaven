@@ -26,9 +26,7 @@ class DatabaseSeeder extends Seeder
 
         // 4. Panggil seeder lainnya
         $this->call([
-            CategorySupplierSeeder::class,
             CategoryProductSeeder::class,
-            SupplierSeeder::class,
             // ProductSeeder::class,
             ArtisanTeaProductSeeder::class,
             ChineseTeaProductSeeder::class,
@@ -41,6 +39,7 @@ class DatabaseSeeder extends Seeder
             PureTisaneSeeder::class,
             SweetPowderSeeder::class,
             TeaWareSeeder::class,
+            BahanBakuSeeder::class,
         ]);
     }
 
@@ -76,20 +75,6 @@ class DatabaseSeeder extends Seeder
             'Activity View',
             'Activity List',
 
-            // Suppliers
-            'Suppliers List',
-            'Suppliers Create',
-            'Suppliers Update',
-            'Suppliers Delete',
-            'Suppliers View',
-
-            // Category Suppliers
-            'Category Suppliers List',
-            'Category Suppliers Create',
-            'Category Suppliers Update',
-            'Category Suppliers Delete',
-            'Category Suppliers View',
-
             // Category Products
             'Category Products List',
             'Category Products Create',
@@ -103,6 +88,13 @@ class DatabaseSeeder extends Seeder
             'Product Update',
             'Product Delete',
             'Product View',
+
+            // Bahan Baku
+            'Bahan Baku List',
+            'Bahan Baku Create',
+            'Bahan Baku Update',
+            'Bahan Baku Delete',
+            'Bahan Baku View',
 
             // Sales
             'Sales List',
@@ -180,7 +172,9 @@ class DatabaseSeeder extends Seeder
             'Category Products List',
             'Category Products View',
             'Product List',
-            'Product View'
+            'Product View',
+            'Bahan Baku List',
+            'Bahan Baku View'
         ])->get();
         $operator->syncPermissions($operatorPermissions);
     }
