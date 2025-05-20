@@ -15,15 +15,11 @@ class ChineseTeaProductSeeder extends Seeder
     public function run(): void
     {
         // Find the Chinese Tea category
-        $chineseTeaCategory = CategoryProduct::where('name', 'CHINESE TEA')->first();
-
-        if (!$chineseTeaCategory) {
-            $this->command->error('CHINESE TEA category not found. Please run CategoryProductSeeder first.');
-            return;
-        }
+        $chineseTeaCategory = 5;
+      
 
         // Clear existing products in this category to avoid duplicates
-        Product::where('id_category_product', $chineseTeaCategory->id)->delete();
+        Product::where('category_product', $chineseTeaCategory)->delete();
 
         $chineseTeaProducts = [
             // Small packaging P1
@@ -79,7 +75,7 @@ class ChineseTeaProductSeeder extends Seeder
 
         foreach ($chineseTeaProducts as $product) {
             $productsToInsert[] = [
-                'id_category_product' => $chineseTeaCategory->id,
+                'category_product' => $chineseTeaCategory,
                 'sku' => $product['sku'],
                 'packaging' => $product['packaging'],
                 'name_product' => $product['name_product'],

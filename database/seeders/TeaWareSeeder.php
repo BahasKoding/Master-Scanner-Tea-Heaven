@@ -15,15 +15,10 @@ class TeaWareSeeder extends Seeder
     public function run(): void
     {
         // Find the Tea Ware category
-        $teaWareCategory = CategoryProduct::where('name', 'TEA WARE')->first();
-
-        if (!$teaWareCategory) {
-            $this->command->error('TEA WARE category not found. Please run CategoryProductSeeder first.');
-            return;
-        }
+        $teaWareCategory = 11;
 
         // Clear existing products in this category to avoid duplicates
-        Product::where('id_category_product', $teaWareCategory->id)->delete();
+        Product::where('category_product', $teaWareCategory)->delete();
 
         $teaWareProducts = [
             ['sku' => 'TA00', 'packaging' => '-', 'name_product' => 'TEA BAG'],
@@ -46,7 +41,7 @@ class TeaWareSeeder extends Seeder
 
         foreach ($teaWareProducts as $product) {
             $productsToInsert[] = [
-                'id_category_product' => $teaWareCategory->id,
+                'category_product' => $teaWareCategory,
                 'sku' => $product['sku'],
                 'packaging' => $product['packaging'],
                 'name_product' => $product['name_product'],

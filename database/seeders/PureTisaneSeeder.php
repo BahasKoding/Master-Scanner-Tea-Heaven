@@ -3,7 +3,6 @@
 namespace Database\Seeders;
 
 use App\Models\Product;
-use App\Models\CategoryProduct;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 
@@ -14,16 +13,11 @@ class PureTisaneSeeder extends Seeder
      */
     public function run(): void
     {
-        // Find the Pure Tisane category
-        $pureTisaneCategory = CategoryProduct::where('name', 'PURE TISANE')->first();
-
-        if (!$pureTisaneCategory) {
-            $this->command->error('PURE TISANE category not found. Please run CategoryProductSeeder first.');
-            return;
-        }
+        // Category ID for Pure Tisane (2)
+        $categoryId = 2;
 
         // Clear existing products in this category to avoid duplicates
-        Product::where('id_category_product', $pureTisaneCategory->id)->delete();
+        Product::where('category_product', $categoryId)->delete();
 
         $pureTisaneProducts = [
             // Small packaging P1 (15g)
@@ -132,7 +126,7 @@ class PureTisaneSeeder extends Seeder
 
         foreach ($pureTisaneProducts as $product) {
             $productsToInsert[] = [
-                'id_category_product' => $pureTisaneCategory->id,
+                'category_product' => $categoryId,
                 'sku' => $product['sku'],
                 'packaging' => $product['packaging'],
                 'name_product' => $product['name_product'],

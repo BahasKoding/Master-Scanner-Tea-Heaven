@@ -3,7 +3,6 @@
 namespace Database\Seeders;
 
 use App\Models\Product;
-use App\Models\CategoryProduct;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 
@@ -15,15 +14,10 @@ class LattePowderSeeder extends Seeder
     public function run(): void
     {
         // Find the Latte Powder category
-        $lattePowderCategory = CategoryProduct::where('name', 'LATTE POWDER')->first();
-
-        if (!$lattePowderCategory) {
-            $this->command->error('LATTE POWDER category not found. Please run CategoryProductSeeder first.');
-            return;
-        }
+        $lattePowderCategory = 8;
 
         // Clear existing products in this category to avoid duplicates
-        Product::where('id_category_product', $lattePowderCategory->id)->delete();
+        Product::where('category_product', $lattePowderCategory)->delete();
 
         $lattePowderProducts = [
             // P1 packaging products (100P)
@@ -74,7 +68,7 @@ class LattePowderSeeder extends Seeder
 
         foreach ($lattePowderProducts as $product) {
             $productsToInsert[] = [
-                'id_category_product' => $lattePowderCategory->id,
+                'category_product' => $lattePowderCategory,
                 'sku' => $product['sku'],
                 'packaging' => $product['packaging'],
                 'name_product' => $product['name_product'],

@@ -73,8 +73,8 @@
                                 <label for="filter-category" class="form-label">Filter Kategori</label>
                                 <select id="filter-category" class="form-select">
                                     <option value="">Semua Kategori</option>
-                                    @foreach ($categories as $category)
-                                        <option value="{{ $category->id }}">{{ $category->name }}</option>
+                                    @foreach ($categories as $key => $category)
+                                        <option value="{{ $key }}">{{ $category }}</option>
                                     @endforeach
                                 </select>
                             </div>
@@ -118,13 +118,13 @@
                     <div class="modal-body">
                         <div class="mb-3">
                             <label class="form-label">Kategori <span class="text-danger">*</span></label>
-                            <select class="form-select" name="id_category_product" required>
+                            <select class="form-select" name="category_product" required>
                                 <option value="">Pilih Kategori</option>
-                                @foreach ($categories as $category)
-                                    <option value="{{ $category->id }}">{{ $category->name }}</option>
+                                @foreach ($categories as $key => $category)
+                                    <option value="{{ $key }}">{{ $category }}</option>
                                 @endforeach
                             </select>
-                            <div class="invalid-feedback" id="error-id_category_product"></div>
+                            <div class="invalid-feedback" id="error-category_product"></div>
                         </div>
                         <div class="mb-3">
                             <label class="form-label">SKU <span class="text-danger">*</span></label>
@@ -167,14 +167,13 @@
                     <div class="modal-body">
                         <div class="mb-3">
                             <label class="form-label">Kategori <span class="text-danger">*</span></label>
-                            <select class="form-select" name="id_category_product" id="edit_id_category_product"
-                                required>
+                            <select class="form-select" name="category_product" id="edit_category_product" required>
                                 <option value="">Pilih Kategori</option>
-                                @foreach ($categories as $category)
-                                    <option value="{{ $category->id }}">{{ $category->name }}</option>
+                                @foreach ($categories as $key => $category)
+                                    <option value="{{ $key }}">{{ $category }}</option>
                                 @endforeach
                             </select>
-                            <div class="invalid-feedback" id="error-edit-id_category_product"></div>
+                            <div class="invalid-feedback" id="error-edit-category_product"></div>
                         </div>
                         <div class="mb-3">
                             <label class="form-label">SKU <span class="text-danger">*</span></label>
@@ -243,7 +242,7 @@
                     url: "{{ route('products.index') }}",
                     type: "GET",
                     data: function(d) {
-                        d.id_category_product = $('#filter-category').val();
+                        d.category_product = $('#filter-category').val();
                     }
                 },
                 columns: [{
@@ -318,7 +317,7 @@
 
             // Apply category filter
             $('#filter-category').on('change', function() {
-                table.ajax.reload();
+                table.draw();
             });
 
             // Clear filters function
@@ -365,7 +364,7 @@
                             });
 
                             // Focus on the first input for next entry
-                            form.find('select[name="id_category_product"]').focus();
+                            form.find('select[name="category_product"]').focus();
                         }
                     },
                     error: function(xhr) {
@@ -526,7 +525,7 @@
                             $('#edit_product_id').val(data.id);
 
                             // Set form fields
-                            $('#edit_id_category_product').val(data.id_category_product);
+                            $('#edit_category_product').val(data.category_product);
                             $('#edit_sku').val(data.sku);
                             $('#edit_name_product').val(data.name_product);
                             $('#edit_packaging').val(data.packaging);

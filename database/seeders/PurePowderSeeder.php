@@ -3,7 +3,6 @@
 namespace Database\Seeders;
 
 use App\Models\Product;
-use App\Models\CategoryProduct;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 
@@ -15,15 +14,10 @@ class PurePowderSeeder extends Seeder
     public function run(): void
     {
         // Find the Pure Powder category
-        $purePowderCategory = CategoryProduct::where('name', 'PURE POWDER')->first();
-
-        if (!$purePowderCategory) {
-            $this->command->error('PURE POWDER category not found. Please run CategoryProductSeeder first.');
-            return;
-        }
+        $purePowderCategory = 6;
 
         // Clear existing products in this category to avoid duplicates
-        Product::where('id_category_product', $purePowderCategory->id)->delete();
+        Product::where('category_product', $purePowderCategory)->delete();
 
         $purePowderProducts = [
             // P1 packaging products
@@ -74,7 +68,7 @@ class PurePowderSeeder extends Seeder
 
         foreach ($purePowderProducts as $product) {
             $productsToInsert[] = [
-                'id_category_product' => $purePowderCategory->id,
+                'category_product' => $purePowderCategory,
                 'sku' => $product['sku'],
                 'packaging' => $product['packaging'],
                 'name_product' => $product['name_product'],

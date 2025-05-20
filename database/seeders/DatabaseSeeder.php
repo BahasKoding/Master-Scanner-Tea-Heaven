@@ -26,7 +26,6 @@ class DatabaseSeeder extends Seeder
 
         // 4. Panggil seeder lainnya
         $this->call([
-            CategoryProductSeeder::class,
             // ProductSeeder::class,
             ArtisanTeaProductSeeder::class,
             ChineseTeaProductSeeder::class,

@@ -3,7 +3,6 @@
 namespace Database\Seeders;
 
 use App\Models\Product;
-use App\Models\CategoryProduct;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 
@@ -14,16 +13,11 @@ class ArtisanTeaProductSeeder extends Seeder
      */
     public function run(): void
     {
-        // Find the Artisan Tea category
-        $artisanTeaCategory = CategoryProduct::where('name', 'ARTISAN TEA')->first();
-
-        if (!$artisanTeaCategory) {
-            $this->command->error('ARTISAN TEA category not found. Please run CategoryProductSeeder first.');
-            return;
-        }
+        // Category ID for Artisan Tea (3)
+        $categoryId = 3;
 
         // Clear existing products in this category to avoid duplicates
-        Product::where('id_category_product', $artisanTeaCategory->id)->delete();
+        Product::where('category_product', $categoryId)->delete();
 
         $artisanTeaProducts = [
             // Small packaging P1
@@ -178,7 +172,7 @@ class ArtisanTeaProductSeeder extends Seeder
 
         foreach ($artisanTeaProducts as $product) {
             $productsToInsert[] = [
-                'id_category_product' => $artisanTeaCategory->id,
+                'category_product' => $categoryId,
                 'sku' => $product['sku'],
                 'packaging' => $product['packaging'],
                 'name_product' => $product['name_product'],

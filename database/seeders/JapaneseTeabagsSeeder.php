@@ -15,15 +15,10 @@ class JapaneseTeabagsSeeder extends Seeder
     public function run(): void
     {
         // Find the Japanese Teabags category
-        $japaneseTeabagsCategory = CategoryProduct::where('name', 'JAPANESE TEABAGS')->first();
-
-        if (!$japaneseTeabagsCategory) {
-            $this->command->error('JAPANESE TEABAGS category not found. Please run CategoryProductSeeder first.');
-            return;
-        }
+        $japaneseTeabagsCategory = 10;
 
         // Clear existing products in this category to avoid duplicates
-        Product::where('id_category_product', $japaneseTeabagsCategory->id)->delete();
+        Product::where('category_product', $japaneseTeabagsCategory)->delete();
 
         $japaneseTeabagsProducts = [
             // 10 Teabags (FG3)
@@ -47,7 +42,7 @@ class JapaneseTeabagsSeeder extends Seeder
 
         foreach ($japaneseTeabagsProducts as $product) {
             $productsToInsert[] = [
-                'id_category_product' => $japaneseTeabagsCategory->id,
+                'category_product' => $japaneseTeabagsCategory,
                 'sku' => $product['sku'],
                 'packaging' => $product['packaging'],
                 'name_product' => $product['name_product'],

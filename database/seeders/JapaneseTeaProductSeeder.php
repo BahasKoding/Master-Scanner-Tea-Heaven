@@ -15,15 +15,10 @@ class JapaneseTeaProductSeeder extends Seeder
     public function run(): void
     {
         // Find the Japanese Tea category
-        $japaneseTeaCategory = CategoryProduct::where('name', 'JAPANESE TEA')->first();
-
-        if (!$japaneseTeaCategory) {
-            $this->command->error('JAPANESE TEA category not found. Please run CategoryProductSeeder first.');
-            return;
-        }
+        $japaneseTeaCategory = 4;
 
         // Clear existing products in this category to avoid duplicates
-        Product::where('id_category_product', $japaneseTeaCategory->id)->delete();
+        Product::where('category_product', $japaneseTeaCategory)->delete();
 
         $japaneseTeaProducts = [
             // P1 packaging products
@@ -77,7 +72,7 @@ class JapaneseTeaProductSeeder extends Seeder
 
         foreach ($japaneseTeaProducts as $product) {
             $productsToInsert[] = [
-                'id_category_product' => $japaneseTeaCategory->id,
+                'category_product' => $japaneseTeaCategory,
                 'sku' => $product['sku'],
                 'packaging' => $product['packaging'],
                 'name_product' => $product['name_product'],

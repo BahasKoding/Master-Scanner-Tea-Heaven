@@ -3,27 +3,22 @@
 namespace Database\Seeders;
 
 use App\Models\Product;
-use App\Models\CategoryProduct;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 
 class SweetPowderSeeder extends Seeder
 {
+    
     /**
      * Run the database seeds.
      */
     public function run(): void
     {
         // Find the Sweet Powder category
-        $sweetPowderCategory = CategoryProduct::where('name', 'SWEET POWDER')->first();
-
-        if (!$sweetPowderCategory) {
-            $this->command->error('SWEET POWDER category not found. Please run CategoryProductSeeder first.');
-            return;
-        }
+        $sweetPowderCategory = 7;
 
         // Clear existing products in this category to avoid duplicates
-        Product::where('id_category_product', $sweetPowderCategory->id)->delete();
+        Product::where('category_product', $sweetPowderCategory)->delete();
 
         $sweetPowderProducts = [
             // Small packaging P1
@@ -38,7 +33,7 @@ class SweetPowderSeeder extends Seeder
 
         foreach ($sweetPowderProducts as $product) {
             $productsToInsert[] = [
-                'id_category_product' => $sweetPowderCategory->id,
+                'category_product' => $sweetPowderCategory,
                 'sku' => $product['sku'],
                 'packaging' => $product['packaging'],
                 'name_product' => $product['name_product'],

@@ -12,15 +12,20 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('catatan_produksis', function (Blueprint $table) {
-
             $table->id();
             $table->foreignId('product_id');
             $table->string('packaging');
             $table->integer('quantity');
-            $table->json('sku_induk');
-            $table->json('gramasi');
-            $table->json('total_terpakai');
-            // gramasi * quantity
+
+            // JSON array of bahan_baku IDs
+            $table->json('sku_induk')->comment('Stores array of bahan_baku IDs');
+
+            // JSON array of corresponding gramasi values
+            $table->json('gramasi')->comment('Stores array of gramasi values corresponding to each bahan_baku');
+
+            // JSON array of corresponding total_terpakai values
+            $table->json('total_terpakai')->comment('Stores array of total_terpakai values corresponding to each bahan_baku');
+
             $table->timestamps();
 
             $table->foreign('product_id')->references('id')->on('products');

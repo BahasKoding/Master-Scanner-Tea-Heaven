@@ -21,7 +21,6 @@
         <span class="pc-arrow"><i data-feather="chevron-right"></i></span>
     </a>
     <ul class="pc-submenu">
-        <li class="pc-item"><a class="pc-link" href="{{ route('category-products.index') }}">Product Categories</a></li>
         <li class="pc-item"><a class="pc-link" href="{{ route('products.index') }}">Products</a></li>
         <li class="pc-item"><a class="pc-link" href="{{ route('finished-goods.index') }}">Finished Goods</a></li>
         <li class="pc-item"><a class="pc-link" href="{{ route('bahan-baku.index') }}">Bahan Baku</a></li>

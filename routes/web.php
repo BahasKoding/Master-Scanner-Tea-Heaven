@@ -8,7 +8,6 @@ use App\Http\Controllers\Backend\PermissionController;
 use App\Http\Controllers\Backend\ActivityController;
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\HistorySaleController;
-use App\Http\Controllers\CategoryProductController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\CatatanProduksiController;
 use App\Http\Controllers\FinishedGoodsController;
@@ -117,15 +116,11 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/validate-no-resi', [HistorySaleController::class, 'validateNoResi'])->name('history-sales.validate-no-resi');
 
     // Resource routes using Laravel's resource controller pattern
-    Route::resource('category-products', CategoryProductController::class);
     Route::resource('products', ProductController::class);
     Route::resource('catatan-produksi', CatatanProduksiController::class);
+    Route::get('get-bahan-baku-list', [CatatanProduksiController::class, 'getBahanBakuList'])->name('catatan-produksi.bahan-baku-list');
     Route::resource('finished-goods', FinishedGoodsController::class);
     Route::resource('bahan-baku', BahanBakuController::class);
-
-    // Additional route for listing products by category
-    Route::get('category-products/{categoryProduct}/products', [CategoryProductController::class, 'listProducts'])
-        ->name('category-products.list-products');
 
     /*
     |--------------------------------------------------------------------------

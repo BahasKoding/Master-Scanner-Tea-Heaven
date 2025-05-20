@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Models\Product;
-use App\Models\CategoryProduct;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Yajra\DataTables\Facades\DataTables;
@@ -29,8 +28,9 @@ class ProductController extends Controller
     private function getValidationMessages()
     {
         return [
-            'id_category_product.required' => 'Silahkan pilih kategori produk',
-            'id_category_product.exists' => 'Kategori yang dipilih tidak valid',
+            'category_product.required' => 'Silahkan pilih kategori produk',
+            'category_product.integer' => 'Kategori yang dipilih tidak valid',
+            'category_product.min' => 'Kategori yang dipilih tidak valid',
             'sku.required' => 'Silahkan masukkan SKU produk',
             'sku.string' => 'SKU produk harus berupa teks',
             'sku.max' => 'SKU produk terlalu panjang (maksimal 255 karakter)',
@@ -50,20 +50,19 @@ class ProductController extends Controller
     public function index(Request $request)
     {
         if ($request->ajax()) {
-            $query = Product::with('categoryProduct')
-                ->select([
-                    'products.id',
-                    'products.id_category_product',
-                    'products.sku',
-                    'products.packaging',
-                    'products.name_product',
-                    'products.created_at',
-                    'products.updated_at'
-                ]);
+            $query = Product::select([
+                'products.id',
+                'products.category_product',
+                'products.sku',
+                'products.packaging',
+                'products.name_product',
+                'products.created_at',
+                'products.updated_at'
+            ]);
 
             // Filter by category if provided
-            if ($request->has('id_category_product') && !empty($request->id_category_product)) {
-                $query->where('products.id_category_product', $request->id_category_product);
+            if ($request->has('category_product') && !empty($request->category_product)) {
+                $query->where('products.category_product', $request->category_product);
             }
 
             return DataTables::of($query)
@@ -75,18 +74,13 @@ class ProductController extends Controller
                     return $row->id;
                 })
                 ->addColumn('category', function ($row) {
-                    return $row->categoryProduct ? $row->categoryProduct->name : '';
+                    return $row->category_name;
                 })
                 ->filterColumn('name_product', function ($query, $keyword) {
                     $query->where('products.name_product', 'like', "%{$keyword}%");
                 })
                 ->filterColumn('sku', function ($query, $keyword) {
                     $query->where('products.sku', 'like', "%{$keyword}%");
-                })
-                ->filterColumn('category', function ($query, $keyword) {
-                    $query->whereHas('categoryProduct', function ($q) use ($keyword) {
-                        $q->where('name', 'like', "%{$keyword}%");
-                    });
                 })
                 ->rawColumns(['action'])
                 ->smart(true)
@@ -95,15 +89,8 @@ class ProductController extends Controller
         }
 
         try {
-            // Get all categories for the form with error handling
-            $categories = CategoryProduct::orderBy('name')->get();
-
-            // Log if no categories were found as this may indicate a problem
-            if ($categories->isEmpty()) {
-                Log::warning('No categories found in the database for Product form');
-            } else {
-                Log::info('Categories loaded successfully for Product form', ['count' => $categories->count()]);
-            }
+            // Get category options
+            $categories = Product::getCategoryOptions();
 
             // Get initial data for the view with pagination
             $items = [
@@ -124,7 +111,7 @@ class ProductController extends Controller
             // Return view with error message and empty categories collection
             return view('product.index', [
                 'items' => ['Daftar Produk' => route('products.index')],
-                'categories' => collect([]),
+                'categories' => [],
                 'error_message' => 'Gagal memuat data kategori. Silakan coba refresh halaman.'
             ]);
         }
@@ -137,7 +124,7 @@ class ProductController extends Controller
     {
         try {
             $validated = $request->validate([
-                'id_category_product' => 'required|exists:category_products,id',
+                'category_product' => 'required|integer|min:1',
                 'sku' => 'required|string|max:255|unique:products',
                 'packaging' => 'required|string|max:255',
                 'name_product' => 'required|string|max:255',
@@ -146,7 +133,8 @@ class ProductController extends Controller
             $product = Product::create($validated);
 
             // Get the category name for logging
-            $categoryName = CategoryProduct::find($validated['id_category_product'])->name;
+            $categories = Product::getCategoryOptions();
+            $categoryName = $categories[$validated['category_product']] ?? 'Unknown Category';
 
             // Log activity with category information
             addActivity('product', 'create', 'Pengguna membuat produk baru: ' . $product->name_product . ' dengan kategori: ' . $categoryName, $product->id);
@@ -179,9 +167,6 @@ class ProductController extends Controller
             // Find the product
             $product = Product::findOrFail($id);
 
-            // Load the relation
-            $product->load('categoryProduct');
-
             Log::info('Permintaan edit produk diterima', ['product' => $product->toArray()]);
 
             // Log activity
@@ -211,19 +196,20 @@ class ProductController extends Controller
             $product = Product::findOrFail($id);
 
             $validated = $request->validate([
-                'id_category_product' => 'required|exists:category_products,id',
+                'category_product' => 'required|integer|min:1',
                 'sku' => 'required|string|max:255|unique:products,sku,' . $product->id,
                 'packaging' => 'required|string|max:255',
                 'name_product' => 'required|string|max:255',
             ], $this->getValidationMessages());
 
             $oldName = $product->name_product;
-            $oldCategoryName = $product->categoryProduct ? $product->categoryProduct->name : 'Tidak ada';
+            $oldCategoryName = $product->category_name;
 
             $product->update($validated);
 
             // Get the new category name
-            $newCategoryName = CategoryProduct::find($validated['id_category_product'])->name;
+            $categories = Product::getCategoryOptions();
+            $newCategoryName = $categories[$validated['category_product']] ?? 'Unknown Category';
 
             // Log activity with category information
             addActivity(

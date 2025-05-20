@@ -3,7 +3,6 @@
 namespace Database\Seeders;
 
 use App\Models\Product;
-use App\Models\CategoryProduct;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 
@@ -14,16 +13,11 @@ class ClassicTeaCollectionSeeder extends Seeder
      */
     public function run(): void
     {
-        // Find the Classic Tea Collection category
-        $classicTeaCategory = CategoryProduct::where('name', 'CLASSIC TEA COLLECTION')->first();
-
-        if (!$classicTeaCategory) {
-            $this->command->error('CLASSIC TEA COLLECTION category not found. Please run CategoryProductSeeder first.');
-            return;
-        }
+        // Category ID for Classic Tea Collection (1)
+        $categoryId = 1;
 
         // Clear existing products in this category to avoid duplicates
-        Product::where('id_category_product', $classicTeaCategory->id)->delete();
+        Product::where('category_product', $categoryId)->delete();
 
         $classicTeaProducts = [
             ['sku' => 'BT1000Z', 'packaging' => 'Z1', 'name_product' => 'BLACK TEA'],
@@ -55,7 +49,7 @@ class ClassicTeaCollectionSeeder extends Seeder
 
         foreach ($classicTeaProducts as $product) {
             $productsToInsert[] = [
-                'id_category_product' => $classicTeaCategory->id,
+                'category_product' => $categoryId,
                 'sku' => $product['sku'],
                 'packaging' => $product['packaging'],
                 'name_product' => $product['name_product'],

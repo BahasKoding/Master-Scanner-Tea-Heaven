@@ -15,15 +15,10 @@ class CraftedTeasSeeder extends Seeder
     public function run(): void
     {
         // Find the Crafted Teas category
-        $craftedTeasCategory = CategoryProduct::where('name', 'CRAFTED TEAS')->first();
-
-        if (!$craftedTeasCategory) {
-            $this->command->error('CRAFTED TEAS category not found. Please run CategoryProductSeeder first.');
-            return;
-        }
+        $craftedTeasCategory = 9;
 
         // Clear existing products in this category to avoid duplicates
-        Product::where('id_category_product', $craftedTeasCategory->id)->delete();
+        Product::where('category_product', $craftedTeasCategory)->delete();
 
         $craftedTeasProducts = [
             ['sku' => 'BF01Z', 'packaging' => '-', 'name_product' => 'BLOOMING TEA'],
@@ -37,7 +32,7 @@ class CraftedTeasSeeder extends Seeder
 
         foreach ($craftedTeasProducts as $product) {
             $productsToInsert[] = [
-                'id_category_product' => $craftedTeasCategory->id,
+                'category_product' => $craftedTeasCategory,
                 'sku' => $product['sku'],
                 'packaging' => $product['packaging'],
                 'name_product' => $product['name_product'],
