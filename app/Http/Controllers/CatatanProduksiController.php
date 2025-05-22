@@ -98,6 +98,22 @@ class CatatanProduksiController extends Controller
                 });
             }
 
+            // Filter berdasarkan tanggal (default: hari ini)
+            $startDate = $request->filled('start_date') ? $request->start_date : now()->startOfDay()->format('Y-m-d');
+            $endDate = $request->filled('end_date') ? $request->end_date : now()->endOfDay()->format('Y-m-d');
+
+            // Konversi end_date untuk mencakup seluruh hari
+            if ($request->filled('end_date')) {
+                $endDate = date('Y-m-d', strtotime($endDate . ' +1 day'));
+            } else {
+                $endDate = now()->addDay()->startOfDay()->format('Y-m-d');
+            }
+
+            $query->where(function ($q) use ($startDate, $endDate) {
+                $q->whereBetween('catatan_produksis.created_at', [$startDate, $endDate])
+                    ->orWhereBetween('catatan_produksis.updated_at', [$startDate, $endDate]);
+            });
+
             return DataTables::of($query)
                 ->addIndexColumn()
                 ->orderColumn('created_at', function ($query, $order) {

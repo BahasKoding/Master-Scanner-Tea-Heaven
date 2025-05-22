@@ -10,19 +10,23 @@ use Illuminate\Support\Facades\Log;
 use Yajra\DataTables\Facades\DataTables;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Facades\DB;
+use App\Services\StockService;
 
 class FinishedGoodsController extends Controller
 {
+    protected $stockService;
+
     /**
      * Constructor to apply permissions middleware
      */
-    public function __construct()
+    public function __construct(StockService $stockService)
     {
         $this->middleware('permission:Finished Goods List', ['only' => ['index']]);
         $this->middleware('permission:Finished Goods Create', ['only' => ['store']]);
         $this->middleware('permission:Finished Goods Update', ['only' => ['edit', 'update']]);
         $this->middleware('permission:Finished Goods Delete', ['only' => ['destroy']]);
         $this->middleware('permission:Finished Goods View', ['only' => ['show']]);
+        $this->stockService = $stockService;
     }
 
     /**
@@ -75,6 +79,22 @@ class FinishedGoodsController extends Controller
             if ($request->filled('id_product')) {
                 $query->where('id_product', $request->id_product);
             }
+
+            // Filter berdasarkan tanggal (default: hari ini)
+            $startDate = $request->filled('start_date') ? $request->start_date : now()->startOfDay()->format('Y-m-d');
+            $endDate = $request->filled('end_date') ? $request->end_date : now()->endOfDay()->format('Y-m-d');
+
+            // Konversi end_date untuk mencakup seluruh hari
+            if ($request->filled('end_date')) {
+                $endDate = date('Y-m-d', strtotime($endDate . ' +1 day'));
+            } else {
+                $endDate = now()->addDay()->startOfDay()->format('Y-m-d');
+            }
+
+            $query->where(function ($q) use ($startDate, $endDate) {
+                $q->whereBetween('finished_goods.created_at', [$startDate, $endDate])
+                    ->orWhereBetween('finished_goods.updated_at', [$startDate, $endDate]);
+            });
 
             return DataTables::of($query)
                 ->addIndexColumn()
@@ -282,5 +302,68 @@ class FinishedGoodsController extends Controller
                 'message' => 'Maaf! Kami tidak dapat menghapus finished goods saat ini. Silahkan coba lagi.'
             ], 500);
         }
+    }
+
+    /**
+     * Update defective stock.
+     */
+    public function updateDefective(Request $request, FinishedGoods $finishedGood)
+    {
+        $request->validate([
+            'defective' => 'required|integer|min:0',
+        ]);
+
+        try {
+            $this->stockService->updateDefectiveStock($finishedGood->id_product, $request->defective);
+            return redirect()->route('finished-goods.index')
+                ->with('success', 'Data stok defective berhasil diperbarui.');
+        } catch (\Exception $e) {
+            Log::error('Gagal memperbarui stok defective: ' . $e->getMessage());
+            return redirect()->back()
+                ->with('error', 'Terjadi kesalahan: ' . $e->getMessage())
+                ->withInput();
+        }
+    }
+
+    /**
+     * Get finished goods data for DataTables.
+     */
+    public function data(Request $request)
+    {
+        $query = FinishedGoods::with('product');
+
+        // Filter berdasarkan tanggal (default: hari ini)
+        $startDate = $request->filled('start_date') ? $request->start_date : now()->startOfDay()->format('Y-m-d');
+        $endDate = $request->filled('end_date') ? $request->end_date : now()->endOfDay()->format('Y-m-d');
+
+        // Konversi end_date untuk mencakup seluruh hari
+        if ($request->filled('end_date')) {
+            $endDate = date('Y-m-d', strtotime($endDate . ' +1 day'));
+        } else {
+            $endDate = now()->addDay()->startOfDay()->format('Y-m-d');
+        }
+
+        $query->where(function ($q) use ($startDate, $endDate) {
+            $q->whereBetween('finished_goods.created_at', [$startDate, $endDate])
+                ->orWhereBetween('finished_goods.updated_at', [$startDate, $endDate]);
+        });
+
+        // Filter berdasarkan produk
+        if ($request->filled('id_product')) {
+            $query->where('id_product', $request->id_product);
+        }
+
+        return DataTables::of($query)
+            ->addColumn('product_sku', function ($finishedGood) {
+                return $finishedGood->product ? $finishedGood->product->sku : '-';
+            })
+            ->addColumn('product_name', function ($finishedGood) {
+                return $finishedGood->product ? $finishedGood->product->name_product : '-';
+            })
+            ->addColumn('action', function ($finishedGood) {
+                return view('finished-goods.action_buttons', compact('finishedGood'));
+            })
+            ->rawColumns(['action'])
+            ->toJson();
     }
 }

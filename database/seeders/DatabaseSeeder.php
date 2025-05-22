@@ -39,6 +39,7 @@ class DatabaseSeeder extends Seeder
             SweetPowderSeeder::class,
             TeaWareSeeder::class,
             BahanBakuSeeder::class,
+            HistorySaleSeeder::class,
         ]);
     }
 

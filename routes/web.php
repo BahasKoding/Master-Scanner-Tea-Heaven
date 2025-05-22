@@ -6,7 +6,7 @@ use App\Http\Controllers\Backend\UserController;
 use App\Http\Controllers\Backend\RoleController;
 use App\Http\Controllers\Backend\PermissionController;
 use App\Http\Controllers\Backend\ActivityController;
-use App\Http\Controllers\Auth\AuthController;
+// use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\HistorySaleController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\CatatanProduksiController;
@@ -120,6 +120,8 @@ Route::middleware(['auth'])->group(function () {
     Route::resource('catatan-produksi', CatatanProduksiController::class);
     Route::get('get-bahan-baku-list', [CatatanProduksiController::class, 'getBahanBakuList'])->name('catatan-produksi.bahan-baku-list');
     Route::resource('finished-goods', FinishedGoodsController::class);
+    Route::post('finished-goods/{finishedGood}/update-defective', [FinishedGoodsController::class, 'updateDefective'])->name('finished-goods.update-defective');
+    Route::post('finished-goods/data', [FinishedGoodsController::class, 'data'])->name('finished-goods.data');
     Route::resource('bahan-baku', BahanBakuController::class);
 
     /*

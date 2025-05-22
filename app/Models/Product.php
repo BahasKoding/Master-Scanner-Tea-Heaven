@@ -47,4 +47,30 @@ class Product extends Model
     {
         return $this->hasMany(CatatanProduksi::class, 'product_id');
     }
+
+    /**
+     * Get the finished goods records for this product.
+     */
+    public function finishedGoods()
+    {
+        return $this->hasOne(FinishedGoods::class, 'id_product');
+    }
+
+    /**
+     * Get all history sales that include this product.
+     */
+    public function historySales()
+    {
+        return $this->belongsToMany(HistorySale::class, 'history_sale_details', 'product_id', 'history_sale_id')
+            ->withPivot('quantity')
+            ->withTimestamps();
+    }
+
+    /**
+     * Get all history sale details for this product.
+     */
+    public function historySaleDetails()
+    {
+        return $this->hasMany(HistorySaleDetail::class, 'product_id');
+    }
 }

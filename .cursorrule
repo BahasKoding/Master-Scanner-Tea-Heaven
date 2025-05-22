@@ -1,0 +1,374 @@
+# DOKUMEN SPESIFIKASI TEKNIS
+# Sistem Manajemen Inventory Teh Heaven
+
+## 1. TUJUAN DOKUMEN
+
+Dokumen ini dibuat sebagai panduan teknis untuk mengimplementasikan sistem integrasi data stok pada aplikasi Master Scanner Tea Heaven, khususnya terkait pengelolaan stok masuk dan keluar pada produk jadi (finished goods). Dokumen ini akan membantu tim developer dalam mengembangkan fitur yang konsisten dan sesuai dengan kebutuhan bisnis.
+
+## 2. RINGKASAN SISTEM
+
+Aplikasi Master Scanner Tea Heaven bertujuan untuk memantau dan mengelola alur produksi serta penjualan produk teh. Sistem ini mencakup berbagai modul termasuk:
+- Pengelolaan master data produk
+- Pencatatan produksi
+- Manajemen stok produk jadi (finished goods)
+- Tracking penjualan melalui sistem scanner
+- Pelaporan dan analisis data
+
+## 3. ARSITEKTUR ALUR DATA STOK
+
+### 3.1 Diagram Alur Data
+
+```
+[Catatan Produksi] --quantity--> [Finished Goods] --stok_masuk--> [Live Stock]
+                                                                       ^
+[History Sales] ------qty--------> [Finished Goods] --stok_keluar-----|
+```
+
+### 3.2 Struktur Database Terkait
+
+- **Products**: Tabel master produk yang menjadi referensi utama
+- **Catatan Produksi**: Mencatat proses produksi dengan quantity yang dihasilkan
+- **Finished Goods**: Mengelola stok produk jadi (stok_masuk, stok_keluar, live_stock)
+- **History Sales**: Mencatat transaksi penjualan dengan no_sku dan qty dalam format JSON
+
+## 4. SPESIFIKASI FUNGSIONAL
+
+### 4.1 Pengelolaan Stok Masuk (Dari Produksi)
+
+#### 4.1.1 Pencatatan Produksi
+- Sistem mencatat data produksi termasuk produk, packaging, dan quantity
+- Data bahan baku dicatat dalam format JSON (sku_induk, gramasi, total_terpakai)
+
+#### 4.1.2 Update Stok Masuk
+- Setiap kali data produksi disimpan, sistem harus otomatis menambahkan quantity ke stok_masuk di finished_goods
+- Jika finished_goods belum ada untuk produk tersebut, sistem akan membuat record baru
+
+#### 4.1.3 Validasi Data
+- Sistem memvalidasi bahwa product_id valid dan ada di tabel products
+- Sistem memvalidasi bahwa quantity adalah nilai positif
+
+### 4.2 Pengelolaan Stok Keluar (Dari Penjualan)
+
+#### 4.2.1 Pencatatan Penjualan
+- Sistem mencatat penjualan dengan no_resi, no_sku (JSON), dan qty (JSON)
+- Format JSON disimpan sebagai array, misalnya: `{"sku": ["SKU001", "SKU002"], "qty": [2, 3]}`
+
+#### 4.2.2 Update Stok Keluar
+- Setiap kali penjualan dicatat, sistem harus memperbarui stok_keluar di finished_goods
+- Sistem harus mengekstrak data SKU dan quantity dari JSON
+- Sistem mencari product_id dari SKU tersebut
+- Sistem menambahkan quantity ke stok_keluar untuk produk yang sesuai
+
+#### 4.2.3 Validasi Data
+- Sistem memvalidasi bahwa semua SKU valid dan ada di tabel products
+- Sistem memvalidasi bahwa stok mencukupi sebelum memproses penjualan
+- Sistem harus memastikan jumlah elemen di array SKU dan quantity sama
+
+### 4.3 Perhitungan Live Stock
+
+#### 4.3.1 Formula Perhitungan
+```
+live_stock = stok_awal + stok_masuk - stok_keluar - defective
+```
+
+#### 4.3.2 Auto-Update
+- Nilai live_stock harus otomatis diperbarui setiap kali ada perubahan pada:
+  - stok_awal
+  - stok_masuk
+  - stok_keluar
+  - defective
+
+#### 4.3.3 Validasi Nilai
+- Sistem harus mencegah live_stock bernilai negatif
+- Jika operasi menyebabkan live_stock negatif, sistem harus menampilkan peringatan
+
+## 5. IMPLEMENTASI TEKNIS
+
+### 5.1 Model dan Relasi
+
+```php
+// Model Product
+public function finishedGoods()
+{
+    return $this->hasMany(FinishedGood::class, 'id_product');
+}
+
+public function catatanProduksi()
+{
+    return $this->hasMany(CatatanProduksi::class, 'product_id');
+}
+
+// Model FinishedGood
+public function product()
+{
+    return $this->belongsTo(Product::class, 'id_product');
+}
+
+// Model CatatanProduksi
+public function product()
+{
+    return $this->belongsTo(Product::class, 'product_id');
+}
+
+// Custom accessor untuk HistorySale
+public function getSkuArrayAttribute()
+{
+    return json_decode($this->no_sku, true);
+}
+
+public function getQtyArrayAttribute()
+{
+    return json_decode($this->qty, true);
+}
+```
+
+### 5.2 Observer Pattern
+
+```php
+// CatatanProduksiObserver
+public function created(CatatanProduksi $catatanProduksi)
+{
+    app(StockService::class)->updateStockFromProduction($catatanProduksi);
+}
+
+public function updated(CatatanProduksi $catatanProduksi)
+{
+    // Hanya jika quantity berubah
+    if ($catatanProduksi->isDirty('quantity')) {
+        app(StockService::class)->updateStockFromProductionChange($catatanProduksi);
+    }
+}
+
+// HistorySaleObserver
+public function created(HistorySale $historySale)
+{
+    app(StockService::class)->updateStockFromSales($historySale);
+}
+```
+
+### 5.3 Service Layer
+
+```php
+// StockService
+class StockService
+{
+    public function updateStockFromProduction(CatatanProduksi $catatanProduksi)
+    {
+        $productId = $catatanProduksi->product_id;
+        $quantity = $catatanProduksi->quantity;
+        
+        DB::transaction(function () use ($productId, $quantity) {
+            $finishedGood = FinishedGood::firstOrNew(['id_product' => $productId]);
+            
+            if (!$finishedGood->exists) {
+                $finishedGood->stok_awal = 0;
+                $finishedGood->stok_keluar = 0;
+                $finishedGood->defective = 0;
+            }
+            
+            $finishedGood->stok_masuk += $quantity;
+            $this->recalculateLiveStock($finishedGood);
+            $finishedGood->save();
+        });
+    }
+    
+    public function updateStockFromSales(HistorySale $historySale)
+    {
+        $skuArray = $historySale->sku_array;
+        $qtyArray = $historySale->qty_array;
+        
+        if (count($skuArray) !== count($qtyArray)) {
+            throw new \Exception("Data SKU dan Quantity tidak sesuai");
+        }
+        
+        DB::transaction(function () use ($skuArray, $qtyArray) {
+            foreach ($skuArray as $index => $sku) {
+                $product = Product::where('sku', $sku)->first();
+                if (!$product) {
+                    throw new \Exception("SKU tidak ditemukan: {$sku}");
+                }
+                
+                $quantity = $qtyArray[$index];
+                
+                $finishedGood = FinishedGood::where('id_product', $product->id)->first();
+                if (!$finishedGood) {
+                    throw new \Exception("Finished Good tidak ditemukan untuk produk: {$sku}");
+                }
+                
+                if ($finishedGood->live_stock < $quantity) {
+                    throw new \Exception("Stok tidak mencukupi untuk {$sku}. Tersedia: {$finishedGood->live_stock}, Diminta: {$quantity}");
+                }
+                
+                $finishedGood->stok_keluar += $quantity;
+                $this->recalculateLiveStock($finishedGood);
+                $finishedGood->save();
+            }
+        });
+    }
+    
+    public function recalculateLiveStock(FinishedGood $finishedGood)
+    {
+        $finishedGood->live_stock = $finishedGood->stok_awal + 
+                                   $finishedGood->stok_masuk - 
+                                   $finishedGood->stok_keluar - 
+                                   $finishedGood->defective;
+        
+        if ($finishedGood->live_stock < 0) {
+            throw new \Exception("Perhitungan menyebabkan stok negatif");
+        }
+    }
+}
+```
+
+### 5.4 Konsistensi Data
+
+```php
+// VerifyStockConsistencyJob
+class VerifyStockConsistencyJob implements ShouldQueue
+{
+    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+    
+    public function handle()
+    {
+        $finishedGoods = FinishedGood::all();
+        
+        foreach ($finishedGoods as $finishedGood) {
+            // Hitung total stok masuk dari catatan produksi
+            $totalProduction = CatatanProduksi::where('product_id', $finishedGood->id_product)
+                                           ->sum('quantity');
+            
+            // Hitung total stok keluar dari history sales
+            $productSku = Product::find($finishedGood->id_product)->sku;
+            $totalSales = $this->calculateTotalSales($productSku);
+            
+            // Verifikasi data
+            if ($finishedGood->stok_masuk != $totalProduction) {
+                Log::warning("Perbedaan stok masuk untuk product_id: {$finishedGood->id_product}. 
+                             DB: {$finishedGood->stok_masuk}, Hitung: {$totalProduction}");
+                
+                // Optional: Auto-koreksi
+                // $finishedGood->stok_masuk = $totalProduction;
+            }
+            
+            if ($finishedGood->stok_keluar != $totalSales) {
+                Log::warning("Perbedaan stok keluar untuk product_id: {$finishedGood->id_product}. 
+                             DB: {$finishedGood->stok_keluar}, Hitung: {$totalSales}");
+                
+                // Optional: Auto-koreksi
+                // $finishedGood->stok_keluar = $totalSales;
+            }
+            
+            // Recalculate live stock
+            $oldLiveStock = $finishedGood->live_stock;
+            $calculatedLiveStock = $finishedGood->stok_awal + 
+                                  $finishedGood->stok_masuk - 
+                                  $finishedGood->stok_keluar - 
+                                  $finishedGood->defective;
+            
+            if ($oldLiveStock != $calculatedLiveStock) {
+                Log::warning("Perbedaan live stock untuk product_id: {$finishedGood->id_product}. 
+                             DB: {$oldLiveStock}, Hitung: {$calculatedLiveStock}");
+                
+                // Optional: Auto-koreksi
+                // $finishedGood->live_stock = $calculatedLiveStock;
+            }
+            
+            // $finishedGood->save();
+        }
+    }
+    
+    private function calculateTotalSales($sku)
+    {
+        $total = 0;
+        $historySales = HistorySale::all();
+        
+        foreach ($historySales as $sale) {
+            $skuArray = json_decode($sale->no_sku, true);
+            $qtyArray = json_decode($sale->qty, true);
+            
+            foreach ($skuArray as $index => $saleSku) {
+                if ($saleSku == $sku && isset($qtyArray[$index])) {
+                    $total += $qtyArray[$index];
+                }
+            }
+        }
+        
+        return $total;
+    }
+}
+```
+
+## 6. UI/UX UNTUK PENGELOLAAN STOK
+
+### 6.1 Dashboard Stok
+
+- Tampilkan ringkasan stok untuk semua produk
+- Fitur filter berdasarkan kategori, sku, nama produk
+- Indikator visual untuk stok rendah atau habis
+- Grafik tren stok mingguan/bulanan
+
+### 6.2 Detail Produk
+
+- Tampilan riwayat stok masuk (produksi)
+- Tampilan riwayat stok keluar (penjualan)
+- Opsi untuk menyesuaikan stok secara manual (dengan catatan dan logging)
+- Grafik penggunaan produk
+
+### 6.3 Alert dan Notifikasi
+
+- Notifikasi stok hampir habis
+- Alert untuk inkonsistensi data stok
+- Peringatan saat operasi menyebabkan stok negatif
+
+## 7. TESTING DAN QUALITY ASSURANCE
+
+### 7.1 Test Cases untuk Stok Masuk
+
+- Test penerimaan stok dari produksi normal
+- Test penerimaan stok untuk produk baru
+- Test validasi data produksi
+- Test perubahan data produksi
+
+### 7.2 Test Cases untuk Stok Keluar
+
+- Test penjualan normal dengan SKU tunggal
+- Test penjualan dengan multiple SKU
+- Test validasi stok mencukupi
+- Test pembatalan penjualan
+
+### 7.3 Test Konsistensi Data
+
+- Test konsistensi perhitungan live_stock
+- Test job verifikasi stok
+- Test performa dengan volume data besar
+
+## 8. DEPLOYMENT DAN PERAWATAN
+
+### 8.1 Migrasi Database
+
+- Pastikan struktur database sesuai dengan kebutuhan
+- Buat seeder untuk data awal testing
+- Persiapkan script migrasi untuk update sistem yang sudah berjalan
+
+### 8.2 Monitoring
+
+- Implementasi logging untuk aktivitas stok masuk/keluar
+- Setup alert untuk anomali stok
+- Backup data reguler untuk menghindari kehilangan data
+
+### 8.3 Pemeliharaan
+
+- Jadwalkan verifikasi stok harian/mingguan
+- Prosedur untuk rekonsiliasi stok fisik vs sistem
+- Dokumentasi SOP untuk penanganan masalah stok
+
+## 9. PENUTUP
+
+Dokumen spesifikasi ini memberikan panduan untuk implementasi sistem pengelolaan stok pada aplikasi Tea Heaven. Dengan mengikuti panduan ini, diharapkan sistem dapat:
+
+1. Mengelola alur stok produk secara akurat
+2. Menjaga integritas data antar tabel terkait
+3. Memberikan visibilitas penuh atas pergerakan stok
+4. Menyediakan data yang akurat untuk analisis bisnis
+
+Implementasi yang sukses akan membantu meningkatkan efisiensi operasional, mengurangi kesalahan inventaris, dan memberikan informasi yang berharga untuk pengambilan keputusan bisnis.

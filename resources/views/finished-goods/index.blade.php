@@ -21,6 +21,87 @@
             border-radius: 5px;
             margin-bottom: 20px;
         }
+
+        /* Responsive improvements */
+        .filter-section {
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+
+        .filter-label {
+            font-size: 12px;
+            margin-bottom: 4px;
+        }
+
+        /* Table responsiveness */
+        .table-responsive {
+            width: 100%;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        /* DataTables buttons responsiveness */
+        .dt-buttons {
+            margin-bottom: 10px;
+        }
+
+        .dt-button {
+            margin-right: 5px;
+            margin-bottom: 5px;
+        }
+
+        /* Modal responsiveness */
+        @media (max-width: 768px) {
+            .modal-dialog {
+                max-width: 95%;
+                margin: 10px auto;
+            }
+
+            .filter-section {
+                padding: 10px;
+            }
+
+            .table {
+                font-size: 14px;
+            }
+
+            .dt-buttons {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 5px;
+            }
+
+            .dt-button {
+                flex: 1;
+                white-space: nowrap;
+                min-width: auto !important;
+                padding: 0.25rem 0.5rem !important;
+                font-size: 0.875rem !important;
+            }
+
+            .filter-toggle {
+                display: block;
+                width: 100%;
+                margin-bottom: 10px;
+            }
+
+            .paginate_button {
+                padding: 0.3rem 0.5rem !important;
+            }
+        }
+
+        @media (max-width: 576px) {
+            .action-buttons .btn {
+                padding: 0.25rem 0.5rem;
+                font-size: 0.875rem;
+                margin-bottom: 3px;
+            }
+
+            .paginate_button {
+                padding: 0.2rem 0.3rem !important;
+                font-size: 0.8rem;
+            }
+        }
     </style>
 @endsection
 
@@ -31,13 +112,13 @@
         <div class="col-sm-12">
             <div class="card">
                 <div class="card-header">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <h5>Daftar Finished Goods</h5>
-                        <div>
-                            <button id="clear-filters" class="btn btn btn-secondary">
+                    <div class="d-flex justify-content-between align-items-center flex-wrap">
+                        <h5 class="mb-2 mb-sm-0">Daftar Finished Goods</h5>
+                        <div class="d-flex flex-wrap">
+                            <button id="clear-filters" class="btn btn btn-secondary me-2 mb-2 mb-sm-0">
                                 <i class="fas fa-filter"></i> Hapus Filter
                             </button>
-                            <button type="button" class="btn btn-primary" data-bs-toggle="modal"
+                            <button type="button" class="btn btn-primary mb-2 mb-sm-0" data-bs-toggle="modal"
                                 data-bs-target="#addFinishedGoodsModal">
                                 <i class="fas fa-plus"></i> Tambah Finished Goods Baru
                             </button>
@@ -46,22 +127,49 @@
                 </div>
                 <div class="card-body">
                     <!-- Filter Section -->
-                    <div class="mb-3 p-3 border rounded bg-light">
-                        <div class="row">
-                            <div class="col-md-4">
-                                <label for="filter-product" class="form-label small">Produk</label>
-                                <select class="form-control form-control-sm" name="filter-product" id="filter-product">
-                                    <option value="">Semua Produk</option>
-                                    @foreach ($products as $product)
-                                        <option value="{{ $product->id }}">{{ $product->name_product }}
-                                            ({{ $product->sku }})
-                                        </option>
-                                    @endforeach
-                                </select>
+                    <div class="mb-3 p-3 border rounded bg-light filter-section">
+                        <button id="filter-toggle-btn" class="btn btn-sm btn-outline-secondary mb-2 w-100 d-md-none"
+                            type="button" data-bs-toggle="collapse" data-bs-target="#filterControls">
+                            <i class="fas fa-filter"></i> Toggle Filters <i class="fas fa-chevron-down"></i>
+                        </button>
+                        <div id="filterControls" class="collapse show">
+                            <div class="row">
+                                <div class="col-lg-4 col-md-6 col-sm-12 mb-2">
+                                    <label for="filter-product" class="form-label small filter-label">Produk</label>
+                                    <select class="form-control form-control-sm" name="filter-product" id="filter-product">
+                                        <option value="">Semua Produk</option>
+                                        @foreach ($products as $product)
+                                            <option value="{{ $product->id }}">{{ $product->name_product }}
+                                                ({{ $product->sku }})
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                                <div class="col-lg-3 col-md-6 col-sm-6 mb-2">
+                                    <label for="start-date" class="form-label small filter-label">Tanggal Mulai</label>
+                                    <input type="date" class="form-control form-control-sm" id="start-date"
+                                        name="start_date" value="{{ now()->format('Y-m-d') }}">
+                                </div>
+                                <div class="col-lg-3 col-md-6 col-sm-6 mb-2">
+                                    <label for="end-date" class="form-label small filter-label">Tanggal Selesai</label>
+                                    <input type="date" class="form-control form-control-sm" id="end-date"
+                                        name="end_date" value="{{ now()->format('Y-m-d') }}">
+                                </div>
+                                <div class="col-lg-2 col-md-6 col-sm-12 d-flex align-items-end mb-2">
+                                    <button id="apply-date-filter" class="btn btn-sm btn-primary w-100">
+                                        <i class="fas fa-filter"></i> Terapkan Filter
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
                     <!-- End Filter Section -->
+
+                    <div class="mb-3">
+                        <h6 class="text-primary">
+                            <span id="table-period">Menampilkan data untuk periode: {{ now()->format('d M Y') }}</span>
+                        </h6>
+                    </div>
 
                     <div class="dt-responsive table-responsive">
                         <table id="finishedGoods-table" class="table table-striped table-bordered nowrap">
@@ -93,7 +201,7 @@
 
     <!-- Add Finished Goods Modal -->
     <div class="modal fade" id="addFinishedGoodsModal" tabindex="-1">
-        <div class="modal-dialog">
+        <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title">Tambah Finished Goods Baru</h5>
@@ -107,29 +215,30 @@
                             <select class="form-control" name="id_product" id="add-product" required>
                                 <option value="">Pilih Produk</option>
                                 @foreach ($products as $product)
-                                    <option value="{{ $product->id }}">{{ $product->name_product }} ({{ $product->sku }})
+                                    <option value="{{ $product->id }}">{{ $product->name_product }}
+                                        ({{ $product->sku }})
                                     </option>
                                 @endforeach
                             </select>
                         </div>
 
                         <div class="row">
-                            <div class="col-md-6 mb-3">
+                            <div class="col-sm-6 mb-3">
                                 <label class="form-label">Stok Awal <span class="text-danger">*</span></label>
                                 <input type="number" class="form-control" name="stok_awal" required min="0">
                             </div>
-                            <div class="col-md-6 mb-3">
+                            <div class="col-sm-6 mb-3">
                                 <label class="form-label">Stok Masuk <span class="text-danger">*</span></label>
                                 <input type="number" class="form-control" name="stok_masuk" required min="0">
                             </div>
                         </div>
 
                         <div class="row">
-                            <div class="col-md-6 mb-3">
+                            <div class="col-sm-6 mb-3">
                                 <label class="form-label">Stok Keluar <span class="text-danger">*</span></label>
                                 <input type="number" class="form-control" name="stok_keluar" required min="0">
                             </div>
-                            <div class="col-md-6 mb-3">
+                            <div class="col-sm-6 mb-3">
                                 <label class="form-label">Defective <span class="text-danger">*</span></label>
                                 <input type="number" class="form-control" name="defective" required min="0">
                             </div>
@@ -152,7 +261,7 @@
 
     <!-- Edit Finished Goods Modal -->
     <div class="modal fade" id="editFinishedGoodsModal" tabindex="-1">
-        <div class="modal-dialog">
+        <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title">Edit Finished Goods</h5>
@@ -176,12 +285,12 @@
                         </div>
 
                         <div class="row">
-                            <div class="col-md-6 mb-3">
+                            <div class="col-sm-6 mb-3">
                                 <label class="form-label">Stok Awal <span class="text-danger">*</span></label>
                                 <input type="number" class="form-control" name="stok_awal" id="edit_stok_awal" required
                                     min="0">
                             </div>
-                            <div class="col-md-6 mb-3">
+                            <div class="col-sm-6 mb-3">
                                 <label class="form-label">Stok Masuk <span class="text-danger">*</span></label>
                                 <input type="number" class="form-control" name="stok_masuk" id="edit_stok_masuk"
                                     required min="0">
@@ -189,12 +298,12 @@
                         </div>
 
                         <div class="row">
-                            <div class="col-md-6 mb-3">
+                            <div class="col-sm-6 mb-3">
                                 <label class="form-label">Stok Keluar <span class="text-danger">*</span></label>
                                 <input type="number" class="form-control" name="stok_keluar" id="edit_stok_keluar"
                                     required min="0">
                             </div>
-                            <div class="col-md-6 mb-3">
+                            <div class="col-sm-6 mb-3">
                                 <label class="form-label">Defective <span class="text-danger">*</span></label>
                                 <input type="number" class="form-control" name="defective" id="edit_defective" required
                                     min="0">
@@ -310,10 +419,13 @@
                 processing: true,
                 serverSide: true,
                 ajax: {
-                    url: "{{ route('finished-goods.index') }}",
-                    type: "GET",
+                    url: "{{ route('finished-goods.data') }}",
+                    type: "POST",
                     data: function(d) {
                         d.id_product = $('#filter-product').val();
+                        d.start_date = $('#start-date').val();
+                        d.end_date = $('#end-date').val();
+                        d._token = "{{ csrf_token() }}";
                         return d;
                     }
                 },
@@ -400,11 +512,59 @@
                 table.ajax.reload();
             });
 
-            // Clear filters function
-            $('#clear-filters').on('click', function() {
-                filterProductChoices.setChoiceByValue('');
+            // Apply date filter when button is clicked
+            $('#apply-date-filter').on('click', function() {
+                // Update table title with date range
+                updateTablePeriod();
+
+                // Reload table
                 table.ajax.reload();
             });
+
+            // Function to update table period display
+            function updateTablePeriod() {
+                const startDate = $('#start-date').val();
+                const endDate = $('#end-date').val();
+
+                const formattedStartDate = new Date(startDate).toLocaleDateString('id-ID', {
+                    day: 'numeric',
+                    month: 'short',
+                    year: 'numeric'
+                });
+
+                const formattedEndDate = new Date(endDate).toLocaleDateString('id-ID', {
+                    day: 'numeric',
+                    month: 'short',
+                    year: 'numeric'
+                });
+
+                // Update the table period text
+                if (startDate === endDate) {
+                    $('#table-period').text(`Menampilkan data untuk tanggal: ${formattedStartDate}`);
+                } else {
+                    $('#table-period').text(
+                        `Menampilkan data untuk periode: ${formattedStartDate} - ${formattedEndDate}`);
+                }
+            }
+
+            // Clear filters function
+            $('#clear-filters').on('click', function() {
+                // Reset product filter
+                filterProductChoices.setChoiceByValue('');
+
+                // Reset date filters to today
+                $('#start-date').val('{{ now()->format('Y-m-d') }}');
+                $('#end-date').val('{{ now()->format('Y-m-d') }}');
+
+                // Update table period display
+                updateTablePeriod();
+
+                // Reload table
+                table.ajax.reload();
+            });
+
+            // Initialize table period display on page load
+            updateTablePeriod();
 
             // Add Finished Goods Form Submit
             $('#addFinishedGoodsForm').on('submit', function(e) {

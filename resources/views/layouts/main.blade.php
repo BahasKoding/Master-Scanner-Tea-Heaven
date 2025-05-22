@@ -24,6 +24,92 @@
     <!-- Tea Heaven custom theme -->
     <link rel="stylesheet" href="{{ URL::asset('build/css/tea-heaven-theme.css') }}">
 
+    <!-- Responsive overrides -->
+    <style>
+        /* Responsive CSS for mobile and tablets */
+        @media (max-width: 992px) {
+            .pc-sidebar {
+                z-index: 1030;
+            }
+
+            body.mob-sidebar-active .pc-sidebar {
+                transform: translateX(0);
+                box-shadow: 0 0 15px rgba(0, 0, 0, 0.2);
+            }
+
+            .pc-container {
+                padding-left: 0 !important;
+            }
+
+            .pc-content {
+                padding: 15px;
+            }
+
+            /* Improve buttons for touch */
+            .btn {
+                padding: 0.4rem 0.75rem;
+            }
+
+            /* Improve topbar on mobile */
+            .pc-header {
+                padding: 10px 15px;
+            }
+
+            /* Overlay when mobile menu is open */
+            .mob-sidebar-overlay {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0, 0, 0, 0.5);
+                z-index: 1025;
+                opacity: 0;
+                visibility: hidden;
+                transition: all 0.3s ease;
+            }
+
+            body.mob-sidebar-active .mob-sidebar-overlay {
+                opacity: 1;
+                visibility: visible;
+            }
+        }
+
+        @media (max-width: 576px) {
+            .pc-header .pc-mob-header {
+                padding: 5px 10px;
+            }
+
+            .pc-content {
+                padding: 10px;
+            }
+
+            .pc-card {
+                margin-bottom: 10px;
+                border-radius: 4px;
+            }
+
+            h1,
+            .h1 {
+                font-size: 1.8rem;
+            }
+
+            h2,
+            .h2 {
+                font-size: 1.6rem;
+            }
+
+            h3,
+            .h3 {
+                font-size: 1.4rem;
+            }
+
+            .pc-header .pc-head-link {
+                margin: 0 2px;
+            }
+        }
+    </style>
+
     @yield('css')
 
     @include('layouts.head-css')
@@ -34,6 +120,9 @@
     @include('layouts.loader')
     @include('layouts.sidebar')
     @include('layouts.topbar')
+
+    <!-- Mobile sidebar overlay -->
+    <div class="mob-sidebar-overlay"></div>
 
     <!-- [ Main Content ] start -->
     <div class="pc-container">
@@ -87,6 +176,53 @@
                 });
             }
 
+            // Add click event for sidebar overlay to close mobile menu
+            const sidebarOverlay = document.querySelector('.mob-sidebar-overlay');
+            if (sidebarOverlay) {
+                sidebarOverlay.addEventListener('click', function() {
+                    document.body.classList.remove('mob-sidebar-active');
+                });
+            }
+
+            // Close mobile sidebar on window resize if window width is larger than mobile breakpoint
+            window.addEventListener('resize', function() {
+                if (window.innerWidth > 992) {
+                    document.body.classList.remove('mob-sidebar-active');
+                }
+            });
+
+            // Auto-close submenu when clicking outside on mobile
+            document.addEventListener('click', function(e) {
+                if (window.innerWidth <= 992) {
+                    if (!e.target.closest('.pc-sidebar') && !e.target.closest('#mobile-collapse')) {
+                        document.body.classList.remove('mob-sidebar-active');
+                    }
+                }
+            });
+
+            // Improve submenu toggle for touch devices
+            const submenuItems = document.querySelectorAll('.pc-sidebar .pc-item.pc-hasmenu > a');
+            submenuItems.forEach(function(item) {
+                item.addEventListener('click', function(e) {
+                    if (window.innerWidth <= 992) {
+                        e.preventDefault();
+                        const parentItem = this.parentElement;
+                        const siblingItems = parentItem.parentElement.querySelectorAll(
+                            '.pc-item.pc-hasmenu');
+
+                        // Close other submenus
+                        siblingItems.forEach(function(sibling) {
+                            if (sibling !== parentItem) {
+                                sibling.classList.remove('pc-trigger');
+                            }
+                        });
+
+                        // Toggle current submenu
+                        parentItem.classList.toggle('pc-trigger');
+                    }
+                });
+            });
+
             // Check localStorage on page load to restore sidebar state
             const savedSidebarState = localStorage.getItem('sidebarCollapsed');
             if (savedSidebarState === 'true') {
@@ -94,6 +230,30 @@
             } else if (savedSidebarState === 'false') {
                 document.body.classList.remove('pc-sidebar-collapse');
             }
+
+            // Add active class to current menu item based on URL
+            const currentPath = window.location.pathname;
+            const menuLinks = document.querySelectorAll('.pc-sidebar .pc-link');
+
+            menuLinks.forEach(function(link) {
+                const linkHref = link.getAttribute('href');
+                if (linkHref && linkHref !== '#!' && currentPath.includes(linkHref)) {
+                    // Add active class to the link
+                    link.classList.add('active');
+
+                    // Add active class to parent item
+                    const parentItem = link.closest('.pc-item');
+                    if (parentItem) {
+                        parentItem.classList.add('active');
+
+                        // If inside submenu, open parent menu
+                        const parentHasmenu = parentItem.closest('.pc-item.pc-hasmenu');
+                        if (parentHasmenu) {
+                            parentHasmenu.classList.add('pc-trigger');
+                        }
+                    }
+                }
+            });
         });
     </script>
 

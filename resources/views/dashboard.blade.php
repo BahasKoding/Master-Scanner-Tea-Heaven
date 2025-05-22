@@ -27,77 +27,129 @@
         </div>
     </div>
 
-    <!-- Feature Cards Row -->
+    <!-- Master Data Cards Row -->
     <div class="row mb-4">
         <div class="col-12">
-            <h5 class="mb-3 ps-2">Fitur Utama</h5>
+            <h5 class="mb-3 ps-2">Master Data</h5>
         </div>
 
-        <div class="col-12 col-sm-6 col-lg-3 mb-3">
+        <div class="col-12 col-sm-6 col-lg-4 mb-3">
             <div class="card tea-card hover-shadow-lg h-100">
                 <div class="card-body p-3 p-md-4">
                     <div class="d-flex align-items-center mb-3">
                         <div class="tea-icon-wrapper">
-                            <i class="ti ti-history"></i>
+                            <i class="ti ti-box"></i>
                         </div>
-                        <h5 class="ms-3 mb-0 fs-6 fs-md-5">Riwayat Penjualan</h5>
+                        <h5 class="ms-3 mb-0 fs-6 fs-md-5">Products</h5>
                     </div>
-                    <p class="text-muted mb-3 small">Pantau dan kelola seluruh transaksi penjualan</p>
+                    <p class="text-muted mb-3 small">Kelola data produk dan inventaris</p>
                 </div>
                 <div class="card-footer bg-transparent border-0 pt-0 pb-3 px-3 px-md-4">
-                    <a href="{{ route('history-sales.index') }}" class="btn btn-sm btn-outline-primary w-100">
-                        <i class="ti ti-arrow-right me-1"></i>Lihat Riwayat
+                    <a href="{{ route('products.index') }}" class="btn btn-sm btn-outline-primary w-100">
+                        <i class="ti ti-arrow-right me-1"></i>Kelola Products
                     </a>
                 </div>
             </div>
         </div>
 
-        <div class="col-12 col-sm-6 col-lg-3 mb-3">
+        <div class="col-12 col-sm-6 col-lg-4 mb-3">
+            <div class="card tea-card hover-shadow-lg h-100">
+                <div class="card-body p-3 p-md-4">
+                    <div class="d-flex align-items-center mb-3">
+                        <div class="tea-icon-wrapper">
+                            <i class="ti ti-package"></i>
+                        </div>
+                        <h5 class="ms-3 mb-0 fs-6 fs-md-5">Finished Goods</h5>
+                    </div>
+                    <p class="text-muted mb-3 small">Kelola produk jadi siap dijual</p>
+                </div>
+                <div class="card-footer bg-transparent border-0 pt-0 pb-3 px-3 px-md-4">
+                    <a href="{{ route('finished-goods.index') }}" class="btn btn-sm btn-outline-primary w-100">
+                        <i class="ti ti-arrow-right me-1"></i>Kelola Finished Goods
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-sm-6 col-lg-4 mb-3">
             <div class="card tea-card hover-shadow-lg h-100">
                 <div class="card-body p-3 p-md-4">
                     <div class="d-flex align-items-center mb-3">
                         <div class="tea-icon-wrapper">
                             <i class="ti ti-building-store"></i>
                         </div>
-                        <h5 class="ms-3 mb-0 fs-6 fs-md-5">Supplier</h5>
+                        <h5 class="ms-3 mb-0 fs-6 fs-md-5">Bahan Baku</h5>
                     </div>
-                    <p class="text-muted mb-3 small">Kelola data supplier untuk kebutuhan usaha Anda</p>
+                    <p class="text-muted mb-3 small">Kelola data bahan baku dan supplier</p>
                 </div>
                 <div class="card-footer bg-transparent border-0 pt-0 pb-3 px-3 px-md-4">
-                    <a href="{{ route('suppliers.index') }}" class="btn btn-sm btn-outline-primary w-100">
-                        <i class="ti ti-arrow-right me-1"></i>Kelola Supplier
+                    <a href="{{ route('bahan-baku.index') }}" class="btn btn-sm btn-outline-primary w-100">
+                        <i class="ti ti-arrow-right me-1"></i>Kelola Bahan Baku
                     </a>
                 </div>
             </div>
         </div>
+    </div>
 
-        <div class="col-12 col-sm-6 col-lg-3 mb-3">
+    <!-- Transaction Cards Row -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <h5 class="mb-3 ps-2">Transactions</h5>
+        </div>
+
+        <div class="col-12 col-sm-6 col-lg-6 mb-3">
             <div class="card tea-card hover-shadow-lg h-100">
                 <div class="card-body p-3 p-md-4">
                     <div class="d-flex align-items-center mb-3">
                         <div class="tea-icon-wrapper">
-                            <i class="ti ti-category"></i>
+                            <i class="ph-duotone ph-factory"></i>
                         </div>
-                        <h5 class="ms-3 mb-0 fs-6 fs-md-5">Kategori</h5>
+                        <h5 class="ms-3 mb-0 fs-6 fs-md-5">Production</h5>
                     </div>
-                    <p class="text-muted mb-3 small">Atur kategori supplier dan produk untuk Tea Heaven</p>
+                    <p class="text-muted mb-3 small">Kelola dan pantau catatan produksi</p>
                 </div>
                 <div class="card-footer bg-transparent border-0 pt-0 pb-3 px-3 px-md-4">
-                    <a href="{{ route('category-suppliers.index') }}" class="btn btn-sm btn-outline-primary w-100">
-                        <i class="ti ti-arrow-right me-1"></i>Kelola Kategori
+                    <a href="{{ route('catatan-produksi.index') }}" class="btn btn-sm btn-outline-primary w-100">
+                        <i class="ti ti-arrow-right me-1"></i>Production Records
                     </a>
                 </div>
             </div>
         </div>
 
-        <div class="col-12 col-sm-6 col-lg-3 mb-3">
+        <div class="col-12 col-sm-6 col-lg-6 mb-3">
+            <div class="card tea-card hover-shadow-lg h-100">
+                <div class="card-body p-3 p-md-4">
+                    <div class="d-flex align-items-center mb-3">
+                        <div class="tea-icon-wrapper">
+                            <i class="ti ti-scan"></i>
+                        </div>
+                        <h5 class="ms-3 mb-0 fs-6 fs-md-5">Scanner</h5>
+                    </div>
+                    <p class="text-muted mb-3 small">Scan dan input transaksi penjualan</p>
+                </div>
+                <div class="card-footer bg-transparent border-0 pt-0 pb-3 px-3 px-md-4">
+                    <a href="{{ route('history-sales.index') }}" class="btn btn-sm btn-outline-primary w-100">
+                        <i class="ti ti-arrow-right me-1"></i>Scan Penjualan
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Report Section -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <h5 class="mb-3 ps-2">Reports</h5>
+        </div>
+
+        <div class="col-12 col-md-6 mb-3">
             <div class="card tea-card hover-shadow-lg h-100">
                 <div class="card-body p-3 p-md-4">
                     <div class="d-flex align-items-center mb-3">
                         <div class="tea-icon-wrapper">
                             <i class="ti ti-report-analytics"></i>
                         </div>
-                        <h5 class="ms-3 mb-0 fs-6 fs-md-5">Laporan</h5>
+                        <h5 class="ms-3 mb-0 fs-6 fs-md-5">Sales Report</h5>
                     </div>
                     <p class="text-muted mb-3 small">Akses dan unduh laporan penjualan untuk analisis</p>
                 </div>
@@ -114,7 +166,7 @@
     @if (Auth::user()->hasRole('Admin') || Auth::user()->hasRole('Super Admin'))
         <div class="row">
             <div class="col-12">
-                <h5 class="mb-3 ps-2">Admin Tools</h5>
+                <h5 class="mb-3 ps-2">System</h5>
                 <div class="card">
                     <div class="card-body p-3 p-md-4">
                         <div class="row g-3">
@@ -127,7 +179,7 @@
                                                 <i class="ti ti-users"></i>
                                             </div>
                                             <div class="ms-3">
-                                                <h6 class="mb-1">Pengguna</h6>
+                                                <h6 class="mb-1">Users</h6>
                                                 <p class="text-muted mb-0 small">Kelola akun pengguna</p>
                                             </div>
                                         </div>
@@ -135,22 +187,24 @@
                                 </a>
                             </div>
 
-                            <div class="col-12 col-sm-6 col-lg-4 mb-2 mb-lg-0">
-                                <a href="{{ route('roles.index') }}"
-                                    class="card shadow-none border tea-card-link text-decoration-none h-100">
-                                    <div class="card-body p-3">
-                                        <div class="d-flex align-items-center">
-                                            <div class="tea-icon-wrapper-sm">
-                                                <i class="ti ti-shield-lock"></i>
-                                            </div>
-                                            <div class="ms-3">
-                                                <h6 class="mb-1">Peran & Hak Akses</h6>
-                                                <p class="text-muted mb-0 small">Atur peran dan izin</p>
+                            @if (Auth::user()->hasRole('Super Admin'))
+                                <div class="col-12 col-sm-6 col-lg-4 mb-2 mb-lg-0">
+                                    <a href="{{ route('roles.index') }}"
+                                        class="card shadow-none border tea-card-link text-decoration-none h-100">
+                                        <div class="card-body p-3">
+                                            <div class="d-flex align-items-center">
+                                                <div class="tea-icon-wrapper-sm">
+                                                    <i class="ti ti-shield-lock"></i>
+                                                </div>
+                                                <div class="ms-3">
+                                                    <h6 class="mb-1">Roles</h6>
+                                                    <p class="text-muted mb-0 small">Atur peran dan izin</p>
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
-                                </a>
-                            </div>
+                                    </a>
+                                </div>
+                            @endif
 
                             <div class="col-12 col-sm-6 col-lg-4 mb-2 mb-lg-0">
                                 <a href="{{ route('activity') }}"
@@ -161,8 +215,8 @@
                                                 <i class="ti ti-activity"></i>
                                             </div>
                                             <div class="ms-3">
-                                                <h6 class="mb-1">Aktivitas</h6>
-                                                <p class="text-muted mb-0 small">Log aktivitas pengguna</p>
+                                                <h6 class="mb-1">Activity Log</h6>
+                                                <p class="text-muted mb-0 small">Pantau aktivitas pengguna</p>
                                             </div>
                                         </div>
                                     </div>

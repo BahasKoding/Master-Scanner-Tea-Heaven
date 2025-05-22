@@ -19,6 +19,96 @@
             border-radius: 5px;
             margin-bottom: 20px;
         }
+
+        /* Responsive styling */
+        .filter-section {
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+
+        .filter-label {
+            font-size: 12px;
+            margin-bottom: 4px;
+        }
+
+        /* Table responsiveness */
+        .table-responsive {
+            width: 100%;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        /* Action button styling */
+        .action-buttons .btn {
+            margin-right: 5px;
+            margin-bottom: 5px;
+        }
+
+        /* DataTables buttons responsiveness */
+        .dt-buttons {
+            margin-bottom: 10px;
+        }
+
+        .dt-button {
+            margin-right: 5px;
+            margin-bottom: 5px;
+        }
+
+        /* Modal responsiveness */
+        @media (max-width: 768px) {
+            .modal-dialog {
+                max-width: 95%;
+                margin: 10px auto;
+            }
+
+            .filter-section {
+                padding: 10px;
+            }
+
+            .table {
+                font-size: 14px;
+            }
+
+            .dt-buttons {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 5px;
+            }
+
+            .dt-button {
+                flex: 1;
+                white-space: nowrap;
+                min-width: auto !important;
+                padding: 0.25rem 0.5rem !important;
+                font-size: 0.875rem !important;
+            }
+
+            .paginate_button {
+                padding: 0.3rem 0.5rem !important;
+            }
+        }
+
+        @media (max-width: 576px) {
+            .action-buttons .btn {
+                padding: 0.25rem 0.5rem;
+                font-size: 0.875rem;
+            }
+
+            .card-header {
+                flex-direction: column;
+                align-items: flex-start !important;
+            }
+
+            .card-header .btn-group {
+                margin-top: 10px;
+                width: 100%;
+            }
+
+            .paginate_button {
+                padding: 0.2rem 0.3rem !important;
+                font-size: 0.8rem;
+            }
+        }
     </style>
 @endsection
 
@@ -53,13 +143,13 @@
         <div class="col-sm-12">
             <div class="card">
                 <div class="card-header">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <h5>Daftar Produk</h5>
-                        <div>
-                            <button id="clear-filters" class="btn btn btn-secondary">
+                    <div class="d-flex justify-content-between align-items-center flex-wrap">
+                        <h5 class="mb-2 mb-sm-0">Daftar Produk</h5>
+                        <div class="d-flex flex-wrap">
+                            <button id="clear-filters" class="btn btn btn-secondary me-2 mb-2 mb-sm-0">
                                 <i class="fas fa-filter"></i> Hapus Filter
                             </button>
-                            <button type="button" class="btn btn-primary" data-bs-toggle="modal"
+                            <button type="button" class="btn btn-primary mb-2 mb-sm-0" data-bs-toggle="modal"
                                 data-bs-target="#addProductModal">
                                 <i class="fas fa-plus"></i> Tambah Produk
                             </button>
@@ -67,16 +157,22 @@
                     </div>
                 </div>
                 <div class="card-body">
-                    <div class="mb-3">
-                        <div class="row">
-                            <div class="col-md-4">
-                                <label for="filter-category" class="form-label">Filter Kategori</label>
-                                <select id="filter-category" class="form-select">
-                                    <option value="">Semua Kategori</option>
-                                    @foreach ($categories as $key => $category)
-                                        <option value="{{ $key }}">{{ $category }}</option>
-                                    @endforeach
-                                </select>
+                    <div class="mb-3 filter-section p-3 border rounded bg-light">
+                        <button id="filter-toggle-btn" class="btn btn-sm btn-outline-secondary mb-2 w-100 d-md-none"
+                            type="button" data-bs-toggle="collapse" data-bs-target="#filterControls">
+                            <i class="fas fa-filter"></i> Toggle Filters <i class="fas fa-chevron-down"></i>
+                        </button>
+                        <div id="filterControls" class="collapse show">
+                            <div class="row">
+                                <div class="col-md-4 col-sm-12 mb-2">
+                                    <label for="filter-category" class="form-label filter-label">Filter Kategori</label>
+                                    <select id="filter-category" class="form-select form-select-sm">
+                                        <option value="">Semua Kategori</option>
+                                        @foreach ($categories as $key => $category)
+                                            <option value="{{ $key }}">{{ $category }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -107,7 +203,7 @@
 
     <!-- Add Product Modal -->
     <div class="modal fade" id="addProductModal" tabindex="-1">
-        <div class="modal-dialog">
+        <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title">Tambah Produk Baru</h5>
@@ -154,7 +250,7 @@
 
     <!-- Edit Product Modal -->
     <div class="modal fade" id="editProductModal" tabindex="-1">
-        <div class="modal-dialog">
+        <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title">Edit Produk</h5>
@@ -234,6 +330,29 @@
                 };
             }
 
+            // Responsive adjustments for mobile
+            function adjustForMobile() {
+                if (window.innerWidth < 768) {
+                    // Modify table for better mobile view
+                    $('.dt-responsive table').addClass('table-sm');
+
+                    // Ensure filters are collapsed by default on mobile
+                    if (!$('#filterControls').hasClass('show')) {
+                        $('#filterControls').collapse('hide');
+                    }
+                } else {
+                    // Remove mobile-specific modifications
+                    $('.dt-responsive table').removeClass('table-sm');
+                    $('#filterControls').addClass('show');
+                }
+            }
+
+            // Call adjustments on page load and resize
+            adjustForMobile();
+            $(window).resize(function() {
+                adjustForMobile();
+            });
+
             // Initialize DataTable
             var table = $('#product-table').DataTable({
                 processing: true,
@@ -282,12 +401,14 @@
                         searchable: false,
                         render: function(data, type, row) {
                             return `
-                                <button type="button" class="btn btn-sm btn-warning edit-btn" data-id="${row.id}">
-                                    <i class="fas fa-edit"></i>
-                                </button>
-                                <button type="button" class="btn btn-sm btn-danger delete-btn" data-id="${row.id}">
-                                    <i class="fas fa-trash"></i>
-                                </button>
+                                <div class="action-buttons">
+                                    <button type="button" class="btn btn-sm btn-warning edit-btn" data-id="${row.id}">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-danger delete-btn" data-id="${row.id}">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
                             `;
                         }
                     }
@@ -296,6 +417,7 @@
                     [2, 'asc']
                 ],
                 pageLength: 25,
+                responsive: true,
                 dom: 'Bfrtip',
                 buttons: [{
                         extend: 'copy',
@@ -312,7 +434,22 @@
                         text: '<i class="fas fa-print"></i> Cetak',
                         className: 'btn btn-info'
                     }
-                ]
+                ],
+                language: {
+                    processing: '<div class="d-flex justify-content-center"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div></div>',
+                    emptyTable: 'Tidak ada data produk',
+                    zeroRecords: 'Tidak ditemukan produk yang sesuai',
+                    info: 'Menampilkan _START_ sampai _END_ dari _TOTAL_ produk',
+                    infoEmpty: 'Menampilkan 0 sampai 0 dari 0 produk',
+                    infoFiltered: '(difilter dari _MAX_ total produk)',
+                    search: 'Cari:',
+                    paginate: {
+                        first: 'Pertama',
+                        last: 'Terakhir',
+                        next: 'Selanjutnya',
+                        previous: 'Sebelumnya'
+                    }
+                }
             });
 
             // Apply category filter

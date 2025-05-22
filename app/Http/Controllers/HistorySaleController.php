@@ -491,12 +491,23 @@ class HistorySaleController extends Controller
 
             $query = HistorySale::query();
 
+            // Set default timezone ke Asia/Jakarta
+            date_default_timezone_set('Asia/Jakarta');
+
             // Apply date range filter if provided
             if ($request->filled('start_date') && $request->filled('end_date')) {
                 $startDate = $request->input('start_date') . ' 00:00:00';
                 $endDate = $request->input('end_date') . ' 23:59:59';
                 $query->whereBetween('created_at', [$startDate, $endDate]);
             }
+            // Jika tidak ada filter tanggal, tampilkan data hari ini
+            else if (!$request->has('export_all')) {
+                $today = date('Y-m-d');
+                $startDate = $today . ' 00:00:00';
+                $endDate = $today . ' 23:59:59';
+                $query->whereBetween('created_at', [$startDate, $endDate]);
+            }
+            // Jika tidak ada filter dan request export_all, tampilkan semua data
 
             // Get total count for logging
             $totalRecords = $query->count();
@@ -550,6 +561,8 @@ class HistorySaleController extends Controller
             $exportDescription = 'Pengguna mengekspor data penjualan';
             if ($request->filled('start_date') && $request->filled('end_date')) {
                 $exportDescription .= ' dari ' . $request->input('start_date') . ' sampai ' . $request->input('end_date');
+            } else if (!$request->has('export_all')) {
+                $exportDescription .= ' hari ini (' . date('Y-m-d') . ')';
             } else {
                 $exportDescription .= ' (semua data)';
             }

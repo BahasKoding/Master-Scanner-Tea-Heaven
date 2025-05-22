@@ -341,15 +341,13 @@
                             <div class="row g-3">
                                 <div class="col-lg-3 col-md-6">
                                     <label class="form-label">Start Date <span class="text-danger">*</span></label>
-                                    <input type="date" class="form-control date-input" id="start_date" name="start_date"
-                                        max="{{ date('Y-m-d') }}">
+                                    <input type="date" class="form-control date-input" id="start_date" name="start_date">
                                     <div class="invalid-feedback" id="start_date_error">Mohon pilih tanggal mulai</div>
                                     <small class="help-text">First day of data range</small>
                                 </div>
                                 <div class="col-lg-3 col-md-6">
                                     <label class="form-label">End Date <span class="text-danger">*</span></label>
-                                    <input type="date" class="form-control date-input" id="end_date" name="end_date"
-                                        max="{{ date('Y-m-d') }}">
+                                    <input type="date" class="form-control date-input" id="end_date" name="end_date">
                                     <div class="invalid-feedback" id="end_date_error">Mohon pilih tanggal akhir</div>
                                     <small class="help-text">Last day of data range</small>
                                 </div>
@@ -640,12 +638,9 @@
                         return false;
                     }
 
-                    if (endDate > today) {
-                        $endDate.addClass('is-invalid');
-                        $('#end_date_error').text('Tanggal akhir tidak boleh lebih dari hari ini').show();
-                        showError('Tanggal akhir tidak boleh lebih dari hari ini');
-                        return false;
-                    }
+                    // Menghapus validasi endDate > today agar bisa memfilter data hingga hari ini
+                    // Komentar: Validasi ini dihapus karena menyebabkan masalah saat pengguna ingin melihat
+                    // data hingga hari ini (misalnya rentang 14-21 pada tanggal 21)
 
                     if (startDate > endDate) {
                         $endDate.addClass('is-invalid');
@@ -888,7 +883,22 @@
 
             // Initialize with a data load but without validation
             if (isInitialLoad) {
+                // Set default date to today
+                const today = new Date();
+                const yyyy = today.getFullYear();
+                const mm = String(today.getMonth() + 1).padStart(2, '0');
+                const dd = String(today.getDate()).padStart(2, '0');
+                const formattedDate = `${yyyy}-${mm}-${dd}`;
+
+                // Set both dates to today as default
+                $startDate.val(formattedDate);
+                $endDate.val(formattedDate);
+
+                // Load data with today's filter
                 table.ajax.reload();
+
+                // Update date filter info
+                updateDateFilterInfo(formattedDate, formattedDate);
             }
 
             // Export All button with confirmation
@@ -925,7 +935,8 @@
                             url: "{{ route('history-sales.export') }}",
                             type: "POST",
                             data: {
-                                _token: "{{ csrf_token() }}"
+                                _token: "{{ csrf_token() }}",
+                                export_all: true
                                 // No date filters for exporting all data
                             },
                             success: function(response) {

@@ -107,6 +107,38 @@
             .select2-container--default .select2-selection--single {
                 height: 35px;
             }
+
+            .filter-section {
+                margin-bottom: 10px;
+            }
+
+            .filter-label {
+                margin-bottom: 3px;
+                font-size: 12px;
+            }
+
+            .filter-controls {
+                margin-bottom: 10px;
+            }
+
+            .table-responsive {
+                font-size: 14px;
+            }
+
+            .dt-buttons {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 5px;
+                margin-bottom: 10px;
+            }
+
+            .dt-button {
+                flex: 1;
+                white-space: nowrap;
+                min-width: auto !important;
+                padding: 0.25rem 0.5rem !important;
+                font-size: 0.875rem !important;
+            }
         }
 
         /* Choices.js custom styling */
@@ -121,6 +153,29 @@
 
         .is-open .choices__inner {
             border-radius: 4px 4px 0 0;
+        }
+
+        /* Table responsive improvements */
+        .dataTables_wrapper .row {
+            margin-left: 0;
+            margin-right: 0;
+        }
+
+        /* Button responsiveness */
+        .action-buttons .btn {
+            margin-bottom: 5px;
+        }
+
+        /* Pagination responsiveness */
+        .dataTables_paginate .paginate_button {
+            padding: 0.3rem 0.5rem !important;
+        }
+
+        @media (max-width: 576px) {
+            .dataTables_paginate .paginate_button {
+                padding: 0.2rem 0.4rem !important;
+                font-size: 0.8rem;
+            }
         }
     </style>
 @endsection
@@ -147,25 +202,25 @@
                 </div>
                 <div class="card-body">
                     <!-- Filter Section -->
-                    <div class="mb-3 p-3 border rounded bg-light">
+                    <div class="mb-3 p-3 border rounded bg-light filter-section">
                         <div class="row">
-                            <div class="col-md-3">
-                                <label for="filter-sku" class="form-label small">SKU Produk</label>
+                            <div class="col-md-3 col-sm-6 col-12 mb-2">
+                                <label for="filter-sku" class="form-label small filter-label">SKU Produk</label>
                                 <input type="text" id="filter-sku" class="form-control form-control-sm"
                                     placeholder="Filter berdasarkan SKU">
                             </div>
-                            <div class="col-md-3">
-                                <label for="filter-nama" class="form-label small">Nama Produk</label>
+                            <div class="col-md-3 col-sm-6 col-12 mb-2">
+                                <label for="filter-nama" class="form-label small filter-label">Nama Produk</label>
                                 <input type="text" id="filter-nama" class="form-control form-control-sm"
                                     placeholder="Filter berdasarkan nama">
                             </div>
-                            <div class="col-md-3">
-                                <label for="filter-packaging" class="form-label small">Packaging</label>
+                            <div class="col-md-3 col-sm-6 col-12 mb-2">
+                                <label for="filter-packaging" class="form-label small filter-label">Packaging</label>
                                 <input type="text" id="filter-packaging" class="form-control form-control-sm"
                                     placeholder="Filter berdasarkan packaging">
                             </div>
-                            <div class="col-md-3">
-                                <label for="filter-bahan-baku" class="form-label small">Bahan Baku</label>
+                            <div class="col-md-3 col-sm-6 col-12 mb-2">
+                                <label for="filter-bahan-baku" class="form-label small filter-label">Bahan Baku</label>
                                 <select id="filter-bahan-baku" class="form-select form-select-sm">
                                     <option value="">Semua Bahan Baku</option>
                                     @foreach ($bahanBaku as $bahan)
@@ -176,8 +231,31 @@
                                 </select>
                             </div>
                         </div>
+                        <div class="row mt-2 filter-controls">
+                            <div class="col-md-3 col-sm-6 col-12 mb-2">
+                                <label for="start-date" class="form-label small filter-label">Tanggal Mulai</label>
+                                <input type="date" class="form-control form-control-sm" id="start-date" name="start_date"
+                                    value="{{ now()->format('Y-m-d') }}">
+                            </div>
+                            <div class="col-md-3 col-sm-6 col-12 mb-2">
+                                <label for="end-date" class="form-label small filter-label">Tanggal Selesai</label>
+                                <input type="date" class="form-control form-control-sm" id="end-date" name="end_date"
+                                    value="{{ now()->format('Y-m-d') }}">
+                            </div>
+                            <div class="col-md-2 col-sm-6 col-12 d-flex align-items-end mb-2">
+                                <button id="apply-date-filter" class="btn btn-sm btn-primary w-100">
+                                    <i class="fas fa-filter"></i> Terapkan Filter
+                                </button>
+                            </div>
+                        </div>
                     </div>
                     <!-- End Filter Section -->
+
+                    <div class="mb-3">
+                        <h6 class="text-primary">
+                            <span id="table-period">Menampilkan data untuk periode: {{ now()->format('d M Y') }}</span>
+                        </h6>
+                    </div>
 
                     <div class="dt-responsive table-responsive">
                         <table id="produksi-table" class="table table-striped table-bordered nowrap">
@@ -228,7 +306,7 @@
                         </div>
 
                         <div class="row mb-3">
-                            <div class="col-md-12">
+                            <div class="col-12">
                                 <label class="form-label">Produk <span class="text-danger">*</span></label>
                                 <select class="form-select product-select" name="product_id" required>
                                     <option value="">Pilih Produk</option>
@@ -245,12 +323,12 @@
                         </div>
 
                         <div class="row mb-4">
-                            <div class="col-md-6 col-sm-12">
+                            <div class="col-lg-6 col-md-6 col-sm-12 mb-3">
                                 <label class="form-label">Packaging <span class="text-danger">*</span></label>
                                 <input type="text" class="form-control" name="packaging" required>
                                 <small class="text-muted">Kemasan produk (akan otomatis terisi sesuai produk)</small>
                             </div>
-                            <div class="col-md-6 col-sm-12">
+                            <div class="col-lg-6 col-md-6 col-sm-12 mb-3">
                                 <label class="form-label">Quantity <span class="text-danger">*</span></label>
                                 <input type="number" class="form-control" name="quantity" required min="1">
                                 <small class="text-muted">Jumlah produk yang diproduksi (harus angka bulat)</small>
@@ -338,7 +416,7 @@
                         </div>
 
                         <div class="row mb-3">
-                            <div class="col-md-12">
+                            <div class="col-12">
                                 <label class="form-label">Produk <span class="text-danger">*</span></label>
                                 <select class="form-select product-select" name="product_id" id="edit_product_id"
                                     required>
@@ -356,13 +434,13 @@
                         </div>
 
                         <div class="row mb-4">
-                            <div class="col-md-6 col-sm-12">
+                            <div class="col-lg-6 col-md-6 col-sm-12 mb-3">
                                 <label class="form-label">Packaging <span class="text-danger">*</span></label>
                                 <input type="text" class="form-control" name="packaging" id="edit_packaging"
                                     required>
                                 <small class="text-muted">Kemasan produk (akan otomatis terisi sesuai produk)</small>
                             </div>
-                            <div class="col-md-6 col-sm-12">
+                            <div class="col-lg-6 col-md-6 col-sm-12 mb-3">
                                 <label class="form-label">Quantity <span class="text-danger">*</span></label>
                                 <input type="number" class="form-control" name="quantity" id="edit_quantity" required
                                     min="1">
@@ -1375,6 +1453,8 @@
                         d.name_product = $('#filter-nama').val();
                         d.packaging = $('#filter-packaging').val();
                         d.bahan_baku = $('#filter-bahan-baku').val();
+                        d.start_date = $('#start-date').val();
+                        d.end_date = $('#end-date').val();
                         // Tambahkan timestamp untuk menghindari cache
                         d._ts = new Date().getTime();
                         return d;
@@ -1524,18 +1604,64 @@
             // Apply filters when text inputs change with debounce (300ms delay)
             $('#filter-sku, #filter-nama, #filter-packaging, #filter-bahan-baku').on('keyup change', debounce(
                 function() {
-                    reloadTable(function() {
-                        console.log('Tabel berhasil diperbarui dengan filter baru');
-                    });
+                    table.ajax.reload();
                 }, 300));
+
+            // Apply date filter when button is clicked
+            $('#apply-date-filter').on('click', function() {
+                // Update table title with date range
+                updateTablePeriod();
+
+                // Reload table
+                table.ajax.reload();
+            });
+
+            // Function to update table period display
+            function updateTablePeriod() {
+                const startDate = $('#start-date').val();
+                const endDate = $('#end-date').val();
+
+                const formattedStartDate = new Date(startDate).toLocaleDateString('id-ID', {
+                    day: 'numeric',
+                    month: 'short',
+                    year: 'numeric'
+                });
+
+                const formattedEndDate = new Date(endDate).toLocaleDateString('id-ID', {
+                    day: 'numeric',
+                    month: 'short',
+                    year: 'numeric'
+                });
+
+                // Update the table period text
+                if (startDate === endDate) {
+                    $('#table-period').text(`Menampilkan data untuk tanggal: ${formattedStartDate}`);
+                } else {
+                    $('#table-period').text(
+                        `Menampilkan data untuk periode: ${formattedStartDate} - ${formattedEndDate}`);
+                }
+            }
 
             // Clear filters function
             $('#clear-filters').on('click', function() {
-                $('#filter-sku, #filter-nama, #filter-packaging, #filter-bahan-baku').val('');
-                reloadTable(function() {
-                    console.log('Tabel berhasil diperbarui dengan filter kosong');
-                });
+                $('#filter-sku').val('');
+                $('#filter-nama').val('');
+                $('#filter-packaging').val('');
+                $('#filter-bahan-baku').val('').trigger('change');
+
+                // Reset date filters to today
+                $('#start-date').val('{{ now()->format('Y-m-d') }}');
+                $('#end-date').val('{{ now()->format('Y-m-d') }}');
+
+                // Update table period display
+                updateTablePeriod();
+
+                // Reload table
+                table.ajax.reload();
             });
+
+            // Initialize table period display on page load
+            updateTablePeriod();
 
             // Delete Button Click
             $(document).on('click', '.delete-btn', function() {
@@ -1616,6 +1742,35 @@
             $('.modal .btn-secondary[data-bs-dismiss="modal"]').on('click', function() {
                 const modalId = $(this).closest('.modal').attr('id');
                 closeModal(modalId);
+            });
+
+            // Responsive adjustments for mobile
+            function adjustForMobile() {
+                if (window.innerWidth < 768) {
+                    // Modify table for better mobile view
+                    $('.dt-responsive table').addClass('table-sm');
+
+                    // Collapse filter controls on mobile
+                    $('.filter-section .filter-controls').addClass('collapse');
+
+                    // Add a toggle button for filters
+                    if (!$('#filter-toggle-btn').length) {
+                        $('.filter-section').prepend(
+                            '<button id="filter-toggle-btn" class="btn btn-sm btn-outline-secondary mb-2 w-100" type="button" data-bs-toggle="collapse" data-bs-target=".filter-controls">Toggle Filters <i class="fas fa-chevron-down"></i></button>'
+                        );
+                    }
+                } else {
+                    // Remove mobile-specific modifications
+                    $('.dt-responsive table').removeClass('table-sm');
+                    $('.filter-section .filter-controls').removeClass('collapse show');
+                    $('#filter-toggle-btn').remove();
+                }
+            }
+
+            // Call adjustments on page load and resize
+            adjustForMobile();
+            $(window).resize(function() {
+                adjustForMobile();
             });
         });
     </script>

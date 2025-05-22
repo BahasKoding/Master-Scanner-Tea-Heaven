@@ -1,7 +1,7 @@
 <li class="pc-item pc-caption">
     <label>Navigation</label>
 </li>
-<li class="pc-item pc-hasmenu">
+<li class="pc-item">
     <a href="{{ route('dashboard') }}" class="pc-link">
         <span class="pc-micon">
             <i class="ph-duotone ph-gauge"></i>
@@ -21,9 +21,15 @@
         <span class="pc-arrow"><i data-feather="chevron-right"></i></span>
     </a>
     <ul class="pc-submenu">
-        <li class="pc-item"><a class="pc-link" href="{{ route('products.index') }}">Products</a></li>
-        <li class="pc-item"><a class="pc-link" href="{{ route('finished-goods.index') }}">Finished Goods</a></li>
-        <li class="pc-item"><a class="pc-link" href="{{ route('bahan-baku.index') }}">Bahan Baku</a></li>
+        <li class="pc-item"><a class="pc-link" href="{{ route('products.index') }}">
+                <span class="pc-mtext">Products</span>
+            </a></li>
+        <li class="pc-item"><a class="pc-link" href="{{ route('finished-goods.index') }}">
+                <span class="pc-mtext">Finished Goods</span>
+            </a></li>
+        <li class="pc-item"><a class="pc-link" href="{{ route('bahan-baku.index') }}">
+                <span class="pc-mtext">Bahan Baku</span>
+            </a></li>
     </ul>
 </li>
 
@@ -38,7 +44,9 @@
         <span class="pc-arrow"><i data-feather="chevron-right"></i></span>
     </a>
     <ul class="pc-submenu">
-        <li class="pc-item"><a class="pc-link" href="{{ route('catatan-produksi.index') }}">Production Records</a></li>
+        <li class="pc-item"><a class="pc-link" href="{{ route('catatan-produksi.index') }}">
+                <span class="pc-mtext">Production Records</span>
+            </a></li>
     </ul>
 </li>
 
@@ -49,8 +57,12 @@
         <span class="pc-arrow"><i data-feather="chevron-right"></i></span>
     </a>
     <ul class="pc-submenu">
-        <li class="pc-item"><a class="pc-link" href="{{ route('history-sales.index') }}">Scanner</a></li>
-        <li class="pc-item"><a class="pc-link" href="{{ route('history-sales.report') }}">Report</a></li>
+        <li class="pc-item"><a class="pc-link" href="{{ route('history-sales.index') }}">
+                <span class="pc-mtext">Scanner</span>
+            </a></li>
+        <li class="pc-item"><a class="pc-link" href="{{ route('history-sales.report') }}">
+                <span class="pc-mtext">Report</span>
+            </a></li>
     </ul>
 </li>
 
@@ -65,15 +77,21 @@
         <span class="pc-arrow"><i data-feather="chevron-right"></i></span>
     </a>
     <ul class="pc-submenu">
-        <li class="pc-item"><a class="pc-link" href="{{ route('users.index') }}">Users</a></li>
+        <li class="pc-item"><a class="pc-link" href="{{ route('users.index') }}">
+                <span class="pc-mtext">Users</span>
+            </a></li>
         @if (auth()->user()->hasRole('Super Admin'))
-            <li class="pc-item"><a class="pc-link" href="{{ route('roles.index') }}">Roles</a></li>
-            <li class="pc-item"><a class="pc-link" href="{{ route('permissions.index') }}">Permissions</a></li>
+            <li class="pc-item"><a class="pc-link" href="{{ route('roles.index') }}">
+                    <span class="pc-mtext">Roles</span>
+                </a></li>
+            <li class="pc-item"><a class="pc-link" href="{{ route('permissions.index') }}">
+                    <span class="pc-mtext">Permissions</span>
+                </a></li>
         @endif
     </ul>
 </li>
 
-<li class="pc-item pc-hasmenu">
+<li class="pc-item">
     <a href="{{ route('activity') }}" class="pc-link">
         <span class="pc-micon">
             <i class="ph-duotone ph-clock-clockwise"></i>
