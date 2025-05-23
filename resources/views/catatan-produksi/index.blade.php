@@ -880,6 +880,9 @@
                         // Re-enable button setelah berhasil
                         submitButton.prop('disabled', false);
 
+                        // Close any open Swal dialogs
+                        Swal.close();
+
                         if (data.success) {
                             // Reset form
                             form[0].reset();
@@ -906,7 +909,13 @@
                             ).remove();
 
                             // Properly hide modal dan clean up
-                            closeModal('addProduksiModal');
+                            setTimeout(function() {
+                                closeModal('addProduksiModal');
+
+                                // Explicitly ensure the backdrop is removed
+                                $('body').removeClass('modal-open');
+                                $('.modal-backdrop').remove();
+                            }, 100);
 
                             // Reload table dan pastikan data ditampilkan
                             reloadTable(function() {
@@ -929,6 +938,9 @@
                     error: function(xhr) {
                         // Re-enable submit button on error
                         submitButton.prop('disabled', false);
+
+                        // Close any open Swal dialogs
+                        Swal.close();
 
                         if (xhr.status === 422) {
                             // Validation errors - show but don't prevent resubmission
@@ -1099,6 +1111,9 @@
                         // Pastikan tombol sudah di-enable
                         submitButton.prop('disabled', false);
 
+                        // Close any open Swal dialogs
+                        Swal.close();
+
                         if (data.success) {
                             // Reset form and close modal
                             form[0].reset();
@@ -1119,7 +1134,13 @@
                             ).remove();
 
                             // Properly hide modal
-                            closeModal('editProduksiModal');
+                            setTimeout(function() {
+                                closeModal('editProduksiModal');
+
+                                // Explicitly ensure the backdrop is removed
+                                $('body').removeClass('modal-open');
+                                $('.modal-backdrop').remove();
+                            }, 100);
 
                             // Reload table dan pastikan data ditampilkan
                             reloadTable(function() {
@@ -1140,6 +1161,8 @@
                     },
                     error: function(xhr) {
                         submitButton.prop('disabled', false);
+
+                        // Close any open Swal dialogs
                         Swal.close();
 
                         if (xhr.status === 422) {

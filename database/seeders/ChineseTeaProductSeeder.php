@@ -48,20 +48,15 @@ class ChineseTeaProductSeeder extends Seeder
             ['sku' => 'MO500P', 'packaging' => 'P4', 'name_product' => 'MILKY OOLONG'],
             ['sku' => 'MP500P', 'packaging' => 'P4', 'name_product' => 'MILKY PU-ERH'],
             ['sku' => 'LL500P', 'packaging' => 'P4', 'name_product' => 'PURE PU-ERH'],
-            ['sku' => 'RD250PX2', 'packaging' => 'P3', 'name_product' => 'RED OOLONG'],
             ['sku' => 'TG500P', 'packaging' => 'P4', 'name_product' => 'TIE GUAN YIN'],
             ['sku' => 'WS500P', 'packaging' => 'Z2', 'name_product' => 'WILD SHOU MEI'],
 
             // Extra large packaging P4/P5/Z2
-            ['sku' => 'MJ500PX2', 'packaging' => 'P4', 'name_product' => 'FRAGRANT ROLL (MAO JIAN)'],
             ['sku' => 'GO1000P', 'packaging' => 'P4', 'name_product' => 'GREEN GINSENG OOLONG'],
-            ['sku' => 'MO500PX2', 'packaging' => 'P4', 'name_product' => 'MILKY OOLONG'],
             ['sku' => 'MP1000P', 'packaging' => 'P5', 'name_product' => 'MILKY PU-ERH'],
             ['sku' => 'LL1000P', 'packaging' => 'P5', 'name_product' => 'PURE PU-ERH'],
             ['sku' => 'RD1000P', 'packaging' => 'P5', 'name_product' => 'RED OOLONG'],
-            ['sku' => 'TG500PX2', 'packaging' => 'P4', 'name_product' => 'TIE GUAN YIN'],
             ['sku' => 'TG1000P', 'packaging' => 'P5', 'name_product' => 'TIE GUAN YIN'],
-            ['sku' => 'WS500ZX2', 'packaging' => 'Z2', 'name_product' => 'WILD SHOU MEI'],
 
             // Special packaging
             ['sku' => 'MJ1000F', 'packaging' => '-', 'name_product' => 'MAO JIAN'],

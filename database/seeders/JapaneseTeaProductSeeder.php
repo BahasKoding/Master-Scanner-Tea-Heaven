@@ -43,13 +43,11 @@ class JapaneseTeaProductSeeder extends Seeder
             ['sku' => 'HO500P', 'packaging' => 'P4', 'name_product' => 'HOJICHA'],
             ['sku' => 'OC500P', 'packaging' => 'P4', 'name_product' => 'JAPANESE OCHA'],
             ['sku' => 'GYB1000P', 'packaging' => 'P4', 'name_product' => 'GYOKURO (B)'],
-            ['sku' => 'HO500PX2', 'packaging' => 'P4', 'name_product' => 'HOJICHA'],
 
             // P5 packaging products
             ['sku' => 'SC500P', 'packaging' => 'P5', 'name_product' => 'SENCHA'],
             ['sku' => 'GC1000P', 'packaging' => 'P5', 'name_product' => 'GENMAICHA'],
             ['sku' => 'OC1000P', 'packaging' => 'P5', 'name_product' => 'JAPANESE OCHA'],
-            ['sku' => 'SC500PX2', 'packaging' => 'P5', 'name_product' => 'SENCHA'],
 
             // T1 packaging products
             ['sku' => 'GC85T', 'packaging' => 'T1', 'name_product' => 'GENMAICHA'],
@@ -63,7 +61,6 @@ class JapaneseTeaProductSeeder extends Seeder
             ['sku' => 'GC1000F', 'packaging' => 'FG2', 'name_product' => 'GENMAICHA'],
             ['sku' => 'HO1000Z', 'packaging' => 'Z2', 'name_product' => 'HOJICHA'],
             ['sku' => 'OC1000F', 'packaging' => 'F3', 'name_product' => 'JAPANESE OCHA'],
-            ['sku' => 'OC500FX2', 'packaging' => 'F3', 'name_product' => 'JAPANESE OCHA'],
             ['sku' => 'OC500F', 'packaging' => 'F3', 'name_product' => 'JAPANESE OCHA'],
         ];
 

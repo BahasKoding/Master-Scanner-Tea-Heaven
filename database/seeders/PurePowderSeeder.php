@@ -40,13 +40,6 @@ class PurePowderSeeder extends Seeder
             ['sku' => 'MU250F', 'packaging' => 'F1', 'name_product' => 'PURE UJI CULINARY MATCHA'],
             ['sku' => 'PTH250F', 'packaging' => 'F1', 'name_product' => 'PURE THAI TEA'],
 
-            // F0 & F1 packaging products (250FX2)
-            ['sku' => 'MA250FX2', 'packaging' => 'F0', 'name_product' => 'MATCHA A'],
-            ['sku' => 'MB250FX2', 'packaging' => 'F0', 'name_product' => 'MATCHA B'],
-            ['sku' => 'MC250FX2', 'packaging' => 'F1', 'name_product' => 'PURE UJI CEREMONIAL MATCHA'],
-            ['sku' => 'MU250FX2', 'packaging' => 'F1', 'name_product' => 'PURE UJI CULINARY MATCHA'],
-            ['sku' => 'PTH250FX2', 'packaging' => 'F1', 'name_product' => 'PURE THAI TEA'],
-
             // Bulk products (1000F)
             ['sku' => 'MA1000F', 'packaging' => '-', 'name_product' => 'MATCHA A'],
             ['sku' => 'MB1000F', 'packaging' => '-', 'name_product' => 'MATCHA B'],

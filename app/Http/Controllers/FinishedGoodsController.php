@@ -354,16 +354,27 @@ class FinishedGoodsController extends Controller
         }
 
         return DataTables::of($query)
+            ->addIndexColumn()
             ->addColumn('product_sku', function ($finishedGood) {
                 return $finishedGood->product ? $finishedGood->product->sku : '-';
             })
             ->addColumn('product_name', function ($finishedGood) {
                 return $finishedGood->product ? $finishedGood->product->name_product : '-';
             })
+            ->addColumn('product_packaging', function ($finishedGood) {
+                return $finishedGood->product ? $finishedGood->product->packaging : '-';
+            })
             ->addColumn('action', function ($finishedGood) {
-                return view('finished-goods.action_buttons', compact('finishedGood'));
+                return '
+                    <button type="button" class="btn btn-sm btn-warning edit-btn" data-id="' . $finishedGood->id . '">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button type="button" class="btn btn-sm btn-danger delete-btn" data-id="' . $finishedGood->id . '">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                ';
             })
             ->rawColumns(['action'])
-            ->toJson();
+            ->make(true);
     }
 }
