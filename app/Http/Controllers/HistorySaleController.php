@@ -6,6 +6,23 @@ use App\Models\HistorySale;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
+/**
+ * History Sales Controller
+ * -----------------------
+ * Current Implementation (Independent Mode):
+ * This controller currently operates independently without integration with other modules.
+ * It manages history of sales with basic CRUD operations for No Resi and SKUs.
+ * 
+ * Future Integration:
+ * The controller is designed to be integrated with inventory management in the future.
+ * Integration points are marked with "FUTURE INTEGRATION FEATURES" comments.
+ * 
+ * When implementing integration, you should:
+ * 1. Update the store method to adjust product stock levels based on sales
+ * 2. Update the update method to handle stock adjustments when SKUs or quantities change
+ * 3. Update the destroy/restore methods to handle stock restoration on deletion/restoration
+ * 4. Implement proper error handling for inventory constraints
+ */
 class HistorySaleController extends Controller
 {
     protected $item = 'History Sale';
@@ -107,6 +124,17 @@ class HistorySaleController extends Controller
                 'no_sku' => $skus,
                 'qty' => $quantities,
             ]);
+
+            /**
+             * FUTURE INTEGRATION FEATURES
+             * =========================
+             * The following code would be implemented for integration with inventory management:
+             * 
+             * 1. Update product stock based on each SKU in the sale
+             * 2. Log stock changes in the inventory history
+             * 3. Check minimum stock levels and trigger alerts if needed
+             * 4. Update sales analytics and reporting data
+             */
 
             // Log activity
             addActivity('sales', 'create', 'Pengguna membuat catatan penjualan dengan resi: ' . $noResi, $historySale->id);
@@ -223,6 +251,20 @@ class HistorySaleController extends Controller
                 ], 422);
             }
 
+            /**
+             * FUTURE INTEGRATION FEATURES
+             * =========================
+             * The following would be needed when implementing inventory integration:
+             * 
+             * 1. Get original SKUs and quantities before update
+             * 2. Compare with new SKUs and quantities to determine changes
+             * 3. Adjust product stock levels accordingly:
+             *    - Restore stock for removed SKUs
+             *    - Deduct stock for added SKUs
+             *    - Adjust quantities for modified SKUs
+             * 4. Log all inventory changes with appropriate references
+             */
+
             $historySale->update([
                 'no_resi' => $validatedData['no_resi'],
                 'no_sku' => $skus,
@@ -253,6 +295,17 @@ class HistorySaleController extends Controller
             $historySale = HistorySale::findOrFail($id);
             $resiNumber = $historySale->no_resi;
             $saleId = $historySale->id;
+
+            /**
+             * FUTURE INTEGRATION FEATURES
+             * =========================
+             * When implementing inventory integration, the following would be needed:
+             * 
+             * 1. Get all SKUs and quantities from the sales record
+             * 2. Restore stock levels for each product based on the quantities
+             * 3. Log the inventory adjustments with appropriate references
+             * 4. Update any related analytics or reports
+             */
 
             $historySale->delete();
 
@@ -637,6 +690,17 @@ class HistorySaleController extends Controller
             $historySale = HistorySale::withTrashed()->findOrFail($id);
             $resiNumber = $historySale->no_resi;
 
+            /**
+             * FUTURE INTEGRATION FEATURES
+             * =========================
+             * When implementing inventory integration:
+             * 
+             * 1. Get all SKUs and quantities from the restored sales record
+             * 2. Deduct stock levels again for each product based on the quantities
+             * 3. Log the re-application of inventory changes with appropriate context
+             * 4. Update any affected reports or analytics
+             */
+
             $historySale->restore();
 
             // Log activity
@@ -662,6 +726,17 @@ class HistorySaleController extends Controller
         try {
             $historySale = HistorySale::withTrashed()->findOrFail($id);
             $resiNumber = $historySale->no_resi;
+
+            /**
+             * FUTURE INTEGRATION FEATURES
+             * =========================
+             * For permanent deletion with inventory integration:
+             * 
+             * 1. Consider whether to restore stock or maintain current levels
+             * 2. Log the permanent deletion in inventory history with appropriate context
+             * 3. Remove any related records in integration tables
+             * 4. Update analytics to exclude this record from future calculations
+             */
 
             $historySale->forceDelete();
 

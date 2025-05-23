@@ -1401,14 +1401,31 @@
 
             function handleSubmitResponse(response) {
                 if (response.status === 'success') {
+                    // First clear timers and update UI
+                    clearTimeout(STATE.submitTimer);
+                    clearInterval(STATE.countdownInterval);
+                    $('#autoSubmitTimer').hide();
+
+                    // Reset the form immediately to prepare for the next entry
+                    resetForm();
+
+                    // Show success message
                     showAlert('success', 'Berhasil!', response.message, 1000);
 
-                    // Perbarui tabel dan reset form setelah alert
+                    // Force immediate table reload with the new data - try 3 times in case of issues
                     setTimeout(() => {
-                        resetForm();
-                        // Refresh tabel dengan cara yang lebih ringan
-                        $('#history-sales-table').DataTable().ajax.reload(null, false);
-                    }, 1100);
+                        try {
+                            if (table) {
+                                // Force a full reload to ensure we get the latest data
+                                table.ajax.reload(null, false);
+
+                                // Add a backup reload in case the first one doesn't catch the latest data
+                                setTimeout(() => table.ajax.reload(null, false), 500);
+                            }
+                        } catch (e) {
+                            console.warn('Error refreshing table:', e);
+                        }
+                    }, 300);
                 } else {
                     throw new Error(response.message || 'Terjadi kesalahan pada server');
                 }

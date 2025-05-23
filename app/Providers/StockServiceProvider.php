@@ -27,7 +27,10 @@ class StockServiceProvider extends ServiceProvider
     {
         // Mendaftarkan observer
         CatatanProduksi::observe(CatatanProduksiObserver::class);
-        HistorySale::observe(HistorySaleObserver::class);
+
+        // TEMPORARILY DISABLED: History Sales integration with stock system
+        // To re-enable this integration, uncomment the line below:
+        // HistorySale::observe(HistorySaleObserver::class);
 
         // Mendaftarkan schedule
         $this->app->booted(function () {
