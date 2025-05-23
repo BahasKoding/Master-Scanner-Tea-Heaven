@@ -326,7 +326,7 @@
                         <div>
                             <h5 class="mb-0">History Sales Report</h5>
                             <span class="text-muted current-date-info" id="date-filter-info">
-                                <strong>Pilih tanggal</strong> untuk melihat data
+                                <strong>Menampilkan semua data</strong>. Gunakan filter tanggal untuk membatasi hasil.
                             </span>
                         </div>
                         <div id="report-summary" class="text-muted small">
@@ -597,32 +597,13 @@
             function validateDates() {
                 // Only validate if user has clicked filter/export - not on initial load
                 if (!isInitialLoad) {
-                    if (!$startDate.val() || !$endDate.val()) {
-                        if ($startDate.val() && !$endDate.val()) {
-                            // Only end date is missing
-                            $endDate.addClass('is-invalid');
-                            $('#end_date_error').show();
-                            showError('Mohon pilih tanggal akhir untuk melengkapi filter');
-                        } else if (!$startDate.val() && $endDate.val()) {
-                            // Only start date is missing
-                            $startDate.addClass('is-invalid');
-                            $('#start_date_error').show();
-                            showError('Mohon pilih tanggal mulai untuk melengkapi filter');
-                        } else {
-                            // Both dates are missing
-                            if (isFilterAttempted) {
-                                $startDate.addClass('is-invalid');
-                                $endDate.addClass('is-invalid');
-                                $('#start_date_error').show();
-                                $('#end_date_error').show();
-                                showError('Mohon isi tanggal mulai dan tanggal akhir');
-                            }
-                        }
-                        return false;
-                    }
+                    // Create date objects and normalize to remove time portion
+                    const startDateStr = $startDate.val();
+                    const endDateStr = $endDate.val();
 
-                    const startDate = new Date($startDate.val());
-                    const endDate = new Date($endDate.val());
+                    // Parse dates using YYYY-MM-DD format to avoid timezone issues
+                    const startDate = new Date(startDateStr + 'T00:00:00');
+                    const endDate = new Date(endDateStr + 'T00:00:00');
                     const today = new Date();
                     today.setHours(0, 0, 0, 0);
 
@@ -630,26 +611,24 @@
                     $('.date-input').removeClass('is-invalid');
                     $('.invalid-feedback').hide();
 
-                    // Validate date range
-                    if (startDate > today) {
+                    // Validate date range - allow dates up to and including today
+                    if (startDate.getTime() > today.getTime()) {
                         $startDate.addClass('is-invalid');
                         $('#start_date_error').text('Tanggal mulai tidak boleh lebih dari hari ini').show();
                         showError('Tanggal mulai tidak boleh lebih dari hari ini');
                         return false;
                     }
 
-                    // Menghapus validasi endDate > today agar bisa memfilter data hingga hari ini
-                    // Komentar: Validasi ini dihapus karena menyebabkan masalah saat pengguna ingin melihat
-                    // data hingga hari ini (misalnya rentang 14-21 pada tanggal 21)
-
-                    if (startDate > endDate) {
+                    // Allow same day range (don't validate if start date equals end date)
+                    if (startDate.getTime() > endDate.getTime()) {
                         $endDate.addClass('is-invalid');
-                        $('#end_date_error').text('Tanggal akhir harus setelah tanggal mulai').show();
-                        showError('Tanggal akhir harus setelah tanggal mulai');
+                        $('#end_date_error').text('Tanggal akhir harus setelah atau sama dengan tanggal mulai')
+                            .show();
+                        showError('Tanggal akhir harus setelah atau sama dengan tanggal mulai');
                         return false;
                     }
 
-                    const diffTime = Math.abs(endDate - startDate);
+                    const diffTime = endDate.getTime() - startDate.getTime();
                     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
                     if (diffDays > 365) {
                         $endDate.addClass('is-invalid');
@@ -701,8 +680,19 @@
             // Filter button with validation
             $filterBtn.on('click', function() {
                 isFilterAttempted = true;
+                // Make sure both dates are filled before filtering
+                if (!$startDate.val() || !$endDate.val()) {
+                    $startDate.addClass('is-invalid');
+                    $endDate.addClass('is-invalid');
+                    $('#start_date_error').show();
+                    $('#end_date_error').show();
+                    showError('Mohon isi tanggal mulai dan tanggal akhir untuk melakukan filter');
+                    return;
+                }
+
                 if (validateDates()) {
-                    table.ajax.reload();
+                    // Reset the URL to the standard endpoint without load_all parameter
+                    table.ajax.url("{{ route('history-sales.data') }}").load();
                     updateDateFilterInfo($startDate.val(), $endDate.val());
                     showSuccess('Data berhasil difilter');
                 }
@@ -712,6 +702,17 @@
             // Export button with validation and enhanced UX
             $exportBtn.on('click', function() {
                 isFilterAttempted = true;
+
+                // Check if dates are empty - if so, show error message
+                if (!$startDate.val() || !$endDate.val()) {
+                    $startDate.addClass('is-invalid');
+                    $endDate.addClass('is-invalid');
+                    $('#start_date_error').show();
+                    $('#end_date_error').show();
+                    showError('Mohon isi tanggal mulai dan tanggal akhir untuk mengekspor data terfilter');
+                    return;
+                }
+
                 if (validateDates()) {
                     const recordsTotal = table.page.info().recordsTotal;
 
@@ -855,8 +856,15 @@
                 $('.invalid-feedback').hide();
                 $pageLength.val(25);
                 table.page.len(25).draw();
-                table.ajax.reload();
-                updateDateFilterInfo('', '');
+
+                // Clear filters and reload with all data
+                table.ajax.url("{{ route('history-sales.data') }}?load_all=true").load();
+
+                // Update filter info
+                $('#date-filter-info').html(
+                    '<strong>Menampilkan semua data</strong>. Gunakan filter tanggal untuk membatasi hasil.'
+                );
+
                 showSuccess('Filter telah dihapus');
                 isFilterAttempted = false;
             });
@@ -883,22 +891,16 @@
 
             // Initialize with a data load but without validation
             if (isInitialLoad) {
-                // Set default date to today
-                const today = new Date();
-                const yyyy = today.getFullYear();
-                const mm = String(today.getMonth() + 1).padStart(2, '0');
-                const dd = String(today.getDate()).padStart(2, '0');
-                const formattedDate = `${yyyy}-${mm}-${dd}`;
+                // Don't set default dates - leave the date inputs empty initially
+                $startDate.val('');
+                $endDate.val('');
 
-                // Set both dates to today as default
-                $startDate.val(formattedDate);
-                $endDate.val(formattedDate);
+                // Load data without date filter initially
+                table.ajax.url("{{ route('history-sales.data') }}?load_all=true").load();
 
-                // Load data with today's filter
-                table.ajax.reload();
-
-                // Update date filter info
-                updateDateFilterInfo(formattedDate, formattedDate);
+                // Update date filter info to show all data is being displayed
+                $('#date-filter-info').html(
+                    '<strong>Menampilkan semua data</strong>. Gunakan filter tanggal untuk membatasi hasil.');
             }
 
             // Export All button with confirmation
@@ -991,7 +993,9 @@
                 const $dateFilterInfo = $('#date-filter-info');
 
                 if (!startDate || !endDate) {
-                    $dateFilterInfo.html('<strong>Pilih tanggal</strong> untuk melihat data');
+                    $dateFilterInfo.html(
+                        '<strong>Menampilkan semua data</strong>. Gunakan filter tanggal untuk membatasi hasil.'
+                    );
                     return;
                 }
 

@@ -294,8 +294,12 @@ class HistorySaleController extends Controller
             // Set default timezone ke Asia/Jakarta
             date_default_timezone_set('Asia/Jakarta');
 
+            // Check if we should load all data without date filter
+            if ($request->boolean('load_all', false)) {
+                // No date filter applied
+            }
             // Jika tidak ada filter tanggal, tampilkan data hari ini berdasarkan timezone Asia/Jakarta
-            if (!$request->filled(['start_date', 'end_date'])) {
+            else if (!$request->filled(['start_date', 'end_date'])) {
                 $today = date('Y-m-d');
                 $startDate = $today . ' 00:00:00';
                 $endDate = $today . ' 23:59:59';
