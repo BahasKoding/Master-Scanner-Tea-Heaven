@@ -240,3 +240,6 @@ Untuk mengaktifkan sistem ini, pastikan komponen-komponen berikut telah terpasan
 Sistem ini menggunakan pendekatan hybrid untuk mendukung format lama (no_sku dan qty sebagai JSON) dan format baru (menggunakan relasi). Format baru akan mengurangi beban database dan mempercepat kueri, serta menjaga integritas referensial.
 
 Note: Setelah semua data berhasil dimigrasi, kolom no_sku dan qty di tabel history_sales dapat ditandai sebagai deprecated (tidak digunakan lagi) untuk mengurangi redundansi data. 
+
+
+
