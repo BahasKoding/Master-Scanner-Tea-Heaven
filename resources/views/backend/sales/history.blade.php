@@ -578,6 +578,58 @@
                 opacity: 1;
             }
         }
+
+        /* Focus countdown styling */
+        #focus-countdown,
+        #sku-focus-countdown {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 12px 18px;
+            border-radius: 8px;
+            z-index: 9999;
+            font-weight: bold;
+            font-size: 14px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            animation: slideInRight 0.3s ease-out;
+            transition: all 0.3s ease;
+        }
+
+        #focus-countdown {
+            background: linear-gradient(135deg, #4CAF50, #45a049);
+            color: white;
+        }
+
+        #sku-focus-countdown {
+            background: linear-gradient(135deg, #2196F3, #1976D2);
+            color: white;
+        }
+
+        @keyframes slideInRight {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        /* Mobile responsive countdown */
+        @media (max-width: 576px) {
+
+            #focus-countdown,
+            #sku-focus-countdown {
+                top: 10px;
+                right: 10px;
+                left: 10px;
+                text-align: center;
+                font-size: 13px;
+                padding: 10px 15px;
+            }
+        }
     </style>
 @endsection
 
@@ -828,7 +880,9 @@
                 NEW_FIELD_DELAY: 100, // 100ms wait before adding new SKU field
                 COUNTDOWN_SECONDS: 10, // Initial countdown value
                 TABLE_CHUNK_SIZE: 500, // Chunk size for loading large datasets
-                EXPORT_LIMIT: 10000 // Maximum number of records for export
+                EXPORT_LIMIT: 10000, // Maximum number of records for export
+                FOCUS_DELAY_RESI: 3000, // 3s delay for auto focus to no_resi after successful insert
+                FOCUS_DELAY_SKU: 3000 // 3s delay for auto focus to no_sku after valid resi
             };
 
             // State tracking variables - consolidated and organized
@@ -1034,7 +1088,13 @@
              */
             function initFormButtons() {
                 // Reset scanner button
-                $('#resetScannerBtn').on('click', resetForm);
+                $('#resetScannerBtn').on('click', function() {
+                    resetForm();
+                    // Ensure focus after manual reset
+                    setTimeout(() => {
+                        $('#no_resi').focus().select();
+                    }, 100);
+                });
 
                 // Submit manual button
                 $('#submitManualBtn').on('click', function() {
@@ -1053,7 +1113,10 @@
                         }
                     } else {
                         showAlert('warning', 'Perhatian!', 'No Resi harus diisi dan valid terlebih dahulu');
-                        $('#no_resi').focus();
+                        // Auto focus to no_resi when validation fails
+                        setTimeout(() => {
+                            $('#no_resi').focus().select();
+                        }, 100);
                     }
                 });
 
@@ -1136,10 +1199,9 @@
 
                 // Only auto-focus if scanner is active
                 if (STATE.isScannerActive) {
-                    setTimeout(() => {
-                        $('.sku-input:first').focus();
-                        $('#resiScanningIndicator').removeClass('active');
-                    }, CONFIG.SCAN_DELAY);
+                    // Auto focus to SKU with 3-second countdown
+                    ensureSkuFocus(true);
+                    $('#resiScanningIndicator').removeClass('active');
                 } else {
                     $('#resiScanningIndicator').removeClass('active');
                     // Focus stays on No Resi field when scanner is inactive
@@ -1148,12 +1210,24 @@
 
             function handleInvalidResi(message) {
                 showError('resiError', message || 'Nomor Resi sudah ada dalam sistem');
-                setTimeout(() => resetForm(), CONFIG.RESET_TIMEOUT);
+                setTimeout(() => {
+                    resetForm();
+                    // Ensure focus after invalid resi reset
+                    setTimeout(() => {
+                        $('#no_resi').focus().select();
+                    }, 100);
+                }, CONFIG.RESET_TIMEOUT);
             }
 
             function handleResiError(message) {
                 showError('resiError', message || 'Error validasi Nomor Resi');
-                setTimeout(() => resetForm(), CONFIG.RESET_TIMEOUT);
+                setTimeout(() => {
+                    resetForm();
+                    // Ensure focus after resi error reset
+                    setTimeout(() => {
+                        $('#no_resi').focus().select();
+                    }, 100);
+                }, CONFIG.RESET_TIMEOUT);
             }
 
             function handleSkuInput(input, currentSku) {
@@ -1259,11 +1333,16 @@
 
                 // Only reset SKU-related elements
                 $('.sku-input-container:not(:first)').remove();
-                $('.sku-input:first').val('').focus();
+                $('.sku-input:first').val('');
                 $('.qty-input:first').val('1');
                 $('#skuError').hide();
                 $('#skuScanningIndicator').removeClass('active');
                 $('#autoSubmitTimer').hide();
+
+                // Auto focus back to first SKU input after reset
+                setTimeout(() => {
+                    $('.sku-input:first').focus().select();
+                }, 100);
             }
 
             function resetForm() {
@@ -1271,7 +1350,10 @@
                 clearTimeout(STATE.newFieldTimer);
                 clearInterval(STATE.countdownInterval);
 
-                $('#no_resi').val('').prop('disabled', false).focus();
+                // Clear any existing focus countdowns
+                clearFocusCountdowns();
+
+                $('#no_resi').val('').prop('disabled', false);
                 // Reset scanner active indicator
                 $('#no_resi').addClass('scanner-active');
                 $('.sku-input').removeClass('scanner-active');
@@ -1287,6 +1369,9 @@
 
                 STATE.isProcessing = false;
                 STATE.hasValidResi = false;
+
+                // Auto focus with helper function (immediate, no countdown for manual reset)
+                ensureNoResiFocus(false);
             }
 
             function startCountdown() {
@@ -1412,6 +1497,9 @@
                     // Show success message
                     showAlert('success', 'Berhasil!', response.message, 1000);
 
+                    // Auto focus to no_resi input after successful insert with 3-second countdown
+                    ensureNoResiFocus(true);
+
                     // Force immediate table reload with the new data - try 3 times in case of issues
                     setTimeout(() => {
                         try {
@@ -1433,7 +1521,13 @@
 
             function handleSubmitError(error) {
                 showError('skuError', error.responseJSON?.message || error.message || 'Failed to save data');
-                setTimeout(() => resetForm(), CONFIG.RESET_TIMEOUT);
+                setTimeout(() => {
+                    resetForm();
+                    // Ensure focus after error reset
+                    setTimeout(() => {
+                        $('#no_resi').focus().select();
+                    }, 100);
+                }, CONFIG.RESET_TIMEOUT);
             }
 
             /**
@@ -1453,6 +1547,124 @@
 
                 // Update text pada elemen
                 $('.current-date-info strong').text(indonesianDate);
+            }
+
+            /**
+             * Helper function to ensure consistent auto focus behavior with delay
+             */
+            function ensureNoResiFocus(showCountdown = false) {
+                // Clear any existing countdowns first
+                clearFocusCountdowns();
+
+                if (showCountdown) {
+                    // Show countdown for auto focus
+                    let countdown =
+                        1.5; // COUNTDOWN DURATION: Change this value to modify countdown time (in seconds)
+                    const countdownElement = $('<div id="focus-countdown">Auto focus ke No Resi dalam ' +
+                        countdown + ' detik</div>');
+                    $('body').append(countdownElement);
+
+                    window.focusCountdownInterval = setInterval(() => {
+                        countdown -=
+                            0.1; // COUNTDOWN DECREMENT: Decrease by 0.1 seconds for smoother countdown
+                        if (countdown > 0) {
+                            countdownElement.text('Auto focus ke No Resi dalam ' + countdown.toFixed(1) +
+                                ' detik');
+                        } else {
+                            clearInterval(window.focusCountdownInterval);
+                            countdownElement.fadeOut(300, function() {
+                                $(this).remove();
+                            });
+
+                            // Focus after countdown
+                            setTimeout(() => {
+                                const $noResi = $('#no_resi');
+                                $noResi.focus();
+
+                                setTimeout(() => {
+                                    $noResi.select();
+                                    $noResi.addClass('scanner-active');
+                                }, 50);
+                            }, 100);
+                        }
+                    }, 100); // COUNTDOWN INTERVAL: Update every 100ms for smooth countdown
+                } else {
+                    // Immediate focus (for manual resets, etc.)
+                    setTimeout(() => {
+                        const $noResi = $('#no_resi');
+                        $noResi.focus();
+
+                        setTimeout(() => {
+                            $noResi.select();
+                            $noResi.addClass('scanner-active');
+                        }, 50);
+                    }, 100);
+                }
+            }
+
+            /**
+             * Helper function for auto focus to SKU input with delay
+             */
+            function ensureSkuFocus(showCountdown = false) {
+                // Clear any existing countdowns first
+                clearFocusCountdowns();
+
+                if (showCountdown) {
+                    // Show countdown for auto focus to SKU
+                    let countdown =
+                    1.5; // COUNTDOWN DURATION: Change this value to modify countdown time (in seconds)
+                    const countdownElement = $('<div id="sku-focus-countdown">Auto focus ke No SKU dalam ' +
+                        countdown + ' detik</div>');
+                    $('body').append(countdownElement);
+
+                    window.skuFocusCountdownInterval = setInterval(() => {
+                        countdown -=
+                        0.1; // COUNTDOWN DECREMENT: Decrease by 0.1 seconds for smoother countdown
+                        if (countdown > 0) {
+                            countdownElement.text('Auto focus ke No SKU dalam ' + countdown.toFixed(1) +
+                                ' detik');
+                        } else {
+                            clearInterval(window.skuFocusCountdownInterval);
+                            countdownElement.fadeOut(300, function() {
+                                $(this).remove();
+                            });
+
+                            // Focus after countdown
+                            setTimeout(() => {
+                                const $firstSku = $('.sku-input:first');
+                                $firstSku.focus();
+
+                                setTimeout(() => {
+                                    $firstSku.select();
+                                    $firstSku.addClass('scanner-active');
+                                }, 50);
+                            }, 100);
+                        }
+                    }, 100); // COUNTDOWN INTERVAL: Update every 100ms for smooth countdown
+                } else {
+                    // Immediate focus (for manual actions, etc.)
+                    setTimeout(() => {
+                        const $firstSku = $('.sku-input:first');
+                        $firstSku.focus();
+
+                        setTimeout(() => {
+                            $firstSku.select();
+                            $firstSku.addClass('scanner-active');
+                        }, 50);
+                    }, 100);
+                }
+            }
+
+            /**
+             * Helper function to clear any existing countdown timers and elements
+             */
+            function clearFocusCountdowns() {
+                // Clear any existing countdown elements
+                $('#focus-countdown, #sku-focus-countdown').remove();
+
+                // Clear any running intervals (this is handled by the functions themselves, but good to be safe)
+                clearInterval(window.focusCountdownInterval);
+                clearInterval(window.skuFocusCountdownInterval);
             }
 
             // Initialize all components
@@ -1687,8 +1899,8 @@
                 initFormButtons();
                 initFilterButtons();
 
-                // Initialize focus on No Resi input
-                $('#no_resi').focus();
+                // Initialize focus on No Resi input with helper function (immediate, no countdown for initial load)
+                ensureNoResiFocus(false);
 
                 // Add touch scroll indicator behavior
                 const tableWrapper = $('.table-wrapper');

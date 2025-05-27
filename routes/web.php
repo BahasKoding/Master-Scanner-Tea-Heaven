@@ -120,9 +120,16 @@ Route::middleware(['auth'])->group(function () {
     Route::resource('catatan-produksi', CatatanProduksiController::class);
     Route::get('get-bahan-baku-list', [CatatanProduksiController::class, 'getBahanBakuList'])->name('catatan-produksi.bahan-baku-list');
     Route::get('get-filtered-products-list', [CatatanProduksiController::class, 'getFilteredProductsList'])->name('catatan-produksi.filtered-products-list');
-    Route::resource('finished-goods', FinishedGoodsController::class);
-    Route::post('finished-goods/{finishedGood}/update-defective', [FinishedGoodsController::class, 'updateDefective'])->name('finished-goods.update-defective');
-    Route::post('finished-goods/data', [FinishedGoodsController::class, 'data'])->name('finished-goods.data');
+
+    // Finished Goods routes with custom parameter structure
+    Route::prefix('finished-goods')->name('finished-goods.')->group(function () {
+        Route::get('/', [FinishedGoodsController::class, 'index'])->name('index');
+        Route::post('/', [FinishedGoodsController::class, 'store'])->name('store');
+        Route::get('/{productId}/edit', [FinishedGoodsController::class, 'edit'])->name('edit');
+        Route::put('/{productId}', [FinishedGoodsController::class, 'update'])->name('update');
+        Route::post('/data', [FinishedGoodsController::class, 'data'])->name('data');
+    });
+
     Route::resource('bahan-baku', BahanBakuController::class);
 
     /*

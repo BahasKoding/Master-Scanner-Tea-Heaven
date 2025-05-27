@@ -88,6 +88,17 @@
             .paginate_button {
                 padding: 0.3rem 0.5rem !important;
             }
+
+            /* Inline editing responsive */
+            .stock-input {
+                width: 60px !important;
+                font-size: 12px !important;
+            }
+
+            .btn-sm {
+                padding: 0.2rem 0.4rem !important;
+                font-size: 0.75rem !important;
+            }
         }
 
         @media (max-width: 576px) {
@@ -101,6 +112,38 @@
                 padding: 0.2rem 0.3rem !important;
                 font-size: 0.8rem;
             }
+
+            .stock-input {
+                width: 50px !important;
+                font-size: 11px !important;
+            }
+        }
+
+        /* Inline editing styles */
+        .stock-input {
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            text-align: center;
+            transition: border-color 0.3s ease;
+        }
+
+        .stock-input:focus {
+            border-color: #007bff;
+            box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+            outline: none;
+        }
+
+        .live-stock {
+            font-size: 0.9rem;
+            font-weight: bold;
+        }
+
+        .update-btn {
+            margin-right: 5px;
+        }
+
+        .table td {
+            vertical-align: middle;
         }
     </style>
 @endsection
@@ -113,14 +156,10 @@
             <div class="card">
                 <div class="card-header">
                     <div class="d-flex justify-content-between align-items-center flex-wrap">
-                        <h5 class="mb-2 mb-sm-0">Daftar Finished Goods</h5>
+                        <h5 class="mb-2 mb-sm-0">Daftar Finished Goods - Semua Produk</h5>
                         <div class="d-flex flex-wrap">
                             <button id="clear-filters" class="btn btn btn-secondary me-2 mb-2 mb-sm-0">
                                 <i class="fas fa-filter"></i> Hapus Filter
-                            </button>
-                            <button type="button" class="btn btn-primary mb-2 mb-sm-0" data-bs-toggle="modal"
-                                data-bs-target="#addFinishedGoodsModal">
-                                <i class="fas fa-plus"></i> Tambah Finished Goods Baru
                             </button>
                         </div>
                     </div>
@@ -145,40 +184,39 @@
                                         @endforeach
                                     </select>
                                 </div>
-                                <div class="col-lg-3 col-md-6 col-sm-6 mb-2">
-                                    <label for="start-date" class="form-label small filter-label">Tanggal Mulai</label>
-                                    <input type="date" class="form-control form-control-sm" id="start-date"
-                                        name="start_date" value="{{ now()->format('Y-m-d') }}">
+                                <div class="col-lg-4 col-md-6 col-sm-12 mb-2">
+                                    <label for="filter-category" class="form-label small filter-label">Kategori</label>
+                                    <select class="form-control form-control-sm" name="filter-category"
+                                        id="filter-category">
+                                        <option value="">Semua Kategori</option>
+                                        @foreach ($categories as $key => $category)
+                                            <option value="{{ $key }}">{{ $category }}</option>
+                                        @endforeach
+                                    </select>
                                 </div>
-                                <div class="col-lg-3 col-md-6 col-sm-6 mb-2">
-                                    <label for="end-date" class="form-label small filter-label">Tanggal Selesai</label>
-                                    <input type="date" class="form-control form-control-sm" id="end-date"
-                                        name="end_date" value="{{ now()->format('Y-m-d') }}">
-                                </div>
-                                <div class="col-lg-2 col-md-6 col-sm-12 d-flex align-items-end mb-2">
-                                    <button id="apply-date-filter" class="btn btn-sm btn-primary w-100">
-                                        <i class="fas fa-filter"></i> Terapkan Filter
-                                    </button>
+                                <div class="col-lg-4 col-md-6 col-sm-12 mb-2">
+                                    <label for="filter-label" class="form-label small filter-label">Label</label>
+                                    <select class="form-control form-control-sm" name="filter-label" id="filter-label">
+                                        <option value="">Semua Label</option>
+                                        @foreach ($labels as $key => $label)
+                                            @if ($key > 0)
+                                                <option value="{{ $key }}">{{ $label }}</option>
+                                            @endif
+                                        @endforeach
+                                    </select>
                                 </div>
                             </div>
                         </div>
                     </div>
                     <!-- End Filter Section -->
 
-                    <div class="mb-3">
-                        <h6 class="text-primary">
-                            <span id="table-period">Menampilkan data untuk periode: {{ now()->format('d M Y') }}</span>
-                        </h6>
-                    </div>
-
                     <div class="dt-responsive table-responsive">
                         <table id="finishedGoods-table" class="table table-striped table-bordered nowrap">
                             <thead>
                                 <tr>
                                     <th>No</th>
-                                    <th>Produk</th>
                                     <th>SKU</th>
-                                    <th>Packaging</th>
+                                    <th>Produk</th>
                                     <th>Stok Awal</th>
                                     <th>Stok Masuk</th>
                                     <th>Stok Keluar</th>
@@ -198,132 +236,6 @@
         <!-- Finished Goods Table end -->
     </div>
     <!-- [ Main Content ] end -->
-
-    <!-- Add Finished Goods Modal -->
-    <div class="modal fade" id="addFinishedGoodsModal" tabindex="-1">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Tambah Finished Goods Baru</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <form id="addFinishedGoodsForm">
-                    @csrf
-                    <div class="modal-body">
-                        <div class="mb-3">
-                            <label class="form-label">Produk <span class="text-danger">*</span></label>
-                            <select class="form-control" name="id_product" id="add-product" required>
-                                <option value="">Pilih Produk</option>
-                                @foreach ($products as $product)
-                                    <option value="{{ $product->id }}">{{ $product->name_product }}
-                                        ({{ $product->sku }})
-                                    </option>
-                                @endforeach
-                            </select>
-                        </div>
-
-                        <div class="row">
-                            <div class="col-sm-6 mb-3">
-                                <label class="form-label">Stok Awal <span class="text-danger">*</span></label>
-                                <input type="number" class="form-control" name="stok_awal" required min="0">
-                            </div>
-                            <div class="col-sm-6 mb-3">
-                                <label class="form-label">Stok Masuk <span class="text-danger">*</span></label>
-                                <input type="number" class="form-control" name="stok_masuk" required min="0">
-                            </div>
-                        </div>
-
-                        <div class="row">
-                            <div class="col-sm-6 mb-3">
-                                <label class="form-label">Stok Keluar <span class="text-danger">*</span></label>
-                                <input type="number" class="form-control" name="stok_keluar" required min="0">
-                            </div>
-                            <div class="col-sm-6 mb-3">
-                                <label class="form-label">Defective <span class="text-danger">*</span></label>
-                                <input type="number" class="form-control" name="defective" required min="0">
-                            </div>
-                        </div>
-
-                        <div class="mb-3">
-                            <label class="form-label">Live Stock (Terhitung Otomatis)</label>
-                            <input type="text" class="form-control" id="live_stock_preview" disabled>
-                            <small class="text-muted">Live Stock = Stok Awal + Stok Masuk - Stok Keluar - Defective</small>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Tutup</button>
-                        <button type="submit" class="btn btn-primary">Simpan</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <!-- Edit Finished Goods Modal -->
-    <div class="modal fade" id="editFinishedGoodsModal" tabindex="-1">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Edit Finished Goods</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <form id="editFinishedGoodsForm">
-                    @csrf
-                    @method('PUT')
-                    <input type="hidden" id="edit_finished_goods_id">
-                    <div class="modal-body">
-                        <div class="mb-3">
-                            <label class="form-label">Produk <span class="text-danger">*</span></label>
-                            <select class="form-control" name="id_product" id="edit-product" required>
-                                <option value="">Pilih Produk</option>
-                                @foreach ($products as $product)
-                                    <option value="{{ $product->id }}">{{ $product->name_product }}
-                                        ({{ $product->sku }})
-                                    </option>
-                                @endforeach
-                            </select>
-                        </div>
-
-                        <div class="row">
-                            <div class="col-sm-6 mb-3">
-                                <label class="form-label">Stok Awal <span class="text-danger">*</span></label>
-                                <input type="number" class="form-control" name="stok_awal" id="edit_stok_awal" required
-                                    min="0">
-                            </div>
-                            <div class="col-sm-6 mb-3">
-                                <label class="form-label">Stok Masuk <span class="text-danger">*</span></label>
-                                <input type="number" class="form-control" name="stok_masuk" id="edit_stok_masuk"
-                                    required min="0">
-                            </div>
-                        </div>
-
-                        <div class="row">
-                            <div class="col-sm-6 mb-3">
-                                <label class="form-label">Stok Keluar <span class="text-danger">*</span></label>
-                                <input type="number" class="form-control" name="stok_keluar" id="edit_stok_keluar"
-                                    required min="0">
-                            </div>
-                            <div class="col-sm-6 mb-3">
-                                <label class="form-label">Defective <span class="text-danger">*</span></label>
-                                <input type="number" class="form-control" name="defective" id="edit_defective" required
-                                    min="0">
-                            </div>
-                        </div>
-
-                        <div class="mb-3">
-                            <label class="form-label">Live Stock (Terhitung Otomatis)</label>
-                            <input type="text" class="form-control" id="edit_live_stock_preview" disabled>
-                            <small class="text-muted">Live Stock = Stok Awal + Stok Masuk - Stok Keluar - Defective</small>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Tutup</button>
-                        <button type="submit" class="btn btn-primary">Perbarui</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
 @endsection
 
 @section('scripts')
@@ -350,56 +262,7 @@
 
     <script type="text/javascript">
         $(document).ready(function() {
-            // Debounce function to limit how often a function can trigger
-            function debounce(func, wait) {
-                let timeout;
-                return function() {
-                    const context = this;
-                    const args = arguments;
-                    clearTimeout(timeout);
-                    timeout = setTimeout(() => func.apply(context, args), wait);
-                };
-            }
-
-            // Function to calculate live stock
-            function calculateLiveStock() {
-                const stokAwal = parseInt($('input[name="stok_awal"]').val()) || 0;
-                const stokMasuk = parseInt($('input[name="stok_masuk"]').val()) || 0;
-                const stokKeluar = parseInt($('input[name="stok_keluar"]').val()) || 0;
-                const defective = parseInt($('input[name="defective"]').val()) || 0;
-
-                const liveStock = stokAwal + stokMasuk - stokKeluar - defective;
-                $('#live_stock_preview').val(liveStock);
-            }
-
-            // Function to calculate live stock for edit modal
-            function calculateEditLiveStock() {
-                const stokAwal = parseInt($('#edit_stok_awal').val()) || 0;
-                const stokMasuk = parseInt($('#edit_stok_masuk').val()) || 0;
-                const stokKeluar = parseInt($('#edit_stok_keluar').val()) || 0;
-                const defective = parseInt($('#edit_defective').val()) || 0;
-
-                const liveStock = stokAwal + stokMasuk - stokKeluar - defective;
-                $('#edit_live_stock_preview').val(liveStock);
-            }
-
             // Initialize choices for select inputs
-            var addProductChoices = new Choices('#add-product', {
-                searchEnabled: true,
-                searchPlaceholderValue: "Cari produk",
-                itemSelectText: '',
-                placeholder: true,
-                placeholderValue: "Pilih produk"
-            });
-
-            var editProductChoices = new Choices('#edit-product', {
-                searchEnabled: true,
-                searchPlaceholderValue: "Cari produk",
-                itemSelectText: '',
-                placeholder: true,
-                placeholderValue: "Pilih produk"
-            });
-
             var filterProductChoices = new Choices('#filter-product', {
                 searchEnabled: true,
                 searchPlaceholderValue: "Cari produk",
@@ -407,12 +270,6 @@
                 placeholder: true,
                 placeholderValue: "Semua produk"
             });
-
-            // Calculate live stock when input values change
-            $('input[name="stok_awal"], input[name="stok_masuk"], input[name="stok_keluar"], input[name="defective"]')
-                .on('input', calculateLiveStock);
-            $('#edit_stok_awal, #edit_stok_masuk, #edit_stok_keluar, #edit_defective').on('input',
-                calculateEditLiveStock);
 
             // Initialize DataTable
             var table = $('#finishedGoods-table').DataTable({
@@ -423,8 +280,8 @@
                     type: "POST",
                     data: function(d) {
                         d.id_product = $('#filter-product').val();
-                        d.start_date = $('#start-date').val();
-                        d.end_date = $('#end-date').val();
+                        d.category_product = $('#filter-category').val();
+                        d.label = $('#filter-label').val();
                         d._token = "{{ csrf_token() }}";
                         return d;
                     }
@@ -436,36 +293,55 @@
                         searchable: false
                     },
                     {
-                        data: 'product_name',
-                        name: 'product_name'
+                        data: 'sku',
+                        name: 'sku'
                     },
                     {
-                        data: 'product_sku',
-                        name: 'product_sku'
+                        data: 'name_product',
+                        name: 'name_product'
                     },
                     {
-                        data: 'product_packaging',
-                        name: 'product_packaging'
+                        data: 'stok_awal_display',
+                        name: 'stok_awal_display',
+                        render: function(data, type, row) {
+                            return `<input type="number" class="form-control form-control-sm stock-input" 
+                                    data-field="stok_awal" data-product-id="${row.product_id}" 
+                                    value="${data}" min="0" style="width: 80px;">`;
+                        }
                     },
                     {
-                        data: 'stok_awal',
-                        name: 'stok_awal'
+                        data: 'stok_masuk_display',
+                        name: 'stok_masuk_display',
+                        render: function(data, type, row) {
+                            return `<input type="number" class="form-control form-control-sm stock-input" 
+                                    data-field="stok_masuk" data-product-id="${row.product_id}" 
+                                    value="${data}" min="0" style="width: 80px;">`;
+                        }
                     },
                     {
-                        data: 'stok_masuk',
-                        name: 'stok_masuk'
+                        data: 'stok_keluar_display',
+                        name: 'stok_keluar_display',
+                        render: function(data, type, row) {
+                            return `<input type="number" class="form-control form-control-sm stock-input" 
+                                    data-field="stok_keluar" data-product-id="${row.product_id}" 
+                                    value="${data}" min="0" style="width: 80px;">`;
+                        }
                     },
                     {
-                        data: 'stok_keluar',
-                        name: 'stok_keluar'
+                        data: 'defective_display',
+                        name: 'defective_display',
+                        render: function(data, type, row) {
+                            return `<input type="number" class="form-control form-control-sm stock-input" 
+                                    data-field="defective" data-product-id="${row.product_id}" 
+                                    value="${data}" min="0" style="width: 80px;">`;
+                        }
                     },
                     {
-                        data: 'defective',
-                        name: 'defective'
-                    },
-                    {
-                        data: 'live_stock',
-                        name: 'live_stock'
+                        data: 'live_stock_display',
+                        name: 'live_stock_display',
+                        render: function(data, type, row) {
+                            return `<span class="badge bg-primary live-stock" data-product-id="${row.product_id}">${data}</span>`;
+                        }
                     },
                     {
                         data: 'action',
@@ -474,18 +350,18 @@
                         searchable: false,
                         render: function(data, type, row) {
                             return `
-                                <button type="button" class="btn btn-sm btn-warning edit-btn" data-id="${row.id}">
-                                    <i class="fas fa-edit"></i>
+                                <button type="button" class="btn btn-sm btn-success update-btn" data-id="${row.product_id}">
+                                    <i class="fas fa-save"></i> Update
                                 </button>
-                                <button type="button" class="btn btn-sm btn-danger delete-btn" data-id="${row.id}">
-                                    <i class="fas fa-trash"></i>
+                                <button type="button" class="btn btn-sm btn-secondary reset-btn" data-id="${row.product_id}">
+                                    <i class="fas fa-undo"></i> Reset
                                 </button>
                             `;
                         }
                     }
                 ],
                 order: [
-                    [1, 'asc']
+                    [2, 'asc']
                 ],
                 pageLength: 25,
                 dom: 'Bfrtip',
@@ -508,271 +384,94 @@
             });
 
             // Apply filters when dropdown values change
-            $('#filter-product').on('change', function() {
+            $('#filter-product, #filter-category, #filter-label').on('change', function() {
                 table.ajax.reload();
             });
-
-            // Apply date filter when button is clicked
-            $('#apply-date-filter').on('click', function() {
-                // Update table title with date range
-                updateTablePeriod();
-
-                // Reload table
-                table.ajax.reload();
-            });
-
-            // Function to update table period display
-            function updateTablePeriod() {
-                const startDate = $('#start-date').val();
-                const endDate = $('#end-date').val();
-
-                const formattedStartDate = new Date(startDate).toLocaleDateString('id-ID', {
-                    day: 'numeric',
-                    month: 'short',
-                    year: 'numeric'
-                });
-
-                const formattedEndDate = new Date(endDate).toLocaleDateString('id-ID', {
-                    day: 'numeric',
-                    month: 'short',
-                    year: 'numeric'
-                });
-
-                // Update the table period text
-                if (startDate === endDate) {
-                    $('#table-period').text(`Menampilkan data untuk tanggal: ${formattedStartDate}`);
-                } else {
-                    $('#table-period').text(
-                        `Menampilkan data untuk periode: ${formattedStartDate} - ${formattedEndDate}`);
-                }
-            }
 
             // Clear filters function
             $('#clear-filters').on('click', function() {
                 // Reset product filter
                 filterProductChoices.setChoiceByValue('');
 
-                // Reset date filters to today
-                $('#start-date').val('{{ now()->format('Y-m-d') }}');
-                $('#end-date').val('{{ now()->format('Y-m-d') }}');
-
-                // Update table period display
-                updateTablePeriod();
+                // Reset category and label filters
+                $('#filter-category').val('').trigger('change');
+                $('#filter-label').val('').trigger('change');
 
                 // Reload table
                 table.ajax.reload();
             });
 
-            // Initialize table period display on page load
-            updateTablePeriod();
+            // Function to calculate live stock for a specific row
+            function calculateRowLiveStock(productId) {
+                const stokAwal = parseInt($(`input[data-product-id="${productId}"][data-field="stok_awal"]`)
+                    .val()) || 0;
+                const stokMasuk = parseInt($(`input[data-product-id="${productId}"][data-field="stok_masuk"]`)
+                    .val()) || 0;
+                const stokKeluar = parseInt($(`input[data-product-id="${productId}"][data-field="stok_keluar"]`)
+                    .val()) || 0;
+                const defective = parseInt($(`input[data-product-id="${productId}"][data-field="defective"]`)
+                    .val()) || 0;
 
-            // Add Finished Goods Form Submit
-            $('#addFinishedGoodsForm').on('submit', function(e) {
-                e.preventDefault();
-                var form = $(this);
-                var submitButton = form.find('button[type="submit"]');
+                const liveStock = stokAwal + stokMasuk - stokKeluar - defective;
+                $(`.live-stock[data-product-id="${productId}"]`).text(liveStock);
 
-                // Disable submit button to prevent double submission
-                submitButton.prop('disabled', true);
+                return liveStock;
+            }
 
-                var formData = new FormData(this);
-
-                $.ajax({
-                    url: "{{ route('finished-goods.store') }}",
-                    method: 'POST',
-                    data: formData,
-                    processData: false,
-                    contentType: false,
-                    success: function(data) {
-                        if (data.success) {
-                            // Reset form and choices
-                            form[0].reset();
-                            addProductChoices.setChoiceByValue('');
-                            $('#live_stock_preview').val('');
-                            submitButton.prop('disabled', false);
-
-                            // Properly hide modal and remove backdrop
-                            $('#addFinishedGoodsModal').modal('hide');
-                            $('body').removeClass('modal-open');
-                            $('.modal-backdrop').remove();
-
-                            // Reload table
-                            table.ajax.reload(null, false);
-
-                            // Show success message
-                            Swal.fire({
-                                title: 'Berhasil!',
-                                text: data.message,
-                                icon: 'success',
-                                timer: 1500,
-                                showConfirmButton: false,
-                                toast: true,
-                                position: 'top-end'
-                            });
-                        }
-                    },
-                    error: function(xhr) {
-                        // Re-enable submit button on error
-                        submitButton.prop('disabled', false);
-
-                        if (xhr.status === 422) {
-                            // Validation errors
-                            const errors = xhr.responseJSON.errors;
-                            const errorMessages = Object.values(errors).flat();
-
-                            Swal.fire({
-                                title: 'Mohon Periksa Input Anda',
-                                html: errorMessages.join('<br>'),
-                                icon: 'warning',
-                                confirmButtonText: 'Saya Mengerti',
-                                confirmButtonColor: '#3085d6'
-                            });
-                        } else {
-                            // Other errors
-                            Swal.fire({
-                                title: 'Oops...',
-                                text: xhr.responseJSON?.message ||
-                                    'Terjadi kesalahan pada permintaan.',
-                                icon: 'error',
-                                confirmButtonText: 'Coba Lagi',
-                                confirmButtonColor: '#3085d6'
-                            });
-                        }
-                    },
-                    complete: function() {
-                        // Always ensure the UI is restored
-                        submitButton.prop('disabled', false);
-                        $('body').removeClass('modal-open');
-                        $('.modal-backdrop').remove();
-                    }
-                });
+            // Live stock calculation when input changes
+            $(document).on('input', '.stock-input', function() {
+                const productId = $(this).data('product-id');
+                calculateRowLiveStock(productId);
             });
 
-            // Edit Button Click
-            $(document).on('click', '.edit-btn', function() {
-                var id = $(this).data('id');
-                console.log('Edit button clicked for ID:', id);
+            // Update button click
+            $(document).on('click', '.update-btn', function() {
+                const productId = $(this).data('id');
+                const stokAwal = parseInt($(`input[data-product-id="${productId}"][data-field="stok_awal"]`)
+                    .val()) || 0;
+                const stokMasuk = parseInt($(
+                    `input[data-product-id="${productId}"][data-field="stok_masuk"]`).val()) || 0;
+                const stokKeluar = parseInt($(
+                    `input[data-product-id="${productId}"][data-field="stok_keluar"]`).val()) || 0;
+                const defective = parseInt($(
+                    `input[data-product-id="${productId}"][data-field="defective"]`).val()) || 0;
 
-                // Show loading state
-                Swal.fire({
-                    title: 'Memuat...',
-                    text: 'Mengambil data finished goods',
-                    allowOutsideClick: false,
-                    showConfirmButton: false,
-                    willOpen: () => {
-                        Swal.showLoading();
-                    }
-                });
+                // Disable button during update
+                $(this).prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Updating...');
 
-                $.ajax({
-                    url: `/finished-goods/${id}/edit`,
-                    method: 'GET',
-                    success: function(response) {
-                        console.log('Server response:', response);
-                        Swal.close();
-
-                        if (response.success) {
-                            const data = response.data;
-                            console.log('Finished goods data:', data);
-
-                            // Set hidden ID
-                            $('#edit_finished_goods_id').val(data.id);
-
-                            // Set form values
-                            editProductChoices.setChoiceByValue(data.id_product.toString());
-                            $('#edit_stok_awal').val(data.stok_awal);
-                            $('#edit_stok_masuk').val(data.stok_masuk);
-                            $('#edit_stok_keluar').val(data.stok_keluar);
-                            $('#edit_defective').val(data.defective);
-                            $('#edit_live_stock_preview').val(data.live_stock);
-
-                            // Show the modal
-                            var editModal = new bootstrap.Modal(document.getElementById(
-                                'editFinishedGoodsModal'));
-                            editModal.show();
-                        } else {
-                            Swal.fire({
-                                title: 'Error',
-                                text: response.message ||
-                                    'Gagal mengambil data finished goods',
-                                icon: 'error'
-                            });
-                        }
-                    },
-                    error: function(xhr, status, error) {
-                        console.error('AJAX Error:', {
-                            xhr: xhr,
-                            status: status,
-                            error: error
-                        });
-                        Swal.fire({
-                            title: 'Error',
-                            text: 'Gagal mengambil data finished goods. Silahkan coba lagi.',
-                            icon: 'error'
-                        });
-                    }
-                });
-            });
-
-            // Edit Finished Goods Form Submit
-            $('#editFinishedGoodsForm').on('submit', function(e) {
-                e.preventDefault();
-                var form = $(this);
-                var submitButton = form.find('button[type="submit"]');
-                var id = $('#edit_finished_goods_id').val();
-
-                // Disable submit button to prevent double submission
-                submitButton.prop('disabled', true);
-
-                // Show loading state
-                Swal.fire({
-                    title: 'Memperbarui...',
-                    text: 'Menyimpan data finished goods',
-                    allowOutsideClick: false,
-                    showConfirmButton: false,
-                    willOpen: () => {
-                        Swal.showLoading();
-                    }
-                });
-
-                var formData = new FormData(this);
+                // Prepare form data
+                const formData = new FormData();
+                formData.append('stok_awal', stokAwal);
+                formData.append('stok_masuk', stokMasuk);
+                formData.append('stok_keluar', stokKeluar);
+                formData.append('defective', defective);
                 formData.append('_method', 'PUT');
+                formData.append('_token', '{{ csrf_token() }}');
 
                 $.ajax({
-                    url: `/finished-goods/${id}`,
+                    url: `/finished-goods/${productId}`,
                     method: 'POST',
                     data: formData,
                     processData: false,
                     contentType: false,
-                    headers: {
-                        'X-CSRF-TOKEN': '{{ csrf_token() }}'
-                    },
-                    success: function(data) {
-                        if (data.success) {
-                            // Reset form and close modal
-                            form[0].reset();
-                            editProductChoices.setChoiceByValue('');
-                            $('#edit_live_stock_preview').val('');
-                            $('#editFinishedGoodsModal').modal('hide');
-
-                            // Reload table
-                            table.ajax.reload(null, false);
-
+                    success: function(response) {
+                        if (response.success) {
                             // Show success message
                             Swal.fire({
                                 title: 'Berhasil!',
-                                text: data.message,
+                                text: response.message,
                                 icon: 'success',
                                 timer: 1500,
                                 showConfirmButton: false,
                                 toast: true,
                                 position: 'top-end'
                             });
+
+                            // Update live stock display
+                            calculateRowLiveStock(productId);
                         }
                     },
                     error: function(xhr) {
-                        submitButton.prop('disabled', false);
-
                         if (xhr.status === 422) {
                             // Validation errors
                             const errors = xhr.responseJSON.errors;
@@ -790,7 +489,7 @@
                             Swal.fire({
                                 title: 'Gagal Memperbarui',
                                 text: xhr.responseJSON?.message ||
-                                    'Tidak dapat memperbarui finished goods saat ini.',
+                                    'Tidak dapat memperbarui stok saat ini.',
                                 icon: 'error',
                                 confirmButtonText: 'OK',
                                 confirmButtonColor: '#3085d6'
@@ -798,71 +497,43 @@
                         }
                     },
                     complete: function() {
-                        submitButton.prop('disabled', false);
+                        // Re-enable button
+                        $(`.update-btn[data-id="${productId}"]`).prop('disabled', false).html(
+                            '<i class="fas fa-save"></i> Update');
                     }
                 });
             });
 
-            // Delete Button Click
-            $(document).on('click', '.delete-btn', function() {
-                var id = $(this).data('id');
+            // Reset button click
+            $(document).on('click', '.reset-btn', function() {
+                const productId = $(this).data('id');
+
                 Swal.fire({
-                    title: 'Konfirmasi Hapus',
-                    text: "Apakah Anda yakin ingin menghapus finished goods ini? Tindakan ini tidak dapat dibatalkan.",
-                    icon: 'warning',
+                    title: 'Reset Data?',
+                    text: "Apakah Anda yakin ingin mereset data stok ke nilai awal?",
+                    icon: 'question',
                     showCancelButton: true,
                     confirmButtonColor: '#3085d6',
                     cancelButtonColor: '#d33',
-                    confirmButtonText: 'Ya, Hapus!',
+                    confirmButtonText: 'Ya, Reset!',
                     cancelButtonText: 'Batal'
                 }).then((result) => {
                     if (result.isConfirmed) {
-                        $.ajax({
-                            url: `/finished-goods/${id}`,
-                            method: 'DELETE',
-                            headers: {
-                                'X-CSRF-TOKEN': '{{ csrf_token() }}'
-                            },
-                            success: function(data) {
-                                if (data.success) {
-                                    table.ajax.reload();
-                                    Swal.fire({
-                                        title: 'Terhapus!',
-                                        text: data.message,
-                                        icon: 'success',
-                                        timer: 1500,
-                                        showConfirmButton: false,
-                                        toast: true,
-                                        position: 'top-end'
-                                    });
-                                }
-                            },
-                            error: function(xhr) {
-                                Swal.fire({
-                                    title: 'Gagal Menghapus',
-                                    text: xhr.responseJSON?.message ||
-                                        'Tidak dapat menghapus finished goods saat ini.',
-                                    icon: 'error',
-                                    confirmButtonText: 'OK',
-                                    confirmButtonColor: '#3085d6'
-                                });
-                            }
+                        // Reset all inputs to 0
+                        $(`input[data-product-id="${productId}"]`).val(0);
+                        calculateRowLiveStock(productId);
+
+                        Swal.fire({
+                            title: 'Direset!',
+                            text: 'Data stok telah direset ke 0.',
+                            icon: 'success',
+                            timer: 1500,
+                            showConfirmButton: false,
+                            toast: true,
+                            position: 'top-end'
                         });
                     }
                 });
-            });
-
-            // Clean up modal when it's hidden
-            $('.modal').on('hidden.bs.modal', function() {
-                console.log('Modal hidden - cleaning up');
-                $(this).find('form')[0].reset();
-                if ($(this).attr('id') === 'addFinishedGoodsModal') {
-                    addProductChoices.setChoiceByValue('');
-                    $('#live_stock_preview').val('');
-                } else if ($(this).attr('id') === 'editFinishedGoodsModal') {
-                    editProductChoices.setChoiceByValue('');
-                    $('#edit_live_stock_preview').val('');
-                }
             });
         });
     </script>

@@ -62,69 +62,76 @@ class FinishedGoodsController extends Controller
     public function index(Request $request)
     {
         if ($request->ajax()) {
-            $query = FinishedGoods::with('product')
+            // Query semua produk dengan LEFT JOIN ke finished_goods
+            $query = Product::leftJoin('finished_goods', 'products.id', '=', 'finished_goods.id_product')
                 ->select([
-                    'finished_goods.id',
-                    'finished_goods.id_product',
+                    'products.id as product_id',
+                    'products.sku',
+                    'products.name_product',
+                    'products.packaging',
+                    'products.category_product',
+                    'products.label',
+                    'finished_goods.id as finished_goods_id',
                     'finished_goods.stok_awal',
                     'finished_goods.stok_masuk',
                     'finished_goods.stok_keluar',
                     'finished_goods.defective',
                     'finished_goods.live_stock',
-                    'finished_goods.created_at',
-                    'finished_goods.updated_at'
+                    'finished_goods.created_at as fg_created_at',
+                    'finished_goods.updated_at as fg_updated_at'
                 ]);
 
-            // Apply filters from request
-            if ($request->filled('id_product')) {
-                $query->where('id_product', $request->id_product);
+            // Filter by product if provided
+            if ($request->has('id_product') && !empty($request->id_product)) {
+                $query->where('products.id', $request->id_product);
             }
 
-            // Filter berdasarkan tanggal (default: hari ini)
-            $startDate = $request->filled('start_date') ? $request->start_date : now()->startOfDay()->format('Y-m-d');
-            $endDate = $request->filled('end_date') ? $request->end_date : now()->endOfDay()->format('Y-m-d');
-
-            // Konversi end_date untuk mencakup seluruh hari
-            if ($request->filled('end_date')) {
-                $endDate = date('Y-m-d', strtotime($endDate . ' +1 day'));
-            } else {
-                $endDate = now()->addDay()->startOfDay()->format('Y-m-d');
+            // Filter by category if provided
+            if ($request->has('category_product') && !empty($request->category_product)) {
+                $query->where('products.category_product', $request->category_product);
             }
 
-            $query->where(function ($q) use ($startDate, $endDate) {
-                $q->whereBetween('finished_goods.created_at', [$startDate, $endDate])
-                    ->orWhereBetween('finished_goods.updated_at', [$startDate, $endDate]);
-            });
+            // Filter by label if provided
+            if ($request->has('label') && !empty($request->label)) {
+                $query->where('products.label', $request->label);
+            }
 
             return DataTables::of($query)
                 ->addIndexColumn()
-                ->orderColumn('created_at', function ($query, $order) {
-                    $query->orderBy('finished_goods.created_at', $order);
+                ->orderColumn('name_product', function ($query, $order) {
+                    $query->orderBy('products.name_product', $order);
                 })
                 ->addColumn('action', function ($row) {
-                    return $row->id;
+                    return $row->product_id;
                 })
-                ->addColumn('product_name', function ($row) {
-                    return $row->product ? $row->product->name_product : '';
+                ->addColumn('category_name', function ($row) {
+                    $categories = Product::getCategoryOptions();
+                    return $categories[$row->category_product] ?? 'Unknown Category';
                 })
-                ->addColumn('product_sku', function ($row) {
-                    return $row->product ? $row->product->sku : '';
+                ->addColumn('label_name', function ($row) {
+                    $labels = Product::getLabelOptions();
+                    return $labels[$row->label] ?? '-';
                 })
-                ->addColumn('product_packaging', function ($row) {
-                    return $row->product ? $row->product->packaging : '';
+                ->addColumn('stok_awal_display', function ($row) {
+                    return $row->stok_awal ?? 0;
                 })
-                ->filterColumn('product_name', function ($query, $keyword) {
-                    $query->whereHas('product', function ($q) use ($keyword) {
-                        $q->where('name_product', 'like', "%{$keyword}%");
-                    });
+                ->addColumn('stok_masuk_display', function ($row) {
+                    return $row->stok_masuk ?? 0;
                 })
-                ->filterColumn('product_sku', function ($query, $keyword) {
-                    $query->whereHas('product', function ($q) use ($keyword) {
-                        $q->where('sku', 'like', "%{$keyword}%");
-                    });
+                ->addColumn('stok_keluar_display', function ($row) {
+                    return $row->stok_keluar ?? 0;
                 })
-                ->editColumn('created_at', function ($row) {
-                    return $row->created_at ? $row->created_at->format('Y-m-d H:i:s') : '';
+                ->addColumn('defective_display', function ($row) {
+                    return $row->defective ?? 0;
+                })
+                ->addColumn('live_stock_display', function ($row) {
+                    return $row->live_stock ?? 0;
+                })
+                ->filterColumn('name_product', function ($query, $keyword) {
+                    $query->where('products.name_product', 'like', "%{$keyword}%");
+                })
+                ->filterColumn('sku', function ($query, $keyword) {
+                    $query->where('products.sku', 'like', "%{$keyword}%");
                 })
                 ->rawColumns(['action'])
                 ->smart(true)
@@ -132,18 +139,41 @@ class FinishedGoodsController extends Controller
                 ->make(true);
         }
 
-        // Get all products for dropdown
-        $products = Product::orderBy('name_product')->get();
+        try {
+            // Get all products for dropdown
+            $products = Product::orderBy('name_product')->get();
 
-        // Get initial data for the view with pagination
-        $items = [
-            'Daftar Finished Goods' => route('finished-goods.index'),
-        ];
+            // Get category options
+            $categories = Product::getCategoryOptions();
 
-        // Log activity
-        addActivity('finished_goods', 'view', 'Pengguna melihat daftar finished goods', null);
+            // Get label options
+            $labels = Product::getLabelOptions();
 
-        return view('finished-goods.index', compact('items', 'products'));
+            // Get initial data for the view with pagination
+            $items = [
+                'Daftar Finished Goods' => route('finished-goods.index'),
+            ];
+
+            // Log activity
+            addActivity('finished_goods', 'view', 'Pengguna melihat daftar finished goods', null);
+
+            return view('finished-goods.index', compact('items', 'products', 'categories', 'labels'));
+        } catch (\Exception $e) {
+            // Log the error
+            Log::error('Failed to load data for Finished Goods index', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            // Return view with error message
+            return view('finished-goods.index', [
+                'items' => ['Daftar Finished Goods' => route('finished-goods.index')],
+                'products' => [],
+                'categories' => [],
+                'labels' => [],
+                'error_message' => 'Gagal memuat data. Silakan coba refresh halaman.'
+            ]);
+        }
     }
 
     /**
@@ -166,100 +196,33 @@ class FinishedGoodsController extends Controller
             // Add live_stock to validated data
             $validated['live_stock'] = $liveStock;
 
-            $finishedGoods = FinishedGoods::create($validated);
+            // Use updateOrCreate to update existing record or create new one
+            $finishedGoods = FinishedGoods::updateOrCreate(
+                ['id_product' => $validated['id_product']],
+                [
+                    'stok_awal' => $validated['stok_awal'],
+                    'stok_masuk' => $validated['stok_masuk'],
+                    'stok_keluar' => $validated['stok_keluar'],
+                    'defective' => $validated['defective'],
+                    'live_stock' => $liveStock
+                ]
+            );
 
             // Get product name for logging
             $productName = Product::find($validated['id_product'])->name_product;
 
             // Log activity
-            addActivity('finished_goods', 'create', 'Pengguna membuat finished goods baru untuk produk: ' . $productName, $finishedGoods->id);
+            $action = $finishedGoods->wasRecentlyCreated ? 'create' : 'update';
+            $message = $finishedGoods->wasRecentlyCreated
+                ? 'Pengguna membuat finished goods baru untuk produk: ' . $productName
+                : 'Pengguna memperbarui finished goods untuk produk: ' . $productName;
+
+            addActivity('finished_goods', $action, $message, $finishedGoods->id);
 
             return response()->json([
                 'success' => true,
-                'message' => 'Berhasil! Finished goods telah ditambahkan ke dalam sistem.',
+                'message' => 'Berhasil! Data stok finished goods telah diperbarui.',
                 'data' => $finishedGoods
-            ]);
-        } catch (ValidationException $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Terjadi Kesalahan',
-                'errors' => $e->errors()
-            ], 422);
-        } catch (\Exception $e) {
-            Log::error('Error saat membuat finished goods', ['error' => $e->getMessage()]);
-            return response()->json([
-                'success' => false,
-                'message' => 'Maaf! Terjadi kesalahan saat menambahkan finished goods. Silahkan coba lagi.'
-            ], 500);
-        }
-    }
-
-    /**
-     * Show the form for editing the specified resource.
-     */
-    public function edit(FinishedGoods $finishedGood)
-    {
-        try {
-            // Eager load the product
-            $finishedGood->load('product');
-
-            Log::info('Permintaan edit finished goods diterima', ['finished_goods' => $finishedGood->toArray()]);
-
-            // Log activity
-            $productName = $finishedGood->product ? $finishedGood->product->name_product : 'Unknown';
-            addActivity('finished_goods', 'edit', 'Pengguna melihat form edit finished goods untuk produk: ' . $productName, $finishedGood->id);
-
-            return response()->json([
-                'success' => true,
-                'data' => $finishedGood
-            ]);
-        } catch (\Exception $e) {
-            Log::error('Error pada edit finished goods', ['error' => $e->getMessage()]);
-
-            return response()->json([
-                'success' => false,
-                'message' => 'Maaf! Kami tidak dapat menemukan informasi finished goods. Silahkan muat ulang dan coba lagi.'
-            ], 500);
-        }
-    }
-
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, FinishedGoods $finishedGood)
-    {
-        try {
-            $validated = $request->validate([
-                'id_product' => 'required|exists:products,id',
-                'stok_awal' => 'required|integer|min:0',
-                'stok_masuk' => 'required|integer|min:0',
-                'stok_keluar' => 'required|integer|min:0',
-                'defective' => 'required|integer|min:0',
-            ], $this->getValidationMessages());
-
-            // Calculate live stock
-            $liveStock = $validated['stok_awal'] + $validated['stok_masuk'] - $validated['stok_keluar'] - $validated['defective'];
-
-            // Add live_stock to validated data
-            $validated['live_stock'] = $liveStock;
-
-            // Store old values for logging
-            $oldValues = $finishedGood->toArray();
-            $oldProductName = $finishedGood->product ? $finishedGood->product->name_product : 'Unknown';
-
-            // Update the record
-            $finishedGood->update($validated);
-
-            // Get current product name
-            $productName = Product::find($validated['id_product'])->name_product;
-
-            // Log activity
-            addActivity('finished_goods', 'update', 'Pengguna mengubah finished goods untuk produk: ' . $productName, $finishedGood->id);
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Berhasil! Informasi finished goods telah diperbarui.',
-                'data' => $finishedGood
             ]);
         } catch (ValidationException $e) {
             return response()->json([
@@ -277,51 +240,111 @@ class FinishedGoodsController extends Controller
     }
 
     /**
-     * Remove the specified resource from storage.
+     * Show the form for editing the specified resource.
      */
-    public function destroy(FinishedGoods $finishedGood)
+    public function edit($productId)
     {
         try {
-            // Get product name for logging
-            $productName = $finishedGood->product ? $finishedGood->product->name_product : 'Unknown';
-            $finishedGoodId = $finishedGood->id;
+            // Find the product first
+            $product = Product::findOrFail($productId);
 
-            $finishedGood->delete();
+            // Find or create default finished goods record
+            $finishedGoods = FinishedGoods::firstOrNew(['id_product' => $productId]);
+
+            // If it's a new record, set default values
+            if (!$finishedGoods->exists) {
+                $finishedGoods->stok_awal = 0;
+                $finishedGoods->stok_masuk = 0;
+                $finishedGoods->stok_keluar = 0;
+                $finishedGoods->defective = 0;
+                $finishedGoods->live_stock = 0;
+            }
+
+            // Add product information to the response
+            $finishedGoods->id_product = $productId;
+
+            Log::info('Permintaan edit finished goods diterima', [
+                'product_id' => $productId,
+                'product_name' => $product->name_product,
+                'finished_goods' => $finishedGoods->toArray()
+            ]);
 
             // Log activity
-            addActivity('finished_goods', 'delete', 'Pengguna menghapus finished goods untuk produk: ' . $productName, $finishedGoodId);
+            addActivity('finished_goods', 'edit', 'Pengguna melihat form edit finished goods untuk produk: ' . $product->name_product, $productId);
 
             return response()->json([
                 'success' => true,
-                'message' => 'Finished goods telah berhasil dihapus dari sistem.'
+                'data' => $finishedGoods
             ]);
         } catch (\Exception $e) {
-            Log::error('Error saat menghapus finished goods', ['error' => $e->getMessage()]);
+            Log::error('Error pada edit finished goods', ['error' => $e->getMessage()]);
+
             return response()->json([
                 'success' => false,
-                'message' => 'Maaf! Kami tidak dapat menghapus finished goods saat ini. Silahkan coba lagi.'
+                'message' => 'Maaf! Kami tidak dapat menemukan informasi produk. Silahkan muat ulang dan coba lagi.'
             ], 500);
         }
     }
 
     /**
-     * Update defective stock.
+     * Update the specified resource in storage.
      */
-    public function updateDefective(Request $request, FinishedGoods $finishedGood)
+    public function update(Request $request, $productId)
     {
-        $request->validate([
-            'defective' => 'required|integer|min:0',
-        ]);
-
         try {
-            $this->stockService->updateDefectiveStock($finishedGood->id_product, $request->defective);
-            return redirect()->route('finished-goods.index')
-                ->with('success', 'Data stok defective berhasil diperbarui.');
+            // Validate that the product exists
+            $product = Product::findOrFail($productId);
+
+            $validated = $request->validate([
+                'stok_awal' => 'required|integer|min:0',
+                'stok_masuk' => 'required|integer|min:0',
+                'stok_keluar' => 'required|integer|min:0',
+                'defective' => 'required|integer|min:0',
+            ], $this->getValidationMessages());
+
+            // Calculate live stock
+            $liveStock = $validated['stok_awal'] + $validated['stok_masuk'] - $validated['stok_keluar'] - $validated['defective'];
+
+            // Get old values for logging (if exists)
+            $oldFinishedGoods = FinishedGoods::where('id_product', $productId)->first();
+
+            // Use updateOrCreate to update existing record or create new one
+            $finishedGoods = FinishedGoods::updateOrCreate(
+                ['id_product' => $productId],
+                [
+                    'stok_awal' => $validated['stok_awal'],
+                    'stok_masuk' => $validated['stok_masuk'],
+                    'stok_keluar' => $validated['stok_keluar'],
+                    'defective' => $validated['defective'],
+                    'live_stock' => $liveStock
+                ]
+            );
+
+            // Log activity
+            $action = $finishedGoods->wasRecentlyCreated ? 'create' : 'update';
+            $message = $finishedGoods->wasRecentlyCreated
+                ? 'Pengguna membuat finished goods baru untuk produk: ' . $product->name_product
+                : 'Pengguna memperbarui finished goods untuk produk: ' . $product->name_product;
+
+            addActivity('finished_goods', $action, $message, $finishedGoods->id);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Berhasil! Data stok finished goods telah diperbarui.',
+                'data' => $finishedGoods
+            ]);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Terjadi Kesalahan',
+                'errors' => $e->errors()
+            ], 422);
         } catch (\Exception $e) {
-            Log::error('Gagal memperbarui stok defective: ' . $e->getMessage());
-            return redirect()->back()
-                ->with('error', 'Terjadi kesalahan: ' . $e->getMessage())
-                ->withInput();
+            Log::error('Error saat memperbarui finished goods', ['error' => $e->getMessage()]);
+            return response()->json([
+                'success' => false,
+                'message' => 'Maaf! Terjadi kesalahan saat memperbarui finished goods. Silahkan coba lagi.'
+            ], 500);
         }
     }
 
@@ -330,47 +353,67 @@ class FinishedGoodsController extends Controller
      */
     public function data(Request $request)
     {
-        $query = FinishedGoods::with('product');
+        // Query semua produk dengan LEFT JOIN ke finished_goods
+        $query = Product::leftJoin('finished_goods', 'products.id', '=', 'finished_goods.id_product')
+            ->select([
+                'products.id as product_id',
+                'products.sku',
+                'products.name_product',
+                'products.packaging',
+                'products.category_product',
+                'products.label',
+                'finished_goods.id as finished_goods_id',
+                'finished_goods.stok_awal',
+                'finished_goods.stok_masuk',
+                'finished_goods.stok_keluar',
+                'finished_goods.defective',
+                'finished_goods.live_stock'
+            ]);
 
-        // Filter berdasarkan tanggal (default: hari ini)
-        $startDate = $request->filled('start_date') ? $request->start_date : now()->startOfDay()->format('Y-m-d');
-        $endDate = $request->filled('end_date') ? $request->end_date : now()->endOfDay()->format('Y-m-d');
-
-        // Konversi end_date untuk mencakup seluruh hari
-        if ($request->filled('end_date')) {
-            $endDate = date('Y-m-d', strtotime($endDate . ' +1 day'));
-        } else {
-            $endDate = now()->addDay()->startOfDay()->format('Y-m-d');
+        // Filter by product if provided
+        if ($request->has('id_product') && !empty($request->id_product)) {
+            $query->where('products.id', $request->id_product);
         }
 
-        $query->where(function ($q) use ($startDate, $endDate) {
-            $q->whereBetween('finished_goods.created_at', [$startDate, $endDate])
-                ->orWhereBetween('finished_goods.updated_at', [$startDate, $endDate]);
-        });
+        // Filter by category if provided
+        if ($request->has('category_product') && !empty($request->category_product)) {
+            $query->where('products.category_product', $request->category_product);
+        }
 
-        // Filter berdasarkan produk
-        if ($request->filled('id_product')) {
-            $query->where('id_product', $request->id_product);
+        // Filter by label if provided
+        if ($request->has('label') && !empty($request->label)) {
+            $query->where('products.label', $request->label);
         }
 
         return DataTables::of($query)
             ->addIndexColumn()
-            ->addColumn('product_sku', function ($finishedGood) {
-                return $finishedGood->product ? $finishedGood->product->sku : '-';
+            ->addColumn('category_name', function ($row) {
+                $categories = Product::getCategoryOptions();
+                return $categories[$row->category_product] ?? 'Unknown Category';
             })
-            ->addColumn('product_name', function ($finishedGood) {
-                return $finishedGood->product ? $finishedGood->product->name_product : '-';
+            ->addColumn('label_name', function ($row) {
+                $labels = Product::getLabelOptions();
+                return $labels[$row->label] ?? '-';
             })
-            ->addColumn('product_packaging', function ($finishedGood) {
-                return $finishedGood->product ? $finishedGood->product->packaging : '-';
+            ->addColumn('stok_awal_display', function ($row) {
+                return $row->stok_awal ?? 0;
             })
-            ->addColumn('action', function ($finishedGood) {
+            ->addColumn('stok_masuk_display', function ($row) {
+                return $row->stok_masuk ?? 0;
+            })
+            ->addColumn('stok_keluar_display', function ($row) {
+                return $row->stok_keluar ?? 0;
+            })
+            ->addColumn('defective_display', function ($row) {
+                return $row->defective ?? 0;
+            })
+            ->addColumn('live_stock_display', function ($row) {
+                return $row->live_stock ?? 0;
+            })
+            ->addColumn('action', function ($row) {
                 return '
-                    <button type="button" class="btn btn-sm btn-warning edit-btn" data-id="' . $finishedGood->id . '">
-                        <i class="fas fa-edit"></i>
-                    </button>
-                    <button type="button" class="btn btn-sm btn-danger delete-btn" data-id="' . $finishedGood->id . '">
-                        <i class="fas fa-trash"></i>
+                    <button type="button" class="btn btn-sm btn-warning edit-btn" data-id="' . $row->product_id . '">
+                        <i class="fas fa-edit"></i> Edit Stok
                     </button>
                 ';
             })
