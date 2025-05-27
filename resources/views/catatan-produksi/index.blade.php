@@ -220,6 +220,17 @@
                                     placeholder="Filter berdasarkan packaging">
                             </div>
                             <div class="col-md-3 col-sm-6 col-12 mb-2">
+                                <label for="filter-label" class="form-label small filter-label">Label Produk</label>
+                                <select id="filter-label" class="form-select form-select-sm">
+                                    <option value="">Semua Label</option>
+                                    <option value="1">EXTRA SMALL PACK (15-100 GRAM)</option>
+                                    <option value="2">SMALL PACK (50-250 GRAM)</option>
+                                    <option value="5">TIN CANISTER SERIES</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="row mt-2">
+                            <div class="col-md-3 col-sm-6 col-12 mb-2">
                                 <label for="filter-bahan-baku" class="form-label small filter-label">Bahan Baku</label>
                                 <select id="filter-bahan-baku" class="form-select form-select-sm">
                                     <option value="">Semua Bahan Baku</option>
@@ -315,10 +326,12 @@
                                             data-packaging="{{ $product->packaging }}">
                                             {{ $product->sku }} - {{ $product->name_product }}
                                             ({{ $product->packaging }})
+                                            - {{ $product->label_name }}
                                         </option>
                                     @endforeach
                                 </select>
-                                <small class="text-muted">Pilih produk yang akan dicatat produksinya</small>
+                                <small class="text-muted">Pilih produk yang akan dicatat produksinya (hanya menampilkan
+                                    produk dengan label: EXTRA SMALL PACK, SMALL PACK, dan TIN CANISTER SERIES)</small>
                             </div>
                         </div>
 
@@ -426,10 +439,12 @@
                                             data-packaging="{{ $product->packaging }}">
                                             {{ $product->sku }} - {{ $product->name_product }}
                                             ({{ $product->packaging }})
+                                            - {{ $product->label_name }}
                                         </option>
                                     @endforeach
                                 </select>
-                                <small class="text-muted">Pilih produk yang akan dicatat produksinya</small>
+                                <small class="text-muted">Pilih produk yang akan dicatat produksinya (hanya menampilkan
+                                    produk dengan label: EXTRA SMALL PACK, SMALL PACK, dan TIN CANISTER SERIES)</small>
                             </div>
                         </div>
 
@@ -511,38 +526,100 @@
 
             debugLog('Initializing JavaScript...');
 
-            // Inisialisasi Choices.js untuk dropdown produk dan bahan baku
-            // Dropdown Produk di form tambah
-            const addProductSelect = document.querySelector('#addProduksiForm .product-select');
-            const addProductChoices = new Choices(addProductSelect, {
-                searchEnabled: true,
-                searchPlaceholderValue: "Cari produk...",
-                itemSelectText: '',
-                placeholder: true,
-                placeholderValue: "Pilih Produk",
-                removeItemButton: true,
-                classNames: {
-                    containerOuter: 'choices form-select product-select-container',
-                }
-            });
+            // Variables to hold Choices instances
+            let addProductChoices = null;
+            let editProductChoices = null;
 
-            // Dropdown Produk di form edit
-            const editProductSelect = document.querySelector('#editProduksiForm .product-select');
-            const editProductChoices = new Choices(editProductSelect, {
-                searchEnabled: true,
-                searchPlaceholderValue: "Cari produk...",
-                itemSelectText: '',
-                placeholder: true,
-                placeholderValue: "Pilih Produk",
-                removeItemButton: true,
-                classNames: {
-                    containerOuter: 'choices form-select product-select-container',
+            // Function to initialize product choices for add form
+            function initAddProductChoices() {
+                const addProductSelect = document.querySelector('#addProduksiForm .product-select');
+                if (addProductSelect) {
+                    // Destroy existing instance if it exists
+                    if (addProductChoices) {
+                        try {
+                            addProductChoices.destroy();
+                        } catch (e) {
+                            debugLog('Error destroying add product choices:', e);
+                        }
+                    }
+
+                    addProductChoices = new Choices(addProductSelect, {
+                        searchEnabled: true,
+                        searchPlaceholderValue: "Cari produk...",
+                        itemSelectText: '',
+                        placeholder: true,
+                        placeholderValue: "Pilih Produk",
+                        removeItemButton: true,
+                        classNames: {
+                            containerOuter: 'choices form-select product-select-container',
+                        }
+                    });
+                }
+            }
+
+            // Function to initialize product choices for edit form
+            function initEditProductChoices() {
+                const editProductSelect = document.querySelector('#editProduksiForm .product-select');
+                if (editProductSelect) {
+                    // Destroy existing instance if it exists
+                    if (editProductChoices) {
+                        try {
+                            editProductChoices.destroy();
+                        } catch (e) {
+                            debugLog('Error destroying edit product choices:', e);
+                        }
+                    }
+
+                    editProductChoices = new Choices(editProductSelect, {
+                        searchEnabled: true,
+                        searchPlaceholderValue: "Cari produk...",
+                        itemSelectText: '',
+                        placeholder: true,
+                        placeholderValue: "Pilih Produk",
+                        removeItemButton: true,
+                        classNames: {
+                            containerOuter: 'choices form-select product-select-container',
+                        }
+                    });
+                }
+            }
+
+            // Initialize product choices on page load
+            initAddProductChoices();
+            initEditProductChoices();
+
+            // Inisialisasi Choices untuk semua dropdown bahan baku yang sudah ada
+            document.querySelectorAll('.bahan-baku-select').forEach(element => {
+                // Ensure element is not already initialized
+                if (!element.choices) {
+                    initBahanBakuChoices(element);
                 }
             });
 
             // Fungsi untuk inisialisasi Choices pada bahan baku
             function initBahanBakuChoices(element) {
-                return new Choices(element, {
+                // Destroy existing instance if it exists
+                if (element.choices) {
+                    try {
+                        element.choices.destroy();
+                        element.choices = null;
+                    } catch (e) {
+                        debugLog('Error destroying existing bahan baku choices:', e);
+                    }
+                }
+
+                // Remove any existing choices wrapper
+                const wrapper = element.parentNode.querySelector('.choices');
+                if (wrapper && wrapper !== element) {
+                    wrapper.remove();
+                }
+
+                // Ensure element is visible and not wrapped
+                if (element.style.display === 'none') {
+                    element.style.display = 'block';
+                }
+
+                const choicesInstance = new Choices(element, {
                     searchEnabled: true,
                     searchPlaceholderValue: "Cari bahan baku...",
                     itemSelectText: '',
@@ -553,12 +630,12 @@
                         containerOuter: 'choices form-select bahan-baku-select-container',
                     }
                 });
-            }
 
-            // Inisialisasi Choices untuk semua dropdown bahan baku yang sudah ada
-            document.querySelectorAll('.bahan-baku-select').forEach(element => {
-                initBahanBakuChoices(element);
-            });
+                // Store the instance on the element for later reference
+                element.choices = choicesInstance;
+
+                return choicesInstance;
+            }
 
             // Debounce function to limit how often a function can trigger
             function debounce(func, wait) {
@@ -768,7 +845,9 @@
                 // Initialize Choices.js for the newly added dropdown
                 const newSelect = newContainer.find('.bahan-baku-select')[0];
                 if (newSelect) {
-                    initBahanBakuChoices(newSelect);
+                    setTimeout(() => {
+                        initBahanBakuChoices(newSelect);
+                    }, 50);
                 }
             });
 
@@ -891,13 +970,41 @@
                             form.find('.array-container:not(:first)').remove();
 
                             // Reset Choices.js selectors
-                            addProductChoices.setChoiceByValue('');
+                            if (addProductChoices) {
+                                try {
+                                    addProductChoices.setChoiceByValue('');
+                                } catch (e) {
+                                    debugLog(
+                                        'Error resetting add product choices after submit:',
+                                        e);
+                                    // Reinitialize if reset fails
+                                    initAddProductChoices();
+                                }
+                            }
+
+                            // Reset bahan baku choices properly
                             document.querySelectorAll('#addProduksiForm .bahan-baku-select')
                                 .forEach(select => {
-                                    const choicesInstance = select.closest('.choices') ?
-                                        select.choices : new Choices(select);
-                                    choicesInstance.setChoiceByValue('');
+                                    if (select.choices) {
+                                        try {
+                                            select.choices.destroy();
+                                            select.choices = null;
+                                        } catch (e) {
+                                            debugLog(
+                                                'Error destroying bahan baku choices after submit:',
+                                                e);
+                                        }
+                                    }
                                 });
+
+                            // Reinitialize the first bahan baku select
+                            setTimeout(() => {
+                                const firstBahanBakuSelect = document.querySelector(
+                                    '#addProduksiForm .bahan-baku-select');
+                                if (firstBahanBakuSelect) {
+                                    initBahanBakuChoices(firstBahanBakuSelect);
+                                }
+                            }, 50);
 
                             // Clear form elements
                             form.find('.gramasi-input').val('');
@@ -1119,13 +1226,41 @@
                             form[0].reset();
 
                             // Reset Choices.js selectors
-                            editProductChoices.setChoiceByValue('');
+                            if (editProductChoices) {
+                                try {
+                                    editProductChoices.setChoiceByValue('');
+                                } catch (e) {
+                                    debugLog(
+                                        'Error resetting edit product choices after submit:',
+                                        e);
+                                    // Reinitialize if reset fails
+                                    initEditProductChoices();
+                                }
+                            }
+
+                            // Reset bahan baku choices properly
                             document.querySelectorAll('#editProduksiForm .bahan-baku-select')
                                 .forEach(select => {
-                                    const choicesInstance = select.closest('.choices') ?
-                                        select.choices : new Choices(select);
-                                    choicesInstance.setChoiceByValue('');
+                                    if (select.choices) {
+                                        try {
+                                            select.choices.destroy();
+                                            select.choices = null;
+                                        } catch (e) {
+                                            debugLog(
+                                                'Error destroying bahan baku choices after submit:',
+                                                e);
+                                        }
+                                    }
                                 });
+
+                            // Reinitialize the first bahan baku select
+                            setTimeout(() => {
+                                const firstBahanBakuSelect = document.querySelector(
+                                    '#editProduksiForm .bahan-baku-select');
+                                if (firstBahanBakuSelect) {
+                                    initBahanBakuChoices(firstBahanBakuSelect);
+                                }
+                            }, 50);
 
                             form.find('.is-valid, .is-invalid').removeClass(
                                 'is-valid is-invalid');
@@ -1268,7 +1403,22 @@
                             $('#edit_produksi_id').val(data.id);
 
                             // Set product selection using Choices.js
-                            editProductChoices.setChoiceByValue(data.product_id.toString());
+                            if (editProductChoices) {
+                                try {
+                                    editProductChoices.setChoiceByValue(data.product_id
+                                        .toString());
+                                } catch (e) {
+                                    debugLog('Error setting product choice, reinitializing:',
+                                        e);
+                                    initEditProductChoices();
+                                    setTimeout(() => {
+                                        if (editProductChoices) {
+                                            editProductChoices.setChoiceByValue(data
+                                                .product_id.toString());
+                                        }
+                                    }, 100);
+                                }
+                            }
 
                             // Set basic fields
                             $('#edit_packaging').val(data.packaging);
@@ -1410,29 +1560,7 @@
             // Clean up modal when it's hidden
             $('.modal').on('hidden.bs.modal', function() {
                 debugLog('Modal hidden - cleaning up');
-                $(this).find('form')[0].reset();
-                $(this).find('.array-container:not(:first)').remove();
-
-                // Reset Choices selectors
-                if (this.id === 'addProduksiModal') {
-                    addProductChoices.setChoiceByValue('');
-                    document.querySelectorAll('#addProduksiForm .bahan-baku-select').forEach(select => {
-                        if (select.choices) {
-                            select.choices.setChoiceByValue('');
-                        }
-                    });
-                } else if (this.id === 'editProduksiModal') {
-                    editProductChoices.setChoiceByValue('');
-                    document.querySelectorAll('#editProduksiForm .bahan-baku-select').forEach(select => {
-                        if (select.choices) {
-                            select.choices.setChoiceByValue('');
-                        }
-                    });
-                }
-
-                // Reset validation states
-                $(this).find('.is-valid, .is-invalid').removeClass('is-valid is-invalid');
-                $(this).find('.valid-feedback, .invalid-feedback, .total-calculation-display').remove();
+                cleanupModalForm(this.id);
 
                 // Pastikan backdrop dihapus dengan benar
                 $('body').removeClass('modal-open');
@@ -1441,15 +1569,55 @@
 
             // Initialize Choices.js when modal is shown
             $('#addProduksiModal').on('shown.bs.modal', function() {
-                debugLog('Add modal shown - initializing Choices.js');
-                // Reinitialize if needed
-                addProductChoices.setChoiceByValue('');
+                debugLog('Add modal shown - reinitializing Choices.js');
+                // Reinitialize product choices to ensure they work properly
+                setTimeout(() => {
+                    initAddProductChoices();
+
+                    // Reinitialize bahan baku choices for existing containers
+                    document.querySelectorAll('#addProduksiForm .bahan-baku-select').forEach(
+                        element => {
+                            // Destroy existing instance first
+                            if (element.choices) {
+                                try {
+                                    element.choices.destroy();
+                                    element.choices = null;
+                                } catch (e) {
+                                    debugLog('Error destroying existing bahan baku choices:',
+                                        e);
+                                }
+                            }
+
+                            // Initialize new instance
+                            initBahanBakuChoices(element);
+                        });
+                }, 100);
             });
 
             $('#editProduksiModal').on('shown.bs.modal', function() {
-                debugLog('Edit modal shown - initializing Choices.js');
-                // Reinitialize if needed
-                editProductChoices.setChoiceByValue('');
+                debugLog('Edit modal shown - reinitializing Choices.js');
+                // Reinitialize product choices to ensure they work properly
+                setTimeout(() => {
+                    initEditProductChoices();
+
+                    // Reinitialize bahan baku choices for existing containers
+                    document.querySelectorAll('#editProduksiForm .bahan-baku-select').forEach(
+                        element => {
+                            // Destroy existing instance first
+                            if (element.choices) {
+                                try {
+                                    element.choices.destroy();
+                                    element.choices = null;
+                                } catch (e) {
+                                    debugLog('Error destroying existing bahan baku choices:',
+                                        e);
+                                }
+                            }
+
+                            // Initialize new instance
+                            initBahanBakuChoices(element);
+                        });
+                }, 100);
             });
 
             // Edit Button Click
@@ -1460,7 +1628,9 @@
                 // Initialize Choices.js for the newly added dropdown
                 const newSelect = newContainer.find('.bahan-baku-select')[0];
                 if (newSelect) {
-                    initBahanBakuChoices(newSelect);
+                    setTimeout(() => {
+                        initBahanBakuChoices(newSelect);
+                    }, 50);
                 }
             });
 
@@ -1475,6 +1645,7 @@
                         d.sku = $('#filter-sku').val();
                         d.name_product = $('#filter-nama').val();
                         d.packaging = $('#filter-packaging').val();
+                        d.label = $('#filter-label').val();
                         d.bahan_baku = $('#filter-bahan-baku').val();
                         d.start_date = $('#start-date').val();
                         d.end_date = $('#end-date').val();
@@ -1625,10 +1796,11 @@
             }
 
             // Apply filters when text inputs change with debounce (300ms delay)
-            $('#filter-sku, #filter-nama, #filter-packaging, #filter-bahan-baku').on('keyup change', debounce(
-                function() {
-                    table.ajax.reload();
-                }, 300));
+            $('#filter-sku, #filter-nama, #filter-packaging, #filter-label, #filter-bahan-baku').on('keyup change',
+                debounce(
+                    function() {
+                        table.ajax.reload();
+                    }, 300));
 
             // Apply date filter when button is clicked
             $('#apply-date-filter').on('click', function() {
@@ -1670,6 +1842,7 @@
                 $('#filter-sku').val('');
                 $('#filter-nama').val('');
                 $('#filter-packaging').val('');
+                $('#filter-label').val('').trigger('change');
                 $('#filter-bahan-baku').val('').trigger('change');
 
                 // Reset date filters to today
@@ -1741,9 +1914,88 @@
                 });
             });
 
+            // Function to properly clean up modal forms
+            function cleanupModalForm(modalId) {
+                debugLog('Cleaning up modal form:', modalId);
+
+                const modal = document.getElementById(modalId);
+                const form = modal.querySelector('form');
+
+                // Reset form
+                if (form) {
+                    form.reset();
+                }
+
+                // Clean up all Choices.js instances in this modal BEFORE removing containers
+                $(modal).find('.bahan-baku-select').each(function() {
+                    if (this.choices) {
+                        try {
+                            this.choices.destroy();
+                            this.choices = null;
+                        } catch (e) {
+                            debugLog('Error destroying bahan baku choice during cleanup:', e);
+                        }
+                    }
+
+                    // Remove any orphaned choices wrapper
+                    const wrapper = this.parentNode.querySelector('.choices');
+                    if (wrapper && wrapper !== this) {
+                        wrapper.remove();
+                    }
+
+                    // Ensure original select is visible
+                    this.style.display = 'block';
+                });
+
+                // Remove extra containers
+                $(modal).find('.array-container:not(:first)').remove();
+
+                // Clean up validation states
+                $(modal).find('.is-valid, .is-invalid').removeClass('is-valid is-invalid');
+                $(modal).find('.valid-feedback, .invalid-feedback, .total-calculation-display').remove();
+
+                // Reset satuan displays
+                $(modal).find('.satuan-display').text('Satuan');
+
+                // Clean up product Choices.js instances
+                if (modalId === 'addProduksiModal') {
+                    if (addProductChoices) {
+                        try {
+                            addProductChoices.setChoiceByValue('');
+                        } catch (e) {
+                            debugLog('Error resetting add product choices during cleanup:', e);
+                            // Reinitialize if reset fails
+                            initAddProductChoices();
+                        }
+                    }
+                } else if (modalId === 'editProduksiModal') {
+                    if (editProductChoices) {
+                        try {
+                            editProductChoices.setChoiceByValue('');
+                        } catch (e) {
+                            debugLog('Error resetting edit product choices during cleanup:', e);
+                            // Reinitialize if reset fails
+                            initEditProductChoices();
+                        }
+                    }
+                }
+
+                // Reinitialize remaining bahan baku choices after cleanup
+                setTimeout(() => {
+                    $(modal).find('.bahan-baku-select').each(function() {
+                        if (!this.choices) {
+                            initBahanBakuChoices(this);
+                        }
+                    });
+                }, 100);
+            }
+
             // Fungsi untuk properly menutup modal
             function closeModal(modalId) {
                 debugLog('Menutup modal:', modalId);
+
+                // Clean up form first
+                cleanupModalForm(modalId);
 
                 // Tutup modal dengan Bootstrap API
                 const modalElement = document.getElementById(modalId);
@@ -1764,7 +2016,7 @@
             // Tambahkan event listener untuk tombol "Tutup" di modal
             $('.modal .btn-secondary[data-bs-dismiss="modal"]').on('click', function() {
                 const modalId = $(this).closest('.modal').attr('id');
-                closeModal(modalId);
+                cleanupModalForm(modalId);
             });
 
             // Responsive adjustments for mobile

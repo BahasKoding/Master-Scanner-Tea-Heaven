@@ -173,6 +173,15 @@
                                         @endforeach
                                     </select>
                                 </div>
+                                <div class="col-md-4 col-sm-12 mb-2">
+                                    <label for="filter-label" class="form-label filter-label">Filter Label</label>
+                                    <select id="filter-label" class="form-select form-select-sm">
+                                        <option value="">Semua Label</option>
+                                        @foreach ($labels as $key => $label)
+                                            <option value="{{ $key }}">{{ $label }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -185,6 +194,7 @@
                                     <th>Nama Produk</th>
                                     <th>Packaging</th>
                                     <th>Kategori</th>
+                                    <th>Label</th>
                                     <th>Dibuat</th>
                                     <th>Aksi</th>
                                 </tr>
@@ -237,6 +247,16 @@
                             <input type="text" class="form-control" name="packaging" required>
                             <div class="invalid-feedback" id="error-packaging"></div>
                         </div>
+                        <div class="mb-3">
+                            <label class="form-label">Label</label>
+                            <select class="form-select" name="label">
+                                <option value="">Pilih Label (Opsional)</option>
+                                @foreach ($labels as $key => $label)
+                                    <option value="{{ $key }}">{{ $label }}</option>
+                                @endforeach
+                            </select>
+                            <div class="invalid-feedback" id="error-label"></div>
+                        </div>
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Tutup</button>
@@ -286,6 +306,16 @@
                             <label class="form-label">Packaging <span class="text-danger">*</span></label>
                             <input type="text" class="form-control" name="packaging" id="edit_packaging" required>
                             <div class="invalid-feedback" id="error-edit-packaging"></div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Label</label>
+                            <select class="form-select" name="label" id="edit_label">
+                                <option value="">Pilih Label (Opsional)</option>
+                                @foreach ($labels as $key => $label)
+                                    <option value="{{ $key }}">{{ $label }}</option>
+                                @endforeach
+                            </select>
+                            <div class="invalid-feedback" id="error-edit-label"></div>
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -362,6 +392,7 @@
                     type: "GET",
                     data: function(d) {
                         d.category_product = $('#filter-category').val();
+                        d.label = $('#filter-label').val();
                     }
                 },
                 columns: [{
@@ -385,6 +416,10 @@
                     {
                         data: 'category',
                         name: 'category'
+                    },
+                    {
+                        data: 'label_name',
+                        name: 'label_name'
                     },
                     {
                         data: 'created_at',
@@ -457,9 +492,15 @@
                 table.draw();
             });
 
+            // Apply label filter
+            $('#filter-label').on('change', function() {
+                table.draw();
+            });
+
             // Clear filters function
             $('#clear-filters').on('click', function() {
                 $('#filter-category').val('');
+                $('#filter-label').val('');
                 table.search('').columns().search('').draw();
             });
 
@@ -666,6 +707,7 @@
                             $('#edit_sku').val(data.sku);
                             $('#edit_name_product').val(data.name_product);
                             $('#edit_packaging').val(data.packaging);
+                            $('#edit_label').val(data.label || '');
 
                             // Clean up any existing modal backdrop
                             $('.modal-backdrop').remove();

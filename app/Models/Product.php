@@ -9,7 +9,7 @@ class Product extends Model
 {
     use HasFactory;
     protected $table = 'products';
-    protected $fillable = ['category_product', 'sku', 'packaging', 'name_product'];
+    protected $fillable = ['category_product', 'sku', 'packaging', 'name_product', 'label'];
 
     /**
      * Mapping of category integers to category names
@@ -32,12 +32,40 @@ class Product extends Model
     }
 
     /**
+     * Get label name based on label integer
+     */
+    public static function getLabelOptions()
+    {
+        return [
+            0 => '-',
+            1 => 'EXTRA SMALL PACK (15-100 GRAM)',
+            2 => 'SMALL PACK (50-250 GRAM)',
+            3 => 'MEDIUM PACK (500 GRAM)',
+            4 => 'BIG PACK (1 Kg)',
+            5 => 'TIN CANISTER SERIES',
+            6 => 'REFILL PACK, SAMPLE & GIFT',
+            7 => 'CRAFTED TEAS',
+            8 => 'JAPANESE TEABAGS',
+            9 => 'TEA WARE',
+            10 => 'NON LABEL 500 GR-1000 GR',
+        ];
+    }
+    /**
      * Get category name based on category integer
      */
     public function getCategoryNameAttribute()
     {
         $categories = self::getCategoryOptions();
         return $categories[$this->category_product] ?? 'Unknown Category';
+    }
+
+    /**
+     * Get label name based on label integer
+     */
+    public function getLabelNameAttribute()
+    {
+        $labels = self::getLabelOptions();
+        return $labels[$this->label] ?? '-';
     }
 
     /**

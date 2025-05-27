@@ -22,19 +22,19 @@ class JapaneseTeabagsSeeder extends Seeder
 
         $japaneseTeabagsProducts = [
             // 10 Teabags (FG3)
-            ['sku' => 'GC10TF', 'packaging' => 'FG3', 'name_product' => 'GENMAICHA 10 TEABAGS'],
-            ['sku' => 'HO10TF', 'packaging' => 'FG3', 'name_product' => 'HOJICHA 10 TEABAGS'],
-            ['sku' => 'SC10TF', 'packaging' => 'FG3', 'name_product' => 'KABUSECHA 10 TEABAGS'],
+            ['sku' => 'GC10TF', 'packaging' => 'FG3', 'name_product' => 'GENMAICHA 10 TEABAGS', 'label' => 8],
+            ['sku' => 'HO10TF', 'packaging' => 'FG3', 'name_product' => 'HOJICHA 10 TEABAGS', 'label' => 8],
+            ['sku' => 'SC10TF', 'packaging' => 'FG3', 'name_product' => 'KABUSECHA 10 TEABAGS', 'label' => 8],
 
             // 15 Teabags (FG1)
-            ['sku' => 'GC15TC', 'packaging' => 'FG1', 'name_product' => 'GENMAICHA 15 TEABAGS'],
-            ['sku' => 'HO15TC', 'packaging' => 'FG1', 'name_product' => 'HOJICHA 15 TEABAGS'],
-            ['sku' => 'SC15TC', 'packaging' => 'FG1', 'name_product' => 'KABUSECHA 15 TEABAGS'],
+            ['sku' => 'GC15TC', 'packaging' => 'FG1', 'name_product' => 'GENMAICHA 15 TEABAGS', 'label' => 8],
+            ['sku' => 'HO15TC', 'packaging' => 'FG1', 'name_product' => 'HOJICHA 15 TEABAGS', 'label' => 8],
+            ['sku' => 'SC15TC', 'packaging' => 'FG1', 'name_product' => 'KABUSECHA 15 TEABAGS', 'label' => 8],
 
             // 100 Teabags (no packaging)
-            ['sku' => 'GC100TB', 'packaging' => '-', 'name_product' => 'GENMAICHA 100 TEABAGS'],
-            ['sku' => 'HO100TB', 'packaging' => '-', 'name_product' => 'HOJICHA100 TEABAGS'],
-            ['sku' => 'SC100TB', 'packaging' => '-', 'name_product' => 'KABUSECHA 100 TEABAGS'],
+            ['sku' => 'GC100TB', 'packaging' => '-', 'name_product' => 'GENMAICHA 100 TEABAGS', 'label' => 8],
+            ['sku' => 'HO100TB', 'packaging' => '-', 'name_product' => 'HOJICHA100 TEABAGS', 'label' => 8],
+            ['sku' => 'SC100TB', 'packaging' => '-', 'name_product' => 'KABUSECHA 100 TEABAGS', 'label' => 8],
         ];
 
         // Create products in batch
@@ -46,6 +46,7 @@ class JapaneseTeabagsSeeder extends Seeder
                 'sku' => $product['sku'],
                 'packaging' => $product['packaging'],
                 'name_product' => $product['name_product'],
+                'label' => $product['label'],
                 'created_at' => now(),
                 'updated_at' => now(),
             ];

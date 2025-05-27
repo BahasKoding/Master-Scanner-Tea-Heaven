@@ -92,6 +92,12 @@ class CatatanProduksiController extends Controller
                 $query->where('packaging', 'like', '%' . $request->packaging . '%');
             }
 
+            if ($request->filled('label')) {
+                $query->whereHas('product', function ($q) use ($request) {
+                    $q->where('label', $request->label);
+                });
+            }
+
             if ($request->filled('bahan_baku')) {
                 $query->where(function ($q) use ($request) {
                     $q->whereJsonContains('sku_induk', $request->bahan_baku);
@@ -189,8 +195,8 @@ class CatatanProduksiController extends Controller
                 ->make(true);
         }
 
-        // Get products for dropdown
-        $products = Product::orderBy('name_product')->get();
+        // Get products filtered by specific labels for dropdown
+        $products = $this->getFilteredProducts();
 
         // Get bahan baku for dropdown
         $bahanBaku = BahanBaku::orderBy('sku_induk')->get();
@@ -204,6 +210,23 @@ class CatatanProduksiController extends Controller
         addActivity('catatan_produksi', 'view', 'Pengguna melihat daftar catatan produksi', null);
 
         return view('catatan-produksi.index', compact('items', 'products', 'bahanBaku'));
+    }
+
+    /**
+     * Get products filtered by specific labels
+     */
+    private function getFilteredProducts()
+    {
+        // Define the specific labels we want to include
+        $allowedLabels = [
+            1, // EXTRA SMALL PACK (15-100 GRAM)
+            2, // SMALL PACK (50-250 GRAM)
+            5, // TIN CANISTER SERIES
+        ];
+
+        return Product::whereIn('label', $allowedLabels)
+            ->orderBy('name_product')
+            ->get();
     }
 
     /**
@@ -457,6 +480,27 @@ class CatatanProduksiController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Gagal mengambil data bahan baku',
+                'error' => config('app.debug') ? $e->getMessage() : null
+            ], 500);
+        }
+    }
+
+    /**
+     * Get filtered products list as JSON for AJAX requests
+     */
+    public function getFilteredProductsList()
+    {
+        try {
+            $products = $this->getFilteredProducts();
+
+            return response()->json([
+                'success' => true,
+                'data' => $products
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal mengambil data produk',
                 'error' => config('app.debug') ? $e->getMessage() : null
             ], 500);
         }

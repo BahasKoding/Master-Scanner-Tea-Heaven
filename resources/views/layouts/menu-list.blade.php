@@ -33,6 +33,59 @@
     </ul>
 </li>
 
+
+<!-- Inventory Management -->
+<li class="pc-item pc-caption">
+    <label>Inventory Management</label>
+</li>
+<li class="pc-item pc-hasmenu">
+    <a href="#!" class="pc-link">
+        <span class="pc-micon"><i class="ph-duotone ph-warehouse"></i></span>
+        <span class="pc-mtext">Raw Materials</span>
+        <span class="pc-arrow"><i data-feather="chevron-right"></i></span>
+    </a>
+    <ul class="pc-submenu">
+        <li class="pc-item"><a class="pc-link" href="#!">
+                <span class="pc-mtext">Stock Bahan Baku</span>
+            </a></li>
+        <li class="pc-item"><a class="pc-link" href="#!">
+                <span class="pc-mtext">Inventory Bahan Baku</span>
+            </a></li>
+    </ul>
+</li>
+
+<li class="pc-item pc-hasmenu">
+    <a href="#!" class="pc-link">
+        <span class="pc-micon"><i class="ph-duotone ph-package"></i></span>
+        <span class="pc-mtext">Finished Goods Inventory</span>
+        <span class="pc-arrow"><i data-feather="chevron-right"></i></span>
+    </a>
+    <ul class="pc-submenu">
+        <li class="pc-item"><a class="pc-link" href="#!">
+                <span class="pc-mtext">Finished Goods Stock</span>
+            </a></li>
+        <li class="pc-item"><a class="pc-link" href="#!">
+                <span class="pc-mtext">Etalase Inventory</span>
+            </a></li>
+    </ul>
+</li>
+
+<li class="pc-item pc-hasmenu">
+    <a href="#!" class="pc-link">
+        <span class="pc-micon"><i class="ph-duotone ph-sticker"></i></span>
+        <span class="pc-mtext">Sticker Management</span>
+        <span class="pc-arrow"><i data-feather="chevron-right"></i></span>
+    </a>
+    <ul class="pc-submenu">
+        <li class="pc-item"><a class="pc-link" href="#!">
+                <span class="pc-mtext">Sticker Stock</span>
+            </a></li>
+        <li class="pc-item"><a class="pc-link" href="#!">
+                <span class="pc-mtext">Purchase Sticker</span>
+            </a></li>
+    </ul>
+</li>
+
 <!-- Transactions -->
 <li class="pc-item pc-caption">
     <label>Transactions</label>

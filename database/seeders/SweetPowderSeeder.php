@@ -22,10 +22,10 @@ class SweetPowderSeeder extends Seeder
 
         $sweetPowderProducts = [
             // Small packaging P1
-            ['sku' => 'AS100P', 'packaging' => 'P1', 'name_product' => 'ARENGA SUGAR'],
-            ['sku' => 'HPS100P', 'packaging' => 'P1', 'name_product' => 'SWEET HOJICHA'],
-            ['sku' => 'MGI100P', 'packaging' => 'P1', 'name_product' => 'SWEET MATCHA GINGER'],
-            ['sku' => 'MS100P', 'packaging' => 'P1', 'name_product' => 'SWEET UJI MATCHA'],
+            ['sku' => 'AS100P', 'packaging' => 'P1', 'name_product' => 'ARENGA SUGAR', 'label' => 1],
+            ['sku' => 'HPS100P', 'packaging' => 'P1', 'name_product' => 'SWEET HOJICHA', 'label' => 1],
+            ['sku' => 'MGI100P', 'packaging' => 'P1', 'name_product' => 'SWEET MATCHA GINGER', 'label' => 1],
+            ['sku' => 'MS100P', 'packaging' => 'P1', 'name_product' => 'SWEET UJI MATCHA', 'label' => 1],
         ];
 
         // Create products in batch
@@ -37,6 +37,7 @@ class SweetPowderSeeder extends Seeder
                 'sku' => $product['sku'],
                 'packaging' => $product['packaging'],
                 'name_product' => $product['name_product'],
+                'label' => $product['label'] ?? null,
                 'created_at' => now(),
                 'updated_at' => now(),
             ];

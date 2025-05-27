@@ -21,10 +21,10 @@ class CraftedTeasSeeder extends Seeder
         Product::where('category_product', $craftedTeasCategory)->delete();
 
         $craftedTeasProducts = [
-            ['sku' => 'BF01Z', 'packaging' => '-', 'name_product' => 'BLOOMING TEA'],
-            ['sku' => 'PB01Z', 'packaging' => '-', 'name_product' => 'PU-ERH TEA BALL'],
-            ['sku' => 'CHMC', 'packaging' => '-', 'name_product' => 'CHRYSANTHEMUM MINI CAKE'],
-            ['sku' => 'ORMC', 'packaging' => '-', 'name_product' => 'ORANGE PEEL MINI CAKE'],
+            ['sku' => 'BF01Z', 'packaging' => '-', 'name_product' => 'BLOOMING TEA', 'label' => 7],
+            ['sku' => 'PB01Z', 'packaging' => '-', 'name_product' => 'PU-ERH TEA BALL', 'label' => 7],
+            ['sku' => 'CHMC', 'packaging' => '-', 'name_product' => 'CHRYSANTHEMUM MINI CAKE', 'label' => 7],
+            ['sku' => 'ORMC', 'packaging' => '-', 'name_product' => 'ORANGE PEEL MINI CAKE', 'label' => 7],
         ];
 
         // Create products in batch
@@ -36,6 +36,7 @@ class CraftedTeasSeeder extends Seeder
                 'sku' => $product['sku'],
                 'packaging' => $product['packaging'],
                 'name_product' => $product['name_product'],
+                'label' => $product['label'],
                 'created_at' => now(),
                 'updated_at' => now(),
             ];

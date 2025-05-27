@@ -22,46 +22,46 @@ class JapaneseTeaProductSeeder extends Seeder
 
         $japaneseTeaProducts = [
             // P1 packaging products
-            ['sku' => 'GC40P', 'packaging' => 'P1', 'name_product' => 'GENMAICHA'],
-            ['sku' => 'GYA30P', 'packaging' => 'P1', 'name_product' => 'HANPICKED GYOKURO'],
-            ['sku' => 'HO40P', 'packaging' => 'P1', 'name_product' => 'HOJICHA'],
-            ['sku' => 'OC50P', 'packaging' => 'P1', 'name_product' => 'JAPANESE OCHA'],
-            ['sku' => 'SC30P', 'packaging' => 'P1', 'name_product' => 'SENCHA'],
+            ['sku' => 'GC40P', 'packaging' => 'P1', 'name_product' => 'GENMAICHA', 'label' => 1],
+            ['sku' => 'GYA30P', 'packaging' => 'P1', 'name_product' => 'HANPICKED GYOKURO', 'label' => 1],
+            ['sku' => 'HO40P', 'packaging' => 'P1', 'name_product' => 'HOJICHA', 'label' => 1],
+            ['sku' => 'OC50P', 'packaging' => 'P1', 'name_product' => 'JAPANESE OCHA', 'label' => 1],
+            ['sku' => 'SC30P', 'packaging' => 'P1', 'name_product' => 'SENCHA', 'label' => 1],
 
             // P2 packaging products
-            ['sku' => 'GC125P', 'packaging' => 'P2', 'name_product' => 'GENMAICHA'],
-            ['sku' => 'GYB125P', 'packaging' => 'P2', 'name_product' => 'GYOKURO (A)'],
-            ['sku' => 'OC125P', 'packaging' => 'P2', 'name_product' => 'JAPANESE OCHA'],
+            ['sku' => 'GC125P', 'packaging' => 'P2', 'name_product' => 'GENMAICHA', 'label' => 2],
+            ['sku' => 'GYB125P', 'packaging' => 'P2', 'name_product' => 'GYOKURO (A)', 'label' => 2],
+            ['sku' => 'OC125P', 'packaging' => 'P2', 'name_product' => 'JAPANESE OCHA', 'label' => 2],
 
             // P3 packaging products
-            ['sku' => 'HO250P', 'packaging' => 'P3', 'name_product' => 'HOJICHA'],
-            ['sku' => 'SC125P', 'packaging' => 'P3', 'name_product' => 'SENCHA'],
-            ['sku' => 'GYB500P', 'packaging' => 'P3', 'name_product' => 'GYOKURO (B)'],
+            ['sku' => 'HO250P', 'packaging' => 'P3', 'name_product' => 'HOJICHA', 'label' => 2],
+            ['sku' => 'SC125P', 'packaging' => 'P3', 'name_product' => 'SENCHA', 'label' => 2],
+            ['sku' => 'GYB500P', 'packaging' => 'P3', 'name_product' => 'GYOKURO (B)', 'label' => 3],
 
             // P4 packaging products
-            ['sku' => 'GC500P', 'packaging' => 'P4', 'name_product' => 'GENMAICHA'],
-            ['sku' => 'HO500P', 'packaging' => 'P4', 'name_product' => 'HOJICHA'],
-            ['sku' => 'OC500P', 'packaging' => 'P4', 'name_product' => 'JAPANESE OCHA'],
-            ['sku' => 'GYB1000P', 'packaging' => 'P4', 'name_product' => 'GYOKURO (B)'],
+            ['sku' => 'GC500P', 'packaging' => 'P4', 'name_product' => 'GENMAICHA', 'label' => 3],
+            ['sku' => 'HO500P', 'packaging' => 'P4', 'name_product' => 'HOJICHA', 'label' => 3],
+            ['sku' => 'OC500P', 'packaging' => 'P4', 'name_product' => 'JAPANESE OCHA', 'label' => 3],
+            ['sku' => 'GYB1000P', 'packaging' => 'P4', 'name_product' => 'GYOKURO (B)', 'label' => 4],
 
             // P5 packaging products
-            ['sku' => 'SC500P', 'packaging' => 'P5', 'name_product' => 'SENCHA'],
-            ['sku' => 'GC1000P', 'packaging' => 'P5', 'name_product' => 'GENMAICHA'],
-            ['sku' => 'OC1000P', 'packaging' => 'P5', 'name_product' => 'JAPANESE OCHA'],
+            ['sku' => 'SC500P', 'packaging' => 'P5', 'name_product' => 'SENCHA', 'label' => 3],
+            ['sku' => 'GC1000P', 'packaging' => 'P5', 'name_product' => 'GENMAICHA', 'label' => 4],
+            ['sku' => 'OC1000P', 'packaging' => 'P5', 'name_product' => 'JAPANESE OCHA', 'label' => 4],
 
-            // T1 packaging products
-            ['sku' => 'GC85T', 'packaging' => 'T1', 'name_product' => 'GENMAICHA'],
-            ['sku' => 'GYA60T', 'packaging' => 'T1', 'name_product' => 'HANDPICKED GYOKURO (A)'],
-            ['sku' => 'OC75T', 'packaging' => 'T1', 'name_product' => 'JAPANESE OCHA'],
-            ['sku' => 'TG80T', 'packaging' => 'T1', 'name_product' => 'TIE GUAN YIN'],
+            // T1 packaging products - Label 5
+            ['sku' => 'GC85T', 'packaging' => 'T1', 'name_product' => 'GENMAICHA', 'label' => 5],
+            ['sku' => 'GYA60T', 'packaging' => 'T1', 'name_product' => 'HANDPICKED GYOKURO (A)', 'label' => 5],
+            ['sku' => 'OC75T', 'packaging' => 'T1', 'name_product' => 'JAPANESE OCHA', 'label' => 5],
+            ['sku' => 'TG80T', 'packaging' => 'T1', 'name_product' => 'TIE GUAN YIN', 'label' => 5],
 
             // Other packagings
-            ['sku' => 'MC30T', 'packaging' => '-', 'name_product' => 'CEREMONIAL MATCHA'],
-            ['sku' => 'MCF30T', 'packaging' => '-', 'name_product' => 'CEREMONIAL MATCHA FINEST'],
-            ['sku' => 'GC1000F', 'packaging' => 'FG2', 'name_product' => 'GENMAICHA'],
-            ['sku' => 'HO1000Z', 'packaging' => 'Z2', 'name_product' => 'HOJICHA'],
-            ['sku' => 'OC1000F', 'packaging' => 'F3', 'name_product' => 'JAPANESE OCHA'],
-            ['sku' => 'OC500F', 'packaging' => 'F3', 'name_product' => 'JAPANESE OCHA'],
+            ['sku' => 'MC30T', 'packaging' => '-', 'name_product' => 'CEREMONIAL MATCHA', 'label' => 5],
+            ['sku' => 'MCF30T', 'packaging' => '-', 'name_product' => 'CEREMONIAL MATCHA FINEST', 'label' => 5],
+            // ['sku' => 'GC1000F', 'packaging' => 'FG2', 'name_product' => 'GENMAICHA'],
+            // ['sku' => 'HO1000Z', 'packaging' => 'Z2', 'name_product' => 'HOJICHA'],
+            // ['sku' => 'OC1000F', 'packaging' => 'F3', 'name_product' => 'JAPANESE OCHA'],
+            // ['sku' => 'OC500F', 'packaging' => 'F3', 'name_product' => 'JAPANESE OCHA'],
         ];
 
         // Create products in batch
@@ -73,6 +73,7 @@ class JapaneseTeaProductSeeder extends Seeder
                 'sku' => $product['sku'],
                 'packaging' => $product['packaging'],
                 'name_product' => $product['name_product'],
+                'label' => $product['label'] ?? null,
                 'created_at' => now(),
                 'updated_at' => now(),
             ];

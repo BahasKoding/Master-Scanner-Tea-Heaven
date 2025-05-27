@@ -17,6 +17,7 @@ return new class extends Migration
             $table->string('sku');
             $table->string('packaging');
             $table->string('name_product')->nullable();
+            $table->string('label')->nullable();
             $table->timestamps();
 
         });

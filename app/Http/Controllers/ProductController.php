@@ -41,6 +41,8 @@ class ProductController extends Controller
             'name_product.required' => 'Silahkan masukkan nama produk',
             'name_product.string' => 'Nama produk harus berupa teks',
             'name_product.max' => 'Nama produk terlalu panjang (maksimal 255 karakter)',
+            'label.integer' => 'Label yang dipilih tidak valid',
+            'label.min' => 'Label yang dipilih tidak valid',
         ];
     }
 
@@ -56,6 +58,7 @@ class ProductController extends Controller
                 'products.sku',
                 'products.packaging',
                 'products.name_product',
+                'products.label',
                 'products.created_at',
                 'products.updated_at'
             ]);
@@ -63,6 +66,11 @@ class ProductController extends Controller
             // Filter by category if provided
             if ($request->has('category_product') && !empty($request->category_product)) {
                 $query->where('products.category_product', $request->category_product);
+            }
+
+            // Filter by label if provided
+            if ($request->has('label') && !empty($request->label)) {
+                $query->where('products.label', $request->label);
             }
 
             return DataTables::of($query)
@@ -75,6 +83,9 @@ class ProductController extends Controller
                 })
                 ->addColumn('category', function ($row) {
                     return $row->category_name;
+                })
+                ->addColumn('label_name', function ($row) {
+                    return $row->label_name;
                 })
                 ->filterColumn('name_product', function ($query, $keyword) {
                     $query->where('products.name_product', 'like', "%{$keyword}%");
@@ -92,6 +103,9 @@ class ProductController extends Controller
             // Get category options
             $categories = Product::getCategoryOptions();
 
+            // Get label options
+            $labels = Product::getLabelOptions();
+
             // Get initial data for the view with pagination
             $items = [
                 'Daftar Produk' => route('products.index'),
@@ -100,7 +114,7 @@ class ProductController extends Controller
             // Log activity
             addActivity('product', 'view', 'Pengguna melihat daftar produk', null);
 
-            return view('product.index', compact('items', 'categories'));
+            return view('product.index', compact('items', 'categories', 'labels'));
         } catch (\Exception $e) {
             // Log the error
             Log::error('Failed to load categories for Product index', [
@@ -112,6 +126,7 @@ class ProductController extends Controller
             return view('product.index', [
                 'items' => ['Daftar Produk' => route('products.index')],
                 'categories' => [],
+                'labels' => [],
                 'error_message' => 'Gagal memuat data kategori. Silakan coba refresh halaman.'
             ]);
         }
@@ -128,6 +143,7 @@ class ProductController extends Controller
                 'sku' => 'required|string|max:255|unique:products',
                 'packaging' => 'required|string|max:255',
                 'name_product' => 'required|string|max:255',
+                'label' => 'nullable|integer|min:0',
             ], $this->getValidationMessages());
 
             $product = Product::create($validated);
@@ -136,8 +152,12 @@ class ProductController extends Controller
             $categories = Product::getCategoryOptions();
             $categoryName = $categories[$validated['category_product']] ?? 'Unknown Category';
 
-            // Log activity with category information
-            addActivity('product', 'create', 'Pengguna membuat produk baru: ' . $product->name_product . ' dengan kategori: ' . $categoryName, $product->id);
+            // Get the label name for logging
+            $labels = Product::getLabelOptions();
+            $labelName = isset($validated['label']) ? ($labels[$validated['label']] ?? '-') : '-';
+
+            // Log activity with category and label information
+            addActivity('product', 'create', 'Pengguna membuat produk baru: ' . $product->name_product . ' dengan kategori: ' . $categoryName . ' dan label: ' . $labelName, $product->id);
 
             return response()->json([
                 'success' => true,
@@ -200,10 +220,12 @@ class ProductController extends Controller
                 'sku' => 'required|string|max:255|unique:products,sku,' . $product->id,
                 'packaging' => 'required|string|max:255',
                 'name_product' => 'required|string|max:255',
+                'label' => 'nullable|integer|min:0',
             ], $this->getValidationMessages());
 
             $oldName = $product->name_product;
             $oldCategoryName = $product->category_name;
+            $oldLabelName = $product->label_name;
 
             $product->update($validated);
 
@@ -211,11 +233,15 @@ class ProductController extends Controller
             $categories = Product::getCategoryOptions();
             $newCategoryName = $categories[$validated['category_product']] ?? 'Unknown Category';
 
-            // Log activity with category information
+            // Get the new label name
+            $labels = Product::getLabelOptions();
+            $newLabelName = isset($validated['label']) ? ($labels[$validated['label']] ?? '-') : '-';
+
+            // Log activity with category and label information
             addActivity(
                 'product',
                 'update',
-                'Pengguna mengubah produk dari "' . $oldName . '" menjadi "' . $product->name_product . '" dan kategori dari "' . $oldCategoryName . '" menjadi "' . $newCategoryName . '"',
+                'Pengguna mengubah produk dari "' . $oldName . '" menjadi "' . $product->name_product . '", kategori dari "' . $oldCategoryName . '" menjadi "' . $newCategoryName . '", dan label dari "' . $oldLabelName . '" menjadi "' . $newLabelName . '"',
                 $product->id
             );
 

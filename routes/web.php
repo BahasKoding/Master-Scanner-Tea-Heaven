@@ -119,6 +119,7 @@ Route::middleware(['auth'])->group(function () {
     Route::resource('products', ProductController::class);
     Route::resource('catatan-produksi', CatatanProduksiController::class);
     Route::get('get-bahan-baku-list', [CatatanProduksiController::class, 'getBahanBakuList'])->name('catatan-produksi.bahan-baku-list');
+    Route::get('get-filtered-products-list', [CatatanProduksiController::class, 'getFilteredProductsList'])->name('catatan-produksi.filtered-products-list');
     Route::resource('finished-goods', FinishedGoodsController::class);
     Route::post('finished-goods/{finishedGood}/update-defective', [FinishedGoodsController::class, 'updateDefective'])->name('finished-goods.update-defective');
     Route::post('finished-goods/data', [FinishedGoodsController::class, 'data'])->name('finished-goods.data');
