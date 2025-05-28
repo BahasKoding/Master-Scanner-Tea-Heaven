@@ -12,7 +12,10 @@ use App\Http\Controllers\ProductController;
 use App\Http\Controllers\CatatanProduksiController;
 use App\Http\Controllers\FinishedGoodsController;
 use App\Http\Controllers\BahanBakuController;
+use App\Http\Controllers\StickerController;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 /*
 |--------------------------------------------------------------------------
@@ -94,17 +97,42 @@ Route::middleware(['auth'])->group(function () {
     |--------------------------------------------------------------------------
     */
 
-    // History Sales routes with resource and additional actions
+    // Scanner routes - khusus untuk scan dan input data
+    Route::prefix('scanner')->name('scanner.')->group(function () {
+        Route::get('/', [HistorySaleController::class, 'scanner'])->name('index');
+        Route::post('/store', [HistorySaleController::class, 'store'])->name('store');
+        Route::post('/validate-no-resi', [HistorySaleController::class, 'validateNoResi'])->name('validate-no-resi');
+    });
+
+    // Sales Management routes - untuk CRUD lengkap semua data
+    Route::prefix('sales-management')->name('sales-management.')->group(function () {
+        Route::get('/', [HistorySaleController::class, 'management'])->name('index');
+        Route::post('/', [HistorySaleController::class, 'store'])->name('store');
+        Route::get('/create', [HistorySaleController::class, 'create'])->name('create');
+        Route::get('/report', [HistorySaleController::class, 'report'])->name('report');
+        Route::post('/export', [HistorySaleController::class, 'export'])->name('export');
+        Route::get('/{id}', [HistorySaleController::class, 'show'])->name('show');
+        Route::get('/{id}/edit', [HistorySaleController::class, 'edit'])->name('edit');
+        Route::put('/{id}', [HistorySaleController::class, 'update'])->name('update');
+        Route::delete('/{id}', [HistorySaleController::class, 'destroy'])->name('destroy');
+        Route::post('/data', [HistorySaleController::class, 'data'])->name('data');
+
+        // Soft Delete routes
+        Route::post('/{id}/restore', [HistorySaleController::class, 'restore'])->name('restore');
+        Route::delete('/{id}/force', [HistorySaleController::class, 'forceDelete'])->name('force-delete');
+    });
+
+    // History Sales routes with resource and additional actions (keep for backward compatibility)
     Route::prefix('history-sales')->name('history-sales.')->group(function () {
         Route::get('/', [HistorySaleController::class, 'index'])->name('index');
         Route::post('/', [HistorySaleController::class, 'store'])->name('store');
         Route::get('/create', [HistorySaleController::class, 'create'])->name('create');
         Route::get('/report', [HistorySaleController::class, 'report'])->name('report');
         Route::post('/export', [HistorySaleController::class, 'export'])->name('export');
-        Route::get('/{historySale}', [HistorySaleController::class, 'show'])->name('show');
-        Route::get('/{historySale}/edit', [HistorySaleController::class, 'edit'])->name('edit');
-        Route::put('/{historySale}', [HistorySaleController::class, 'update'])->name('update');
-        Route::delete('/{historySale}', [HistorySaleController::class, 'destroy'])->name('destroy');
+        Route::get('/{id}', [HistorySaleController::class, 'show'])->name('show');
+        Route::get('/{id}/edit', [HistorySaleController::class, 'edit'])->name('edit');
+        Route::put('/{id}', [HistorySaleController::class, 'update'])->name('update');
+        Route::delete('/{id}', [HistorySaleController::class, 'destroy'])->name('destroy');
         Route::post('/data', [HistorySaleController::class, 'data'])->name('data');
 
         // Soft Delete routes
@@ -131,6 +159,42 @@ Route::middleware(['auth'])->group(function () {
     });
 
     Route::resource('bahan-baku', BahanBakuController::class);
+
+    // Sticker routes
+    Route::resource('stickers', StickerController::class);
+
+    // Debug route for sticker testing
+    Route::get('/test-sticker', function () {
+        try {
+            // Test database connection
+            $dbTest = DB::connection()->getPdo();
+
+            // Test if stickers table exists
+            $tableExists = Schema::hasTable('stickers');
+
+            // Test if products table has eligible products
+            $eligibleProducts = \App\Models\Product::whereIn('label', [1, 2, 5])->get();
+
+            // Test Sticker model
+            $stickerModel = new \App\Models\Sticker();
+
+            return response()->json([
+                'database_connected' => $dbTest ? true : false,
+                'stickers_table_exists' => $tableExists,
+                'eligible_products_count' => $eligibleProducts->count(),
+                'eligible_products' => $eligibleProducts->toArray(),
+                'sticker_fillable' => $stickerModel->getFillable(),
+                'sticker_table' => $stickerModel->getTable(),
+                'csrf_token' => csrf_token()
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine()
+            ], 500);
+        }
+    });
 
     /*
     |--------------------------------------------------------------------------

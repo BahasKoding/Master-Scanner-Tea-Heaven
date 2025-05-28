@@ -124,6 +124,13 @@ class DatabaseSeeder extends Seeder
             'Finished Goods Update',
             'Finished Goods Delete',
             'Finished Goods View',
+
+            // Stickers
+            'Sticker List',
+            'Sticker Create',
+            'Sticker Update',
+            'Sticker Delete',
+            'Sticker View',
         ];
 
         foreach ($permissions as $permission) {

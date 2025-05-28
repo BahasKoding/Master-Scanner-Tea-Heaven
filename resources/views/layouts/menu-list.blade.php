@@ -77,7 +77,7 @@
         <span class="pc-arrow"><i data-feather="chevron-right"></i></span>
     </a>
     <ul class="pc-submenu">
-        <li class="pc-item"><a class="pc-link" href="#!">
+        <li class="pc-item"><a class="pc-link" href="{{ route('stickers.index') }}">
                 <span class="pc-mtext">Sticker Stock</span>
             </a></li>
         <li class="pc-item"><a class="pc-link" href="#!">
@@ -110,10 +110,13 @@
         <span class="pc-arrow"><i data-feather="chevron-right"></i></span>
     </a>
     <ul class="pc-submenu">
-        <li class="pc-item"><a class="pc-link" href="{{ route('history-sales.index') }}">
+        <li class="pc-item"><a class="pc-link" href="{{ route('scanner.index') }}">
                 <span class="pc-mtext">Scanner</span>
             </a></li>
-        <li class="pc-item"><a class="pc-link" href="{{ route('history-sales.report') }}">
+        <li class="pc-item"><a class="pc-link" href="{{ route('sales-management.index') }}">
+                <span class="pc-mtext">Sales Management</span>
+            </a></li>
+        <li class="pc-item"><a class="pc-link" href="{{ route('sales-management.report') }}">
                 <span class="pc-mtext">Report</span>
             </a></li>
     </ul>

@@ -16,7 +16,14 @@ return new class extends Migration
             $table->foreignId('product_id')->constrained('products');
             $table->string('ukuran');
             $table->string('jumlah');
+            $table->integer('stok_awal');
+            $table->integer('stok_masuk');
+            $table->integer('produksi');
+            $table->integer('defect');
+            $table->integer('sisa');
+            $table->string('status');
             $table->timestamps();
+
         });
     }
 
