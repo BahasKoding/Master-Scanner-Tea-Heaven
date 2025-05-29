@@ -103,14 +103,11 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/store', [HistorySaleController::class, 'store'])->name('store');
         Route::post('/validate-no-resi', [HistorySaleController::class, 'validateNoResi'])->name('validate-no-resi');
     });
-
-    // Sales Management routes - untuk CRUD lengkap semua data
+    // Sales Management routes - untuk CRUD data penjualan
     Route::prefix('sales-management')->name('sales-management.')->group(function () {
         Route::get('/', [HistorySaleController::class, 'management'])->name('index');
         Route::post('/', [HistorySaleController::class, 'store'])->name('store');
         Route::get('/create', [HistorySaleController::class, 'create'])->name('create');
-        Route::get('/report', [HistorySaleController::class, 'report'])->name('report');
-        Route::post('/export', [HistorySaleController::class, 'export'])->name('export');
         Route::get('/{id}', [HistorySaleController::class, 'show'])->name('show');
         Route::get('/{id}/edit', [HistorySaleController::class, 'edit'])->name('edit');
         Route::put('/{id}', [HistorySaleController::class, 'update'])->name('update');
@@ -120,6 +117,12 @@ Route::middleware(['auth'])->group(function () {
         // Soft Delete routes
         Route::post('/{id}/restore', [HistorySaleController::class, 'restore'])->name('restore');
         Route::delete('/{id}/force', [HistorySaleController::class, 'forceDelete'])->name('force-delete');
+    });
+
+    // Sales Report routes - untuk laporan penjualan
+    Route::prefix('sales-report')->name('sales-report.')->group(function () {
+        Route::get('/', [HistorySaleController::class, 'report'])->name('index');
+        Route::post('/export', [HistorySaleController::class, 'export'])->name('export');
     });
 
     // History Sales routes with resource and additional actions (keep for backward compatibility)

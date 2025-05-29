@@ -116,8 +116,8 @@
         <li class="pc-item"><a class="pc-link" href="{{ route('sales-management.index') }}">
                 <span class="pc-mtext">Sales Management</span>
             </a></li>
-        <li class="pc-item"><a class="pc-link" href="{{ route('sales-management.report') }}">
-                <span class="pc-mtext">Report</span>
+        <li class="pc-item"><a class="pc-link" href="{{ route('sales-report.index') }}">
+                <span class="pc-mtext">Sales Report</span>
             </a></li>
     </ul>
 </li>

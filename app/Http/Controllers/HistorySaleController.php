@@ -53,6 +53,18 @@ class HistorySaleController extends Controller
     }
 
     /**
+     * Display sales management page for CRUD operations.
+     */
+    public function management()
+    {
+        // Log activity
+        addActivity('sales', 'view_management', 'Pengguna melihat halaman manajemen penjualan', null);
+
+        return view('backend.sales.management')
+            ->with('item', $this->item);
+    }
+
+    /**
      * Show the form for creating a new resource.
      */
     public function create()
