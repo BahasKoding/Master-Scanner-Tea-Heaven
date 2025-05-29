@@ -131,6 +131,13 @@ class DatabaseSeeder extends Seeder
             'Sticker Update',
             'Sticker Delete',
             'Sticker View',
+
+            // Purchase
+            'Purchase List',
+            'Purchase Create',
+            'Purchase Update',
+            'Purchase Delete',
+            'Purchase View',
         ];
 
         foreach ($permissions as $permission) {

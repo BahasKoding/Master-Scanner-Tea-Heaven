@@ -13,6 +13,7 @@ use App\Http\Controllers\CatatanProduksiController;
 use App\Http\Controllers\FinishedGoodsController;
 use App\Http\Controllers\BahanBakuController;
 use App\Http\Controllers\StickerController;
+use App\Http\Controllers\PurchaseController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -162,6 +163,10 @@ Route::middleware(['auth'])->group(function () {
     });
 
     Route::resource('bahan-baku', BahanBakuController::class);
+
+    // Purchase routes - untuk pembelian bahan baku
+    Route::resource('purchase', PurchaseController::class);
+    Route::post('purchase/data', [PurchaseController::class, 'data'])->name('purchase.data');
 
     // Sticker routes
     Route::resource('stickers', StickerController::class);

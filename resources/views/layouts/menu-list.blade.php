@@ -24,15 +24,51 @@
         <li class="pc-item"><a class="pc-link" href="{{ route('products.index') }}">
                 <span class="pc-mtext">Products</span>
             </a></li>
-        <li class="pc-item"><a class="pc-link" href="{{ route('finished-goods.index') }}">
-                <span class="pc-mtext">Finished Goods</span>
-            </a></li>
         <li class="pc-item"><a class="pc-link" href="{{ route('bahan-baku.index') }}">
                 <span class="pc-mtext">Bahan Baku</span>
             </a></li>
     </ul>
 </li>
 
+<!-- Procurement -->
+<li class="pc-item pc-caption">
+    <label>Procurement</label>
+</li>
+<li class="pc-item pc-hasmenu">
+    <a href="#!" class="pc-link">
+        <span class="pc-micon"><i class="ph-duotone ph-shopping-cart"></i></span>
+        <span class="pc-mtext">Purchase Management</span>
+        <span class="pc-arrow"><i data-feather="chevron-right"></i></span>
+    </a>
+    <ul class="pc-submenu">
+        <li class="pc-item"><a class="pc-link" href="{{ route('purchase.index') }}">
+                <span class="pc-mtext">Purchase Bahan Baku</span>
+            </a></li>
+        <li class="pc-item"><a class="pc-link" href="#!">
+                <span class="pc-mtext">Purchase Stiker</span>
+            </a></li>
+    </ul>
+</li>
+
+<!-- Production -->
+<li class="pc-item pc-caption">
+    <label>Production</label>
+</li>
+<li class="pc-item pc-hasmenu">
+    <a href="#!" class="pc-link">
+        <span class="pc-micon"><i class="ph-duotone ph-factory"></i></span>
+        <span class="pc-mtext">Production Management</span>
+        <span class="pc-arrow"><i data-feather="chevron-right"></i></span>
+    </a>
+    <ul class="pc-submenu">
+        <li class="pc-item"><a class="pc-link" href="{{ route('catatan-produksi.index') }}">
+                <span class="pc-mtext">Catatan Produksi</span>
+            </a></li>
+        <li class="pc-item"><a class="pc-link" href="#!">
+                <span class="pc-mtext">Production Planning</span>
+            </a></li>
+    </ul>
+</li>
 
 <!-- Inventory Management -->
 <li class="pc-item pc-caption">
@@ -41,7 +77,7 @@
 <li class="pc-item pc-hasmenu">
     <a href="#!" class="pc-link">
         <span class="pc-micon"><i class="ph-duotone ph-warehouse"></i></span>
-        <span class="pc-mtext">Raw Materials</span>
+        <span class="pc-mtext">Raw Materials Inventory</span>
         <span class="pc-arrow"><i data-feather="chevron-right"></i></span>
     </a>
     <ul class="pc-submenu">
@@ -57,15 +93,15 @@
 <li class="pc-item pc-hasmenu">
     <a href="#!" class="pc-link">
         <span class="pc-micon"><i class="ph-duotone ph-package"></i></span>
-        <span class="pc-mtext">Finished Goods Inventory</span>
+        <span class="pc-mtext">Finished Goods</span>
         <span class="pc-arrow"><i data-feather="chevron-right"></i></span>
     </a>
     <ul class="pc-submenu">
-        <li class="pc-item"><a class="pc-link" href="#!">
+        <li class="pc-item"><a class="pc-link" href="{{ route('finished-goods.index') }}">
                 <span class="pc-mtext">Finished Goods Stock</span>
             </a></li>
         <li class="pc-item"><a class="pc-link" href="#!">
-                <span class="pc-mtext">Etalase Inventory</span>
+                <span class="pc-mtext">Stock Opname</span>
             </a></li>
     </ul>
 </li>
@@ -81,28 +117,15 @@
                 <span class="pc-mtext">Sticker Stock</span>
             </a></li>
         <li class="pc-item"><a class="pc-link" href="#!">
-                <span class="pc-mtext">Purchase Sticker</span>
+                <span class="pc-mtext">Sticker Purchase</span>
             </a></li>
     </ul>
 </li>
 
-<!-- Transactions -->
+<!-- Sales & Transactions -->
 <li class="pc-item pc-caption">
-    <label>Transactions</label>
+    <label>Sales & Transactions</label>
 </li>
-<li class="pc-item pc-hasmenu">
-    <a href="#!" class="pc-link">
-        <span class="pc-micon"><i class="ph-duotone ph-factory"></i></span>
-        <span class="pc-mtext">Production</span>
-        <span class="pc-arrow"><i data-feather="chevron-right"></i></span>
-    </a>
-    <ul class="pc-submenu">
-        <li class="pc-item"><a class="pc-link" href="{{ route('catatan-produksi.index') }}">
-                <span class="pc-mtext">Production Records</span>
-            </a></li>
-    </ul>
-</li>
-
 <li class="pc-item pc-hasmenu">
     <a href="#!" class="pc-link">
         <span class="pc-micon"><i class="ph-duotone ph-chart-line-up"></i></span>
@@ -118,6 +141,48 @@
             </a></li>
         <li class="pc-item"><a class="pc-link" href="{{ route('sales-report.index') }}">
                 <span class="pc-mtext">Sales Report</span>
+            </a></li>
+    </ul>
+</li>
+
+<!-- Reports & Analytics -->
+<li class="pc-item pc-caption">
+    <label>Reports & Analytics</label>
+</li>
+<li class="pc-item pc-hasmenu">
+    <a href="#!" class="pc-link">
+        <span class="pc-micon"><i class="ph-duotone ph-chart-bar"></i></span>
+        <span class="pc-mtext">Production Reports</span>
+        <span class="pc-arrow"><i data-feather="chevron-right"></i></span>
+    </a>
+    <ul class="pc-submenu">
+        <li class="pc-item"><a class="pc-link" href="#!">
+                <span class="pc-mtext">Production Performance</span>
+            </a></li>
+        <li class="pc-item"><a class="pc-link" href="#!">
+                <span class="pc-mtext">Material Usage</span>
+            </a></li>
+        <li class="pc-item"><a class="pc-link" href="#!">
+                <span class="pc-mtext">Defect Analysis</span>
+            </a></li>
+    </ul>
+</li>
+
+<li class="pc-item pc-hasmenu">
+    <a href="#!" class="pc-link">
+        <span class="pc-micon"><i class="ph-duotone ph-trend-up"></i></span>
+        <span class="pc-mtext">Inventory Reports</span>
+        <span class="pc-arrow"><i data-feather="chevron-right"></i></span>
+    </a>
+    <ul class="pc-submenu">
+        <li class="pc-item"><a class="pc-link" href="#!">
+                <span class="pc-mtext">Stock Movement</span>
+            </a></li>
+        <li class="pc-item"><a class="pc-link" href="#!">
+                <span class="pc-mtext">Low Stock Alert</span>
+            </a></li>
+        <li class="pc-item"><a class="pc-link" href="#!">
+                <span class="pc-mtext">Forecasting</span>
             </a></li>
     </ul>
 </li>
