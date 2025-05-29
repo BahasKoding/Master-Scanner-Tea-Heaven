@@ -138,6 +138,13 @@ class DatabaseSeeder extends Seeder
             'Purchase Update',
             'Purchase Delete',
             'Purchase View',
+
+            // Inventory Bahan Baku
+            'Inventory Bahan Baku List',
+            'Inventory Bahan Baku Create',
+            'Inventory Bahan Baku Update',
+            'Inventory Bahan Baku Delete',
+            'Inventory Bahan Baku View',
         ];
 
         foreach ($permissions as $permission) {

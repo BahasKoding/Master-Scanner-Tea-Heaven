@@ -168,6 +168,15 @@ Route::middleware(['auth'])->group(function () {
     Route::resource('purchase', PurchaseController::class);
     Route::post('purchase/data', [PurchaseController::class, 'data'])->name('purchase.data');
 
+    // Inventory Bahan Baku routes - untuk manajemen inventory bahan baku
+    Route::prefix('inventory-bahan-baku')->name('inventory-bahan-baku.')->group(function () {
+        Route::get('/', [\App\Http\Controllers\InventoryBahanBakuController::class, 'index'])->name('index');
+        Route::post('/', [\App\Http\Controllers\InventoryBahanBakuController::class, 'store'])->name('store');
+        Route::get('/{bahanBakuId}/edit', [\App\Http\Controllers\InventoryBahanBakuController::class, 'edit'])->name('edit');
+        Route::put('/{bahanBakuId}', [\App\Http\Controllers\InventoryBahanBakuController::class, 'update'])->name('update');
+        Route::post('/data', [\App\Http\Controllers\InventoryBahanBakuController::class, 'data'])->name('data');
+    });
+
     // Sticker routes
     Route::resource('stickers', StickerController::class);
 

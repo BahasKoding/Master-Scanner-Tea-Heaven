@@ -84,7 +84,7 @@
         <li class="pc-item"><a class="pc-link" href="#!">
                 <span class="pc-mtext">Stock Bahan Baku</span>
             </a></li>
-        <li class="pc-item"><a class="pc-link" href="#!">
+        <li class="pc-item"><a class="pc-link" href="{{ route('inventory-bahan-baku.index') }}">
                 <span class="pc-mtext">Inventory Bahan Baku</span>
             </a></li>
     </ul>
