@@ -99,7 +99,7 @@ Route::middleware(['auth'])->group(function () {
 
     // Scanner routes - khusus untuk scan dan input data
     Route::prefix('scanner')->name('scanner.')->group(function () {
-        Route::get('/', [HistorySaleController::class, 'scanner'])->name('index');
+        Route::get('/', [HistorySaleController::class, 'index'])->name('index');
         Route::post('/store', [HistorySaleController::class, 'store'])->name('store');
         Route::post('/validate-no-resi', [HistorySaleController::class, 'validateNoResi'])->name('validate-no-resi');
     });
