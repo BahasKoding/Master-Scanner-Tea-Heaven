@@ -11,11 +11,14 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('history_sale_details', function (Blueprint $table) {
+        Schema::create('purchase_stickers', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('history_sale_id')->constrained('history_sales')->onDelete('cascade');
-            $table->foreignId('product_id')->constrained('products')->onDelete('restrict');
-            $table->integer('quantity')->default(0);
+            $table->foreignId('product_id')->constrained('products');
+            $table->string('ukuran_stiker');
+            $table->integer('jumlah_stiker');
+            $table->integer('jumlah_order');
+            $table->integer('stok_masuk');
+            $table->integer('total_order');
             $table->timestamps();
         });
     }
@@ -25,6 +28,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('history_sale_details');
+        Schema::dropIfExists('purchase_stickers');
     }
 };
