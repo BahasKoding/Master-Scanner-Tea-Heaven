@@ -132,6 +132,13 @@ class DatabaseSeeder extends Seeder
             'Sticker Delete',
             'Sticker View',
 
+            // Purchase Stiker
+            'Purchase Stiker List',
+            'Purchase Stiker Create',
+            'Purchase Stiker Update',
+            'Purchase Stiker Delete',
+            'Purchase Stiker View',
+
             // Purchase
             'Purchase List',
             'Purchase Create',
@@ -145,6 +152,7 @@ class DatabaseSeeder extends Seeder
             'Inventory Bahan Baku Update',
             'Inventory Bahan Baku Delete',
             'Inventory Bahan Baku View',
+
         ];
 
         foreach ($permissions as $permission) {

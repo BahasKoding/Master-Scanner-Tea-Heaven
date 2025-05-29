@@ -44,7 +44,7 @@
         <li class="pc-item"><a class="pc-link" href="{{ route('purchase.index') }}">
                 <span class="pc-mtext">Purchase Bahan Baku</span>
             </a></li>
-        <li class="pc-item"><a class="pc-link" href="#!">
+        <li class="pc-item"><a class="pc-link" href="{{ route('purchase-sticker.index') }}">
                 <span class="pc-mtext">Purchase Stiker</span>
             </a></li>
     </ul>

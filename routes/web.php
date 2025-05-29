@@ -14,6 +14,7 @@ use App\Http\Controllers\FinishedGoodsController;
 use App\Http\Controllers\BahanBakuController;
 use App\Http\Controllers\StickerController;
 use App\Http\Controllers\PurchaseController;
+use App\Http\Controllers\PurchaseStickerController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -167,6 +168,10 @@ Route::middleware(['auth'])->group(function () {
     // Purchase routes - untuk pembelian bahan baku
     Route::resource('purchase', PurchaseController::class);
     Route::post('purchase/data', [PurchaseController::class, 'data'])->name('purchase.data');
+
+// Purchase Sticker routes - untuk pembelian sticker
+    Route::resource('purchase-sticker', PurchaseStickerController::class);
+    Route::post('purchase-sticker/data', [PurchaseStickerController::class, 'data'])->name('purchase-sticker.data');
 
     // Inventory Bahan Baku routes - untuk manajemen inventory bahan baku
     Route::prefix('inventory-bahan-baku')->name('inventory-bahan-baku.')->group(function () {
