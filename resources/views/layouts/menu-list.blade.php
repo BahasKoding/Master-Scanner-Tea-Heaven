@@ -10,14 +10,14 @@
     </a>
 </li>
 
-<!-- Master Data -->
+<!-- Master Tables -->
 <li class="pc-item pc-caption">
-    <label>Master Data</label>
+    <label>📋 Master Tables</label>
 </li>
 <li class="pc-item pc-hasmenu">
     <a href="#!" class="pc-link">
-        <span class="pc-micon"><i class="ph-duotone ph-archive-box"></i></span>
-        <span class="pc-mtext">Products</span>
+        <span class="pc-micon"><i class="ph-duotone ph-database"></i></span>
+        <span class="pc-mtext">Master Data</span>
         <span class="pc-arrow"><i data-feather="chevron-right"></i></span>
     </a>
     <ul class="pc-submenu">
@@ -30,95 +30,66 @@
     </ul>
 </li>
 
-<!-- Procurement -->
+<!-- Transaction Tables -->
 <li class="pc-item pc-caption">
-    <label>Procurement</label>
+    <label>📊 Transaction Tables</label>
 </li>
 <li class="pc-item pc-hasmenu">
     <a href="#!" class="pc-link">
-        <span class="pc-micon"><i class="ph-duotone ph-shopping-cart"></i></span>
-        <span class="pc-mtext">Purchase Management</span>
+        <span class="pc-micon"><i class="ph-duotone ph-swap"></i></span>
+        <span class="pc-mtext">All Transactions</span>
         <span class="pc-arrow"><i data-feather="chevron-right"></i></span>
     </a>
     <ul class="pc-submenu">
+        <!-- Purchase & Procurement -->
         <li class="pc-item"><a class="pc-link" href="{{ route('purchase.index') }}">
                 <span class="pc-mtext">Purchase Bahan Baku</span>
             </a></li>
         <li class="pc-item"><a class="pc-link" href="{{ route('purchase-sticker.index') }}">
                 <span class="pc-mtext">Purchase Stiker</span>
             </a></li>
-    </ul>
-</li>
 
-<!-- Production -->
-<li class="pc-item pc-caption">
-    <label>Production</label>
-</li>
-<li class="pc-item pc-hasmenu">
-    <a href="#!" class="pc-link">
-        <span class="pc-micon"><i class="ph-duotone ph-factory"></i></span>
-        <span class="pc-mtext">Production Management</span>
-        <span class="pc-arrow"><i data-feather="chevron-right"></i></span>
-    </a>
-    <ul class="pc-submenu">
+        <!-- Production -->
         <li class="pc-item"><a class="pc-link" href="{{ route('catatan-produksi.index') }}">
                 <span class="pc-mtext">Catatan Produksi</span>
             </a></li>
-        <li class="pc-item"><a class="pc-link" href="#!">
-                <span class="pc-mtext">Production Planning</span>
-            </a></li>
-    </ul>
-</li>
 
-<!-- Inventory Management -->
-<li class="pc-item pc-caption">
-    <label>Inventory Management</label>
-</li>
-<li class="pc-item pc-hasmenu">
-    <a href="#!" class="pc-link">
-        <span class="pc-micon"><i class="ph-duotone ph-warehouse"></i></span>
-        <span class="pc-mtext">Raw Materials Inventory</span>
-        <span class="pc-arrow"><i data-feather="chevron-right"></i></span>
-    </a>
-    <ul class="pc-submenu">
-        <li class="pc-item"><a class="pc-link" href="#!">
-                <span class="pc-mtext">Stock Bahan Baku</span>
-            </a></li>
+        <!-- Inventory -->
         <li class="pc-item"><a class="pc-link" href="{{ route('inventory-bahan-baku.index') }}">
                 <span class="pc-mtext">Inventory Bahan Baku</span>
             </a></li>
-    </ul>
-</li>
-
-<li class="pc-item pc-hasmenu">
-    <a href="#!" class="pc-link">
-        <span class="pc-micon"><i class="ph-duotone ph-package"></i></span>
-        <span class="pc-mtext">Finished Goods</span>
-        <span class="pc-arrow"><i data-feather="chevron-right"></i></span>
-    </a>
-    <ul class="pc-submenu">
         <li class="pc-item"><a class="pc-link" href="{{ route('finished-goods.index') }}">
                 <span class="pc-mtext">Finished Goods Stock</span>
             </a></li>
-        <li class="pc-item"><a class="pc-link" href="#!">
-                <span class="pc-mtext">Stock Opname</span>
-            </a></li>
-    </ul>
-</li>
-
-<li class="pc-item pc-hasmenu">
-    <a href="#!" class="pc-link">
-        <span class="pc-micon"><i class="ph-duotone ph-sticker"></i></span>
-        <span class="pc-mtext">Sticker Management</span>
-        <span class="pc-arrow"><i data-feather="chevron-right"></i></span>
-    </a>
-    <ul class="pc-submenu">
         <li class="pc-item"><a class="pc-link" href="{{ route('stickers.index') }}">
                 <span class="pc-mtext">Sticker Stock</span>
             </a></li>
-        <li class="pc-item"><a class="pc-link" href="#!">
-                <span class="pc-mtext">Sticker Purchase</span>
+
+        <!-- Reports & Analytics -->
+        <!-- TODO: Route belum tersedia - Production Performance
+        <li class="pc-item"><a class="pc-link disabled" href="#!"
+                style="color: #6c757d; cursor: not-allowed; pointer-events: none;">
+                <span class="pc-mtext">Production Performance</span>
             </a></li>
+        -->
+        <!-- TODO: Route belum tersedia - Material Usage
+        <li class="pc-item"><a class="pc-link disabled" href="#!"
+                style="color: #6c757d; cursor: not-allowed; pointer-events: none;">
+                <span class="pc-mtext">Material Usage</span>
+            </a></li>
+        -->
+        <!-- TODO: Route belum tersedia - Stock Movement
+        <li class="pc-item"><a class="pc-link disabled" href="#!"
+                style="color: #6c757d; cursor: not-allowed; pointer-events: none;">
+                <span class="pc-mtext">Stock Movement</span>
+            </a></li>
+        -->
+        <!-- TODO: Route belum tersedia - Low Stock Alert
+        <li class="pc-item"><a class="pc-link disabled" href="#!"
+                style="color: #6c757d; cursor: not-allowed; pointer-events: none;">
+                <span class="pc-mtext">Low Stock Alert</span>
+            </a></li>
+        -->
     </ul>
 </li>
 
@@ -141,48 +112,6 @@
             </a></li>
         <li class="pc-item"><a class="pc-link" href="{{ route('sales-report.index') }}">
                 <span class="pc-mtext">Sales Report</span>
-            </a></li>
-    </ul>
-</li>
-
-<!-- Reports & Analytics -->
-<li class="pc-item pc-caption">
-    <label>Reports & Analytics</label>
-</li>
-<li class="pc-item pc-hasmenu">
-    <a href="#!" class="pc-link">
-        <span class="pc-micon"><i class="ph-duotone ph-chart-bar"></i></span>
-        <span class="pc-mtext">Production Reports</span>
-        <span class="pc-arrow"><i data-feather="chevron-right"></i></span>
-    </a>
-    <ul class="pc-submenu">
-        <li class="pc-item"><a class="pc-link" href="#!">
-                <span class="pc-mtext">Production Performance</span>
-            </a></li>
-        <li class="pc-item"><a class="pc-link" href="#!">
-                <span class="pc-mtext">Material Usage</span>
-            </a></li>
-        <li class="pc-item"><a class="pc-link" href="#!">
-                <span class="pc-mtext">Defect Analysis</span>
-            </a></li>
-    </ul>
-</li>
-
-<li class="pc-item pc-hasmenu">
-    <a href="#!" class="pc-link">
-        <span class="pc-micon"><i class="ph-duotone ph-trend-up"></i></span>
-        <span class="pc-mtext">Inventory Reports</span>
-        <span class="pc-arrow"><i data-feather="chevron-right"></i></span>
-    </a>
-    <ul class="pc-submenu">
-        <li class="pc-item"><a class="pc-link" href="#!">
-                <span class="pc-mtext">Stock Movement</span>
-            </a></li>
-        <li class="pc-item"><a class="pc-link" href="#!">
-                <span class="pc-mtext">Low Stock Alert</span>
-            </a></li>
-        <li class="pc-item"><a class="pc-link" href="#!">
-                <span class="pc-mtext">Forecasting</span>
             </a></li>
     </ul>
 </li>

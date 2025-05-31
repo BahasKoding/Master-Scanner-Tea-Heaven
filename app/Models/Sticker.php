@@ -42,14 +42,15 @@ class Sticker extends Model
     }
 
     /**
-     * Get size options for stickers
+     * Get the ukuran sticker options
      */
-    public static function getSizeOptions()
+    public static function getUkuranSticker()
     {
         return [
-            'small' => 'Small',
-            'medium' => 'Medium',
-            'large' => 'Large'
+            1 => "5 X 17",
+            2 => "11.5 X 5.7",
+            3 => "13 X 5",
+            4 => "10 X 3"
         ];
     }
 
@@ -58,7 +59,7 @@ class Sticker extends Model
      */
     public static function getEligibleProducts()
     {
-        // Labels: 1 = EXTRA SMALL PACK, 2 = SMALL PACK, 5 = TIN CANISTER SERIES
-        return Product::whereIn('label', [1, 2, 5])->get();
+        // Labels: 1 = EXTRA SMALL PACK, 5 = TIN CANISTER SERIES
+        return Product::whereIn('label', [1, 5])->get();
     }
 }

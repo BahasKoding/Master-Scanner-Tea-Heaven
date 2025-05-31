@@ -35,8 +35,8 @@ class FinishedGoodsController extends Controller
     private function getValidationMessages()
     {
         return [
-            'id_product.required' => 'Silahkan pilih produk',
-            'id_product.exists' => 'Produk yang dipilih tidak ditemukan',
+            'product_id.required' => 'Silahkan pilih produk',
+            'product_id.exists' => 'Produk yang dipilih tidak ditemukan',
 
             'stok_awal.required' => 'Silahkan masukkan stok awal',
             'stok_awal.integer' => 'Stok awal harus berupa angka bulat',
@@ -62,81 +62,111 @@ class FinishedGoodsController extends Controller
     public function index(Request $request)
     {
         if ($request->ajax()) {
-            // Query semua produk dengan LEFT JOIN ke finished_goods
-            $query = Product::leftJoin('finished_goods', 'products.id', '=', 'finished_goods.id_product')
-                ->select([
-                    'products.id as product_id',
-                    'products.sku',
-                    'products.name_product',
-                    'products.packaging',
-                    'products.category_product',
-                    'products.label',
-                    'finished_goods.id as finished_goods_id',
-                    'finished_goods.stok_awal',
-                    'finished_goods.stok_masuk',
-                    'finished_goods.stok_keluar',
-                    'finished_goods.defective',
-                    'finished_goods.live_stock',
-                    'finished_goods.created_at as fg_created_at',
-                    'finished_goods.updated_at as fg_updated_at'
+            try {
+                // Query semua produk dengan LEFT JOIN ke finished_goods
+                $query = Product::leftJoin('finished_goods', 'products.id', '=', 'finished_goods.product_id')
+                    ->select([
+                        'products.id as product_id',
+                        'products.sku',
+                        'products.name_product',
+                        'products.packaging',
+                        'products.category_product',
+                        'products.label',
+                        'finished_goods.id as finished_goods_id',
+                        'finished_goods.stok_awal',
+                        'finished_goods.stok_masuk',
+                        'finished_goods.stok_keluar',
+                        'finished_goods.defective',
+                        'finished_goods.live_stock',
+                        'finished_goods.created_at as fg_created_at',
+                        'finished_goods.updated_at as fg_updated_at'
+                    ]);
+
+                // Filter by product if provided
+                if ($request->has('product_id') && !empty($request->product_id)) {
+                    $query->where('products.id', $request->product_id);
+                }
+
+                // Filter by category if provided
+                if ($request->has('category_product') && !empty($request->category_product)) {
+                    $query->where('products.category_product', $request->category_product);
+                }
+
+                // Filter by label if provided
+                if ($request->has('label') && !empty($request->label)) {
+                    $query->where('products.label', $request->label);
+                }
+
+                $dataTable = DataTables::of($query)
+                    ->addIndexColumn()
+                    ->orderColumn('name_product', function ($query, $order) {
+                        $query->orderBy('products.name_product', $order);
+                    })
+                    ->addColumn('action', function ($row) {
+                        return $row->product_id;
+                    })
+                    ->addColumn('category_name', function ($row) {
+                        try {
+                            $categories = Product::getCategoryOptions();
+                            return $categories[$row->category_product] ?? 'Unknown Category';
+                        } catch (\Exception $e) {
+                            Log::error('Error getting category name', ['error' => $e->getMessage()]);
+                            return 'Unknown Category';
+                        }
+                    })
+                    ->addColumn('label_name', function ($row) {
+                        try {
+                            $labels = Product::getLabelOptions();
+                            return $labels[$row->label] ?? '-';
+                        } catch (\Exception $e) {
+                            Log::error('Error getting label name', ['error' => $e->getMessage()]);
+                            return '-';
+                        }
+                    })
+                    ->addColumn('stok_awal_display', function ($row) {
+                        return $row->stok_awal ?? 0;
+                    })
+                    ->addColumn('stok_masuk_display', function ($row) {
+                        return $row->stok_masuk ?? 0;
+                    })
+                    ->addColumn('stok_keluar_display', function ($row) {
+                        return $row->stok_keluar ?? 0;
+                    })
+                    ->addColumn('defective_display', function ($row) {
+                        return $row->defective ?? 0;
+                    })
+                    ->addColumn('live_stock_display', function ($row) {
+                        return $row->live_stock ?? 0;
+                    })
+                    ->filterColumn('name_product', function ($query, $keyword) {
+                        $query->where('products.name_product', 'like', "%{$keyword}%");
+                    })
+                    ->filterColumn('sku', function ($query, $keyword) {
+                        $query->where('products.sku', 'like', "%{$keyword}%");
+                    })
+                    ->rawColumns(['action'])
+                    ->smart(true)
+                    ->startsWithSearch()
+                    ->make(true);
+
+                return $dataTable;
+            } catch (\Exception $e) {
+                Log::error('DataTables Ajax error in FinishedGoods index', [
+                    'error' => $e->getMessage(),
+                    'file' => $e->getFile(),
+                    'line' => $e->getLine(),
+                    'trace' => $e->getTraceAsString(),
+                    'request' => $request->all()
                 ]);
 
-            // Filter by product if provided
-            if ($request->has('id_product') && !empty($request->id_product)) {
-                $query->where('products.id', $request->id_product);
+                return response()->json([
+                    'draw' => intval($request->get('draw')),
+                    'recordsTotal' => 0,
+                    'recordsFiltered' => 0,
+                    'data' => [],
+                    'error' => 'Terjadi kesalahan saat memuat data. Silakan refresh halaman atau hubungi administrator.'
+                ], 200); // Return 200 to prevent DataTables error popup
             }
-
-            // Filter by category if provided
-            if ($request->has('category_product') && !empty($request->category_product)) {
-                $query->where('products.category_product', $request->category_product);
-            }
-
-            // Filter by label if provided
-            if ($request->has('label') && !empty($request->label)) {
-                $query->where('products.label', $request->label);
-            }
-
-            return DataTables::of($query)
-                ->addIndexColumn()
-                ->orderColumn('name_product', function ($query, $order) {
-                    $query->orderBy('products.name_product', $order);
-                })
-                ->addColumn('action', function ($row) {
-                    return $row->product_id;
-                })
-                ->addColumn('category_name', function ($row) {
-                    $categories = Product::getCategoryOptions();
-                    return $categories[$row->category_product] ?? 'Unknown Category';
-                })
-                ->addColumn('label_name', function ($row) {
-                    $labels = Product::getLabelOptions();
-                    return $labels[$row->label] ?? '-';
-                })
-                ->addColumn('stok_awal_display', function ($row) {
-                    return $row->stok_awal ?? 0;
-                })
-                ->addColumn('stok_masuk_display', function ($row) {
-                    return $row->stok_masuk ?? 0;
-                })
-                ->addColumn('stok_keluar_display', function ($row) {
-                    return $row->stok_keluar ?? 0;
-                })
-                ->addColumn('defective_display', function ($row) {
-                    return $row->defective ?? 0;
-                })
-                ->addColumn('live_stock_display', function ($row) {
-                    return $row->live_stock ?? 0;
-                })
-                ->filterColumn('name_product', function ($query, $keyword) {
-                    $query->where('products.name_product', 'like', "%{$keyword}%");
-                })
-                ->filterColumn('sku', function ($query, $keyword) {
-                    $query->where('products.sku', 'like', "%{$keyword}%");
-                })
-                ->rawColumns(['action'])
-                ->smart(true)
-                ->startsWithSearch()
-                ->make(true);
         }
 
         try {
@@ -162,6 +192,8 @@ class FinishedGoodsController extends Controller
             // Log the error
             Log::error('Failed to load data for Finished Goods index', [
                 'error' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
                 'trace' => $e->getTraceAsString()
             ]);
 
@@ -183,7 +215,7 @@ class FinishedGoodsController extends Controller
     {
         try {
             $validated = $request->validate([
-                'id_product' => 'required|exists:products,id',
+                'product_id' => 'required|exists:products,id',
                 'stok_awal' => 'required|integer|min:0',
                 'stok_masuk' => 'required|integer|min:0',
                 'stok_keluar' => 'required|integer|min:0',
@@ -198,7 +230,7 @@ class FinishedGoodsController extends Controller
 
             // Use updateOrCreate to update existing record or create new one
             $finishedGoods = FinishedGoods::updateOrCreate(
-                ['id_product' => $validated['id_product']],
+                ['product_id' => $validated['product_id']],
                 [
                     'stok_awal' => $validated['stok_awal'],
                     'stok_masuk' => $validated['stok_masuk'],
@@ -209,7 +241,7 @@ class FinishedGoodsController extends Controller
             );
 
             // Get product name for logging
-            $productName = Product::find($validated['id_product'])->name_product;
+            $productName = Product::find($validated['product_id'])->name_product;
 
             // Log activity
             $action = $finishedGoods->wasRecentlyCreated ? 'create' : 'update';
@@ -249,7 +281,7 @@ class FinishedGoodsController extends Controller
             $product = Product::findOrFail($productId);
 
             // Find or create default finished goods record
-            $finishedGoods = FinishedGoods::firstOrNew(['id_product' => $productId]);
+            $finishedGoods = FinishedGoods::firstOrNew(['product_id' => $productId]);
 
             // If it's a new record, set default values
             if (!$finishedGoods->exists) {
@@ -261,7 +293,7 @@ class FinishedGoodsController extends Controller
             }
 
             // Add product information to the response
-            $finishedGoods->id_product = $productId;
+            $finishedGoods->product_id = $productId;
 
             Log::info('Permintaan edit finished goods diterima', [
                 'product_id' => $productId,
@@ -306,11 +338,11 @@ class FinishedGoodsController extends Controller
             $liveStock = $validated['stok_awal'] + $validated['stok_masuk'] - $validated['stok_keluar'] - $validated['defective'];
 
             // Get old values for logging (if exists)
-            $oldFinishedGoods = FinishedGoods::where('id_product', $productId)->first();
+            $oldFinishedGoods = FinishedGoods::where('product_id', $productId)->first();
 
             // Use updateOrCreate to update existing record or create new one
             $finishedGoods = FinishedGoods::updateOrCreate(
-                ['id_product' => $productId],
+                ['product_id' => $productId],
                 [
                     'stok_awal' => $validated['stok_awal'],
                     'stok_masuk' => $validated['stok_masuk'],
@@ -353,71 +385,109 @@ class FinishedGoodsController extends Controller
      */
     public function data(Request $request)
     {
-        // Query semua produk dengan LEFT JOIN ke finished_goods
-        $query = Product::leftJoin('finished_goods', 'products.id', '=', 'finished_goods.id_product')
-            ->select([
-                'products.id as product_id',
-                'products.sku',
-                'products.name_product',
-                'products.packaging',
-                'products.category_product',
-                'products.label',
-                'finished_goods.id as finished_goods_id',
-                'finished_goods.stok_awal',
-                'finished_goods.stok_masuk',
-                'finished_goods.stok_keluar',
-                'finished_goods.defective',
-                'finished_goods.live_stock'
+        try {
+            // Validate CSRF token
+            if (!$request->hasValidSignature() && !hash_equals(csrf_token(), $request->get('_token'))) {
+                Log::warning('Invalid CSRF token in finished goods data request', [
+                    'ip' => $request->ip(),
+                    'user_agent' => $request->userAgent()
+                ]);
+            }
+
+            // Query semua produk dengan LEFT JOIN ke finished_goods
+            $query = Product::leftJoin('finished_goods', 'products.id', '=', 'finished_goods.product_id')
+                ->select([
+                    'products.id as product_id',
+                    'products.sku',
+                    'products.name_product',
+                    'products.packaging',
+                    'products.category_product',
+                    'products.label',
+                    'finished_goods.id as finished_goods_id',
+                    'finished_goods.stok_awal',
+                    'finished_goods.stok_masuk',
+                    'finished_goods.stok_keluar',
+                    'finished_goods.defective',
+                    'finished_goods.live_stock'
+                ]);
+
+            // Filter by product if provided
+            if ($request->has('product_id') && !empty($request->product_id)) {
+                $query->where('products.id', $request->product_id);
+            }
+
+            // Filter by category if provided
+            if ($request->has('category_product') && !empty($request->category_product)) {
+                $query->where('products.category_product', $request->category_product);
+            }
+
+            // Filter by label if provided
+            if ($request->has('label') && !empty($request->label)) {
+                $query->where('products.label', $request->label);
+            }
+
+            $dataTable = DataTables::of($query)
+                ->addIndexColumn()
+                ->addColumn('category_name', function ($row) {
+                    try {
+                        $categories = Product::getCategoryOptions();
+                        return $categories[$row->category_product] ?? 'Unknown Category';
+                    } catch (\Exception $e) {
+                        Log::error('Error getting category name in data method', ['error' => $e->getMessage()]);
+                        return 'Unknown Category';
+                    }
+                })
+                ->addColumn('label_name', function ($row) {
+                    try {
+                        $labels = Product::getLabelOptions();
+                        return $labels[$row->label] ?? '-';
+                    } catch (\Exception $e) {
+                        Log::error('Error getting label name in data method', ['error' => $e->getMessage()]);
+                        return '-';
+                    }
+                })
+                ->addColumn('stok_awal_display', function ($row) {
+                    return $row->stok_awal ?? 0;
+                })
+                ->addColumn('stok_masuk_display', function ($row) {
+                    return $row->stok_masuk ?? 0;
+                })
+                ->addColumn('stok_keluar_display', function ($row) {
+                    return $row->stok_keluar ?? 0;
+                })
+                ->addColumn('defective_display', function ($row) {
+                    return $row->defective ?? 0;
+                })
+                ->addColumn('live_stock_display', function ($row) {
+                    return $row->live_stock ?? 0;
+                })
+                ->addColumn('action', function ($row) {
+                    return '
+                        <button type="button" class="btn btn-sm btn-warning edit-btn" data-id="' . $row->product_id . '">
+                            <i class="fas fa-edit"></i> Edit Stok
+                        </button>
+                    ';
+                })
+                ->rawColumns(['action'])
+                ->make(true);
+
+            return $dataTable;
+        } catch (\Exception $e) {
+            Log::error('Error in FinishedGoods data method', [
+                'error' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString(),
+                'request' => $request->all()
             ]);
 
-        // Filter by product if provided
-        if ($request->has('id_product') && !empty($request->id_product)) {
-            $query->where('products.id', $request->id_product);
+            return response()->json([
+                'draw' => intval($request->get('draw')),
+                'recordsTotal' => 0,
+                'recordsFiltered' => 0,
+                'data' => [],
+                'error' => 'Terjadi kesalahan saat memuat data. Silakan refresh halaman atau hubungi administrator.'
+            ], 200); // Return 200 to prevent DataTables error popup
         }
-
-        // Filter by category if provided
-        if ($request->has('category_product') && !empty($request->category_product)) {
-            $query->where('products.category_product', $request->category_product);
-        }
-
-        // Filter by label if provided
-        if ($request->has('label') && !empty($request->label)) {
-            $query->where('products.label', $request->label);
-        }
-
-        return DataTables::of($query)
-            ->addIndexColumn()
-            ->addColumn('category_name', function ($row) {
-                $categories = Product::getCategoryOptions();
-                return $categories[$row->category_product] ?? 'Unknown Category';
-            })
-            ->addColumn('label_name', function ($row) {
-                $labels = Product::getLabelOptions();
-                return $labels[$row->label] ?? '-';
-            })
-            ->addColumn('stok_awal_display', function ($row) {
-                return $row->stok_awal ?? 0;
-            })
-            ->addColumn('stok_masuk_display', function ($row) {
-                return $row->stok_masuk ?? 0;
-            })
-            ->addColumn('stok_keluar_display', function ($row) {
-                return $row->stok_keluar ?? 0;
-            })
-            ->addColumn('defective_display', function ($row) {
-                return $row->defective ?? 0;
-            })
-            ->addColumn('live_stock_display', function ($row) {
-                return $row->live_stock ?? 0;
-            })
-            ->addColumn('action', function ($row) {
-                return '
-                    <button type="button" class="btn btn-sm btn-warning edit-btn" data-id="' . $row->product_id . '">
-                        <i class="fas fa-edit"></i> Edit Stok
-                    </button>
-                ';
-            })
-            ->rawColumns(['action'])
-            ->make(true);
     }
 }

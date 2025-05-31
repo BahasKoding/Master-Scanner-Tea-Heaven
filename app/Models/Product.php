@@ -81,7 +81,7 @@ class Product extends Model
      */
     public function finishedGoods()
     {
-        return $this->hasOne(FinishedGoods::class, 'id_product');
+        return $this->hasOne(FinishedGoods::class, 'product_id');
     }
 
     /**

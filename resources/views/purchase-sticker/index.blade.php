@@ -149,7 +149,7 @@
                                     <select class="form-select form-select-sm" id="filter_product">
                                         <option value="">-- Semua Produk --</option>
                                         @foreach ($products as $product)
-                                            <option value="{{ $product->id }}">{{ $product->nama_produk }}</option>
+                                            <option value="{{ $product->id }}">{{ $product->name_product }}</option>
                                         @endforeach
                                     </select>
                                 </div>
@@ -220,7 +220,7 @@
                                         <option value="">-- Pilih Produk --</option>
                                         @foreach ($products as $product)
                                             <option value="{{ $product->id }}">
-                                                {{ $product->nama_produk }} ({{ $product->sku_produk }})
+                                                {{ $product->name_product }} ({{ $product->sku }})
                                             </option>
                                         @endforeach
                                     </select>

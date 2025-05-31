@@ -85,10 +85,10 @@ class PurchaseStickerController extends Controller
                         return $row->id;
                     })
                     ->addColumn('product_name', function ($row) {
-                        return $row->product ? $row->product->nama_produk : '-';
+                        return $row->product ? $row->product->name_product : '-';
                     })
                     ->addColumn('product_sku', function ($row) {
-                        return $row->product ? $row->product->sku_produk : '-';
+                        return $row->product ? $row->product->sku : '-';
                     })
                     ->editColumn('jumlah_stiker', function ($row) {
                         return number_format($row->jumlah_stiker);
@@ -107,8 +107,8 @@ class PurchaseStickerController extends Controller
                     })
                     ->filterColumn('product_name', function ($query, $keyword) {
                         $query->whereHas('product', function ($q) use ($keyword) {
-                            $q->where('nama_produk', 'like', "%{$keyword}%")
-                                ->orWhere('sku_produk', 'like', "%{$keyword}%");
+                            $q->where('name_product', 'like', "%{$keyword}%")
+                                ->orWhere('sku', 'like', "%{$keyword}%");
                         });
                     })
                     ->rawColumns(['action'])
@@ -130,7 +130,7 @@ class PurchaseStickerController extends Controller
 
         try {
             // Get products options for filter (only eligible products for stickers)
-            $products = Product::whereIn('label', [1, 2, 5])->orderBy('nama_produk')->get();
+            $products = Product::whereIn('label', [1, 2, 5])->orderBy('name_product')->get();
 
             // Get initial data for the view
             $items = [
@@ -161,7 +161,7 @@ class PurchaseStickerController extends Controller
     public function create()
     {
         try {
-            $products = Product::whereIn('label', [1, 2, 5])->orderBy('nama_produk')->get();
+            $products = Product::whereIn('label', [1, 2, 5])->orderBy('name_product')->get();
 
             // Log activity
             addActivity('purchase_sticker', 'view_create_form', 'Pengguna melihat form tambah purchase stiker', null);
@@ -201,7 +201,7 @@ class PurchaseStickerController extends Controller
 
             // Get product name for logging
             $product = Product::find($validated['product_id']);
-            $productName = $product ? $product->nama_produk : 'Unknown';
+            $productName = $product ? $product->name_product : 'Unknown';
 
             // Log activity
             addActivity('purchase_sticker', 'create', 'Pengguna membuat purchase stiker baru untuk: ' . $productName . ' ukuran ' . $purchaseSticker->ukuran_stiker . ' sebanyak ' . $purchaseSticker->jumlah_stiker . ' pcs', $purchaseSticker->id);
@@ -256,7 +256,7 @@ class PurchaseStickerController extends Controller
             $purchaseSticker = PurchaseSticker::with('product')->findOrFail($id);
 
             // Log activity
-            addActivity('purchase_sticker', 'view', 'Pengguna melihat detail purchase stiker: ' . ($purchaseSticker->product ? $purchaseSticker->product->nama_produk : 'Unknown'), $purchaseSticker->id);
+            addActivity('purchase_sticker', 'view', 'Pengguna melihat detail purchase stiker: ' . ($purchaseSticker->product ? $purchaseSticker->product->name_product : 'Unknown'), $purchaseSticker->id);
 
             return view('purchase-sticker.show', compact('purchaseSticker'))
                 ->with('item', $this->item);
@@ -278,10 +278,10 @@ class PurchaseStickerController extends Controller
     {
         try {
             $purchaseSticker = PurchaseSticker::with('product')->findOrFail($id);
-            $products = Product::whereIn('label', [1, 2, 5])->orderBy('nama_produk')->get();
+            $products = Product::whereIn('label', [1, 2, 5])->orderBy('name_product')->get();
 
             // Log activity
-            addActivity('purchase_sticker', 'edit', 'Pengguna melihat form edit purchase stiker: ' . ($purchaseSticker->product ? $purchaseSticker->product->nama_produk : 'Unknown'), $purchaseSticker->id);
+            addActivity('purchase_sticker', 'edit', 'Pengguna melihat form edit purchase stiker: ' . ($purchaseSticker->product ? $purchaseSticker->product->name_product : 'Unknown'), $purchaseSticker->id);
 
             if (request()->ajax()) {
                 return response()->json([
@@ -336,8 +336,8 @@ class PurchaseStickerController extends Controller
 
             // Get new product name for logging
             $newProduct = Product::find($validated['product_id']);
-            $newProductName = $newProduct ? $newProduct->nama_produk : 'Unknown';
-            $oldProductName = $oldProduct ? $oldProduct->nama_produk : 'Unknown';
+            $newProductName = $newProduct ? $newProduct->name_product : 'Unknown';
+            $oldProductName = $oldProduct ? $oldProduct->name_product : 'Unknown';
 
             // Log activity
             addActivity('purchase_sticker', 'update', 'Pengguna mengubah purchase stiker dari "' . $oldProductName . '" menjadi "' . $newProductName . '"', $purchaseSticker->id);
@@ -391,7 +391,7 @@ class PurchaseStickerController extends Controller
     {
         try {
             $purchaseSticker = PurchaseSticker::with('product')->findOrFail($id);
-            $productName = $purchaseSticker->product ? $purchaseSticker->product->nama_produk : 'Unknown';
+            $productName = $purchaseSticker->product ? $purchaseSticker->product->name_product : 'Unknown';
             $purchaseStickerId = $purchaseSticker->id;
 
             $purchaseSticker->delete();

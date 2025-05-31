@@ -444,8 +444,12 @@
 
 @section('scripts')
     <!-- [Page Specific JS] start -->
+    <!-- Core JS files - jQuery HARUS dimuat pertama -->
+    <script src="{{ URL::asset('build/js/plugins/jquery-3.6.0.min.js') }}"></script>
+    <script src="{{ URL::asset('build/js/plugins/bootstrap.min.js') }}"></script>
+
     <!-- datatable Js -->
-    <script src="{{ URL::asset('build/js/plugins/datatables/dataTables.min.js') }}"></script>
+    <script src="{{ URL::asset('build/js/plugins/datatables/jquery.dataTables.min.js') }}"></script>
     <script src="{{ URL::asset('build/js/plugins/datatables/dataTables.bootstrap5.min.js') }}"></script>
     <script src="{{ URL::asset('build/js/plugins/datatables/dataTables.buttons.min.js') }}"></script>
     <script src="{{ URL::asset('build/js/plugins/datatables/buttons.bootstrap5.min.js') }}"></script>

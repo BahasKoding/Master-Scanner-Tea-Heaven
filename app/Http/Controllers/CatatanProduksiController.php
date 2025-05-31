@@ -104,21 +104,25 @@ class CatatanProduksiController extends Controller
                 });
             }
 
-            // Filter berdasarkan tanggal (default: hari ini)
-            $startDate = $request->filled('start_date') ? $request->start_date : now()->startOfDay()->format('Y-m-d');
-            $endDate = $request->filled('end_date') ? $request->end_date : now()->endOfDay()->format('Y-m-d');
+            // Filter berdasarkan tanggal (hanya jika diisi oleh user)
+            if ($request->filled('start_date') || $request->filled('end_date')) {
+                $startDate = $request->filled('start_date') ? $request->start_date : '1900-01-01';
+                $endDate = $request->filled('end_date') ? $request->end_date : now()->format('Y-m-d');
 
-            // Konversi end_date untuk mencakup seluruh hari
-            if ($request->filled('end_date')) {
-                $endDate = date('Y-m-d', strtotime($endDate . ' +1 day'));
-            } else {
-                $endDate = now()->addDay()->startOfDay()->format('Y-m-d');
+                // Konversi end_date untuk mencakup seluruh hari
+                if ($request->filled('end_date')) {
+                    $endDate = date('Y-m-d 23:59:59', strtotime($endDate));
+                } else {
+                    $endDate = now()->endOfDay()->format('Y-m-d H:i:s');
+                }
+
+                $startDate = date('Y-m-d 00:00:00', strtotime($startDate));
+
+                $query->where(function ($q) use ($startDate, $endDate) {
+                    $q->whereBetween('catatan_produksis.created_at', [$startDate, $endDate])
+                        ->orWhereBetween('catatan_produksis.updated_at', [$startDate, $endDate]);
+                });
             }
-
-            $query->where(function ($q) use ($startDate, $endDate) {
-                $q->whereBetween('catatan_produksis.created_at', [$startDate, $endDate])
-                    ->orWhereBetween('catatan_produksis.updated_at', [$startDate, $endDate]);
-            });
 
             return DataTables::of($query)
                 ->addIndexColumn()
@@ -220,13 +224,29 @@ class CatatanProduksiController extends Controller
         // Define the specific labels we want to include
         $allowedLabels = [
             1, // EXTRA SMALL PACK (15-100 GRAM)
-            2, // SMALL PACK (50-250 GRAM)
             5, // TIN CANISTER SERIES
         ];
 
-        return Product::whereIn('label', $allowedLabels)
+        $products = Product::whereIn('label', $allowedLabels)
             ->orderBy('name_product')
             ->get();
+
+        // Debug logging to check packaging data
+        Log::info('Products for catatan produksi', [
+            'count' => $products->count(),
+            'products' => $products->map(function ($product) {
+                return [
+                    'id' => $product->id,
+                    'name_product' => $product->name_product,
+                    'sku' => $product->sku,
+                    'packaging' => $product->packaging,
+                    'packaging_is_null' => is_null($product->packaging),
+                    'packaging_is_empty' => empty($product->packaging)
+                ];
+            })->toArray()
+        ]);
+
+        return $products;
     }
 
     /**

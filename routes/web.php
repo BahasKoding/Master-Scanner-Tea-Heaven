@@ -15,6 +15,7 @@ use App\Http\Controllers\BahanBakuController;
 use App\Http\Controllers\StickerController;
 use App\Http\Controllers\PurchaseController;
 use App\Http\Controllers\PurchaseStickerController;
+use App\Http\Controllers\InventoryBahanBakuController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -169,54 +170,21 @@ Route::middleware(['auth'])->group(function () {
     Route::resource('purchase', PurchaseController::class);
     Route::post('purchase/data', [PurchaseController::class, 'data'])->name('purchase.data');
 
-// Purchase Sticker routes - untuk pembelian sticker
+    // Purchase Sticker routes - untuk pembelian sticker
     Route::resource('purchase-sticker', PurchaseStickerController::class);
     Route::post('purchase-sticker/data', [PurchaseStickerController::class, 'data'])->name('purchase-sticker.data');
 
     // Inventory Bahan Baku routes - untuk manajemen inventory bahan baku
     Route::prefix('inventory-bahan-baku')->name('inventory-bahan-baku.')->group(function () {
-        Route::get('/', [\App\Http\Controllers\InventoryBahanBakuController::class, 'index'])->name('index');
-        Route::post('/', [\App\Http\Controllers\InventoryBahanBakuController::class, 'store'])->name('store');
-        Route::get('/{bahanBakuId}/edit', [\App\Http\Controllers\InventoryBahanBakuController::class, 'edit'])->name('edit');
-        Route::put('/{bahanBakuId}', [\App\Http\Controllers\InventoryBahanBakuController::class, 'update'])->name('update');
-        Route::post('/data', [\App\Http\Controllers\InventoryBahanBakuController::class, 'data'])->name('data');
+        Route::get('/', [InventoryBahanBakuController::class, 'index'])->name('index');
+        Route::post('/', [InventoryBahanBakuController::class, 'store'])->name('store');
+        Route::get('/{bahanBakuId}/edit', [InventoryBahanBakuController::class, 'edit'])->name('edit');
+        Route::put('/{bahanBakuId}', [InventoryBahanBakuController::class, 'update'])->name('update');
+        Route::post('/data', [InventoryBahanBakuController::class, 'data'])->name('data');
     });
 
     // Sticker routes
     Route::resource('stickers', StickerController::class);
-
-    // Debug route for sticker testing
-    Route::get('/test-sticker', function () {
-        try {
-            // Test database connection
-            $dbTest = DB::connection()->getPdo();
-
-            // Test if stickers table exists
-            $tableExists = Schema::hasTable('stickers');
-
-            // Test if products table has eligible products
-            $eligibleProducts = \App\Models\Product::whereIn('label', [1, 2, 5])->get();
-
-            // Test Sticker model
-            $stickerModel = new \App\Models\Sticker();
-
-            return response()->json([
-                'database_connected' => $dbTest ? true : false,
-                'stickers_table_exists' => $tableExists,
-                'eligible_products_count' => $eligibleProducts->count(),
-                'eligible_products' => $eligibleProducts->toArray(),
-                'sticker_fillable' => $stickerModel->getFillable(),
-                'sticker_table' => $stickerModel->getTable(),
-                'csrf_token' => csrf_token()
-            ]);
-        } catch (\Exception $e) {
-            return response()->json([
-                'error' => $e->getMessage(),
-                'file' => $e->getFile(),
-                'line' => $e->getLine()
-            ], 500);
-        }
-    });
 
     /*
     |--------------------------------------------------------------------------
@@ -242,15 +210,6 @@ Route::middleware(['auth'])->group(function () {
     // Alert demo route
     Route::get('/alerts', function () {
         return view('forms.form2_choices');
-    });
-
-    // Temporary testing routes
-    Route::get('/test-users', function () {
-        $users = \App\Models\User::with('roles')->get();
-        return response()->json([
-            'users' => $users,
-            'count' => $users->count()
-        ]);
     });
 
     // Define a GET route with dynamic placeholders for route parameters.

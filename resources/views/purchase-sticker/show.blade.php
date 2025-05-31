@@ -10,11 +10,11 @@
                 <table class="table table-sm table-borderless">
                     <tr>
                         <td width="40%"><strong>Nama Produk:</strong></td>
-                        <td>{{ $purchaseSticker->product ? $purchaseSticker->product->nama_produk : '-' }}</td>
+                        <td>{{ $purchaseSticker->product ? $purchaseSticker->product->name_product : '-' }}</td>
                     </tr>
                     <tr>
                         <td><strong>SKU:</strong></td>
-                        <td>{{ $purchaseSticker->product ? $purchaseSticker->product->sku_produk : '-' }}</td>
+                        <td>{{ $purchaseSticker->product ? $purchaseSticker->product->sku : '-' }}</td>
                     </tr>
                     <tr>
                         <td><strong>Label:</strong></td>
