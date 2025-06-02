@@ -21,6 +21,7 @@ class StickerController extends Controller
         $this->middleware('permission:Sticker Update', ['only' => ['edit', 'update']]);
         $this->middleware('permission:Sticker Delete', ['only' => ['destroy']]);
         $this->middleware('permission:Sticker View', ['only' => ['show']]);
+        $this->middleware('permission:Sticker Export', ['only' => ['export']]);
     }
 
     /**
@@ -43,15 +44,9 @@ class StickerController extends Controller
             'stok_masuk.required' => 'Silahkan masukkan stok masuk',
             'stok_masuk.integer' => 'Stok masuk harus berupa angka',
             'stok_masuk.min' => 'Stok masuk tidak boleh kurang dari 0',
-            'produksi.required' => 'Silahkan masukkan jumlah produksi',
-            'produksi.integer' => 'Jumlah produksi harus berupa angka',
-            'produksi.min' => 'Jumlah produksi tidak boleh kurang dari 0',
             'defect.required' => 'Silahkan masukkan jumlah defect',
             'defect.integer' => 'Jumlah defect harus berupa angka',
             'defect.min' => 'Jumlah defect tidak boleh kurang dari 0',
-            'sisa.required' => 'Silahkan masukkan sisa sticker',
-            'sisa.integer' => 'Sisa sticker harus berupa angka',
-            'sisa.min' => 'Sisa sticker tidak boleh kurang dari 0',
             'status.required' => 'Silahkan pilih status',
             'status.string' => 'Status harus berupa teks',
         ];
@@ -100,6 +95,29 @@ class StickerController extends Controller
                 ->addColumn('product_sku', function ($row) {
                     return $row->product ? $row->product->sku : '-';
                 })
+                ->addColumn('dynamic_stok_masuk', function ($row) {
+                    return $row->stok_masuk_dynamic;
+                })
+                ->addColumn('dynamic_produksi', function ($row) {
+                    return $row->produksi_dynamic;
+                })
+                ->addColumn('dynamic_sisa', function ($row) {
+                    return $row->sisa_dynamic;
+                })
+                ->addColumn('formatted_created_at', function ($row) {
+                    return $row->created_at ? $row->created_at->format('d-m-Y H:i:s') : '-';
+                })
+                ->addColumn('formatted_status', function ($row) {
+                    $autoStatus = $row->auto_status;
+                    $statusLabels = [
+                        'available' => '<span class="badge bg-success">Available</span>',
+                        'need_order' => '<span class="badge bg-danger">Need Order</span>',
+                        'active' => '<span class="badge bg-success">Active</span>',
+                        'inactive' => '<span class="badge bg-secondary">Inactive</span>',
+                        'out_of_stock' => '<span class="badge bg-danger">Out of Stock</span>'
+                    ];
+                    return $statusLabels[$autoStatus] ?? '<span class="badge bg-warning">Unknown</span>';
+                })
                 ->filterColumn('product_name', function ($query, $keyword) {
                     $query->whereHas('product', function ($q) use ($keyword) {
                         $q->where('name_product', 'like', "%{$keyword}%");
@@ -110,7 +128,7 @@ class StickerController extends Controller
                         $q->where('sku', 'like', "%{$keyword}%");
                     });
                 })
-                ->rawColumns(['action'])
+                ->rawColumns(['action', 'formatted_status'])
                 ->smart(true)
                 ->startsWithSearch()
                 ->make(true);
@@ -170,11 +188,16 @@ class StickerController extends Controller
                 'jumlah' => 'required|string|max:255',
                 'stok_awal' => 'required|integer|min:0',
                 'stok_masuk' => 'required|integer|min:0',
-                'produksi' => 'required|integer|min:0',
                 'defect' => 'required|integer|min:0',
-                'sisa' => 'required|integer|min:0',
                 'status' => 'required|string',
             ], $this->getValidationMessages());
+
+            // Set default produksi to 0, will be updated automatically
+            $validated['produksi'] = 0;
+
+            // Calculate sisa automatically
+            $calculatedSisa = $validated['stok_awal'] + $validated['stok_masuk'] - $validated['produksi'] - $validated['defect'];
+            $validated['sisa'] = $calculatedSisa;
 
             Log::info('Validation passed', ['validated_data' => $validated]);
 
@@ -211,6 +234,9 @@ class StickerController extends Controller
             Log::info('Attempting to create sticker', ['data' => $validated]);
 
             $sticker = Sticker::create($validated);
+
+            // Auto-sync produksi from catatan produksi
+            $sticker->updateProduksiFromCatatanProduksi();
 
             Log::info('Sticker created successfully', [
                 'sticker_id' => $sticker->id,
@@ -301,45 +327,72 @@ class StickerController extends Controller
         try {
             $sticker = Sticker::findOrFail($id);
 
+            // For inline editing, we only validate the fields that can be changed
             $validated = $request->validate([
-                'product_id' => 'required|exists:products,id',
-                'ukuran' => 'required|string|max:255',
-                'jumlah' => 'required|string|max:255',
                 'stok_awal' => 'required|integer|min:0',
-                'stok_masuk' => 'required|integer|min:0',
-                'produksi' => 'required|integer|min:0',
                 'defect' => 'required|integer|min:0',
-                'sisa' => 'required|integer|min:0',
-                'status' => 'required|string',
-            ], $this->getValidationMessages());
+                'sisa' => 'nullable|integer|min:0', // This will be recalculated
+                'status' => 'nullable|string',
+            ], [
+                'stok_awal.required' => 'Stok awal harus diisi',
+                'stok_awal.integer' => 'Stok awal harus berupa angka',
+                'stok_awal.min' => 'Stok awal tidak boleh kurang dari 0',
+                'defect.required' => 'Defect harus diisi',
+                'defect.integer' => 'Defect harus berupa angka',
+                'defect.min' => 'Defect tidak boleh kurang dari 0',
+            ]);
 
-            // Verify the product has eligible label
-            $product = Product::find($validated['product_id']);
-            if (!in_array($product->label, [1, 2, 5])) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Produk yang dipilih tidak memenuhi kriteria label untuk sticker.'
-                ], 422);
+            // Auto-calculate sisa using dynamic values
+            $stokMasuk = $sticker->stok_masuk_dynamic;
+            $produksi = $sticker->produksi_dynamic;
+            $calculatedSisa = $validated['stok_awal'] + $stokMasuk - $produksi - $validated['defect'];
+
+            // Set default status if not provided
+            if (!isset($validated['status']) || empty($validated['status'])) {
+                $validated['status'] = $calculatedSisa < 30 ? 'need_order' : 'active';
             }
 
-            $sticker->update($validated);
+            // Update only the static fields, calculated sisa
+            $updateData = [
+                'stok_awal' => $validated['stok_awal'],
+                'defect' => $validated['defect'],
+                'sisa' => $calculatedSisa,
+                'status' => $validated['status']
+            ];
+
+            $sticker->update($updateData);
+
+            // Auto-sync produksi from catatan produksi after update
+            $sticker->updateProduksiFromCatatanProduksi();
+
+            // Get product for logging
+            $product = $sticker->product;
 
             // Log activity
-            addActivity('sticker', 'update', 'Pengguna mengupdate sticker untuk produk: ' . $product->name_product, $sticker->id);
+            addActivity('sticker', 'update', 'Pengguna mengupdate sticker untuk produk: ' . ($product ? $product->name_product : 'Unknown'), $sticker->id);
 
             return response()->json([
                 'success' => true,
                 'message' => 'Berhasil! Data sticker telah diperbarui.',
-                'data' => $sticker
+                'data' => [
+                    'sticker' => $sticker->fresh(),
+                    'sisa_calculated' => $calculatedSisa,
+                    'stok_masuk_dynamic' => $stokMasuk,
+                    'produksi_dynamic' => $produksi
+                ]
             ]);
         } catch (ValidationException $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Terjadi Kesalahan',
+                'message' => 'Terjadi Kesalahan Validasi',
                 'errors' => $e->errors()
             ], 422);
         } catch (\Exception $e) {
-            Log::error('Error updating sticker', ['error' => $e->getMessage()]);
+            Log::error('Error updating sticker', [
+                'error' => $e->getMessage(),
+                'sticker_id' => $id,
+                'request_data' => $request->all()
+            ]);
 
             return response()->json([
                 'success' => false,
@@ -396,6 +449,112 @@ class StickerController extends Controller
                 'success' => false,
                 'message' => 'Sticker tidak ditemukan.'
             ], 404);
+        }
+    }
+
+    /**
+     * Export data to Excel/CSV
+     */
+    public function export(Request $request)
+    {
+        try {
+            // Set memory limit higher for large exports
+            ini_set('memory_limit', '512M');
+
+            $query = Sticker::with('product');
+
+            // Apply filters if provided
+            if ($request->has('product_id') && !empty($request->product_id)) {
+                $query->where('product_id', $request->product_id);
+            }
+
+            if ($request->has('status') && !empty($request->status)) {
+                $query->where('status', $request->status);
+            }
+
+            if ($request->has('ukuran') && !empty($request->ukuran)) {
+                $query->where('ukuran', $request->ukuran);
+            }
+
+            // Get total count for logging
+            $totalRecords = $query->count();
+            Log::info("Starting sticker export of {$totalRecords} records");
+
+            // Process in chunks to avoid memory issues
+            $data = [];
+            $query->orderBy('created_at', 'desc')
+                ->chunk(500, function ($stickers) use (&$data) {
+                    foreach ($stickers as $sticker) {
+                        try {
+                            $data[] = [
+                                'ID' => $sticker->id,
+                                'SKU Produk' => $sticker->product ? $sticker->product->sku : '-',
+                                'Nama Produk' => $sticker->product ? $sticker->product->name_product : '-',
+                                'Label' => $sticker->product ? $sticker->product->label : '-',
+                                'Packaging' => $sticker->product ? $sticker->product->packaging : '-',
+                                'Ukuran Sticker' => $sticker->ukuran,
+                                'Jumlah per A3' => $sticker->jumlah,
+                                'Stok Awal' => $sticker->stok_awal,
+                                'Stok Masuk' => $sticker->stok_masuk_dynamic,
+                                'Produksi' => $sticker->produksi_dynamic,
+                                'Defect' => $sticker->defect,
+                                'Sisa' => $sticker->sisa_dynamic,
+                                'Status' => ucfirst(str_replace('_', ' ', $sticker->auto_status)),
+                                'Dibuat Pada' => $sticker->created_at->format('Y-m-d H:i:s'),
+                                'Diperbarui Pada' => $sticker->updated_at->format('Y-m-d H:i:s'),
+                            ];
+                        } catch (\Exception $e) {
+                            Log::error("Error processing sticker record ID {$sticker->id}: " . $e->getMessage());
+                            // Add error record for missing data
+                            $data[] = [
+                                'ID' => $sticker->id,
+                                'SKU Produk' => 'ERROR',
+                                'Nama Produk' => 'ERROR: ' . substr($e->getMessage(), 0, 30) . '...',
+                                'Label' => 'ERROR',
+                                'Packaging' => 'ERROR',
+                                'Ukuran Sticker' => $sticker->ukuran ?? 'ERROR',
+                                'Jumlah per A3' => $sticker->jumlah ?? 'ERROR',
+                                'Stok Awal' => $sticker->stok_awal ?? 'ERROR',
+                                'Stok Masuk' => $sticker->stok_masuk_dynamic ?? 'ERROR',
+                                'Produksi' => $sticker->produksi_dynamic ?? 'ERROR',
+                                'Defect' => $sticker->defect ?? 'ERROR',
+                                'Sisa' => $sticker->sisa_dynamic ?? 'ERROR',
+                                'Status' => $sticker->auto_status ?? 'ERROR',
+                                'Dibuat Pada' => $sticker->created_at ? $sticker->created_at->format('Y-m-d H:i:s') : '',
+                                'Diperbarui Pada' => $sticker->updated_at ? $sticker->updated_at->format('Y-m-d H:i:s') : '',
+                            ];
+                        }
+                    }
+                });
+
+            // Log activity
+            $exportDescription = 'Pengguna mengekspor data sticker';
+            if ($request->has('product_id') && !empty($request->product_id)) {
+                $product = \App\Models\Product::find($request->product_id);
+                $exportDescription .= ' untuk produk: ' . ($product ? $product->name_product : 'ID ' . $request->product_id);
+            }
+            if ($request->has('status') && !empty($request->status)) {
+                $exportDescription .= ' dengan status: ' . $request->status;
+            }
+            if ($request->has('ukuran') && !empty($request->ukuran)) {
+                $exportDescription .= ' dengan ukuran: ' . $request->ukuran;
+            }
+            $exportDescription .= " ({$totalRecords} data)";
+
+            addActivity('sticker', 'export', $exportDescription, null);
+            Log::info("Sticker export completed successfully for {$totalRecords} records");
+
+            return response()->json([
+                'status' => 'success',
+                'data' => $data,
+                'count' => count($data)
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Sticker export error: ' . $e->getMessage());
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Terjadi kesalahan saat mengekspor data sticker: ' . $e->getMessage()
+            ], 500);
         }
     }
 }

@@ -30,11 +30,68 @@ class Sticker extends Model
     }
 
     /**
+     * Get purchase stickers for this sticker's product and ukuran
+     */
+    public function purchaseStickers()
+    {
+        return $this->hasMany(PurchaseSticker::class, 'product_id', 'product_id')
+            ->where('ukuran_stiker', $this->ukuran);
+    }
+
+    /**
+     * Get catatan produksi records for this product
+     */
+    public function catatanProduksi()
+    {
+        return $this->hasMany(CatatanProduksi::class, 'product_id', 'product_id');
+    }
+
+    /**
+     * Get dynamic stok_masuk from purchase_stickers
+     */
+    public function getStokMasukDynamicAttribute()
+    {
+        return $this->purchaseStickers()->sum('stok_masuk');
+    }
+
+    /**
+     * Get dynamic produksi from catatan_produksi
+     * Summing all quantity from production records
+     */
+    public function getProduksiDynamicAttribute()
+    {
+        return $this->catatanProduksi()->sum('quantity');
+    }
+
+    /**
+     * Get auto-calculated status based on sisa
+     */
+    public function getAutoStatusAttribute()
+    {
+        if ($this->sisa_dynamic < 30) {
+            return 'need_order';
+        }
+        return 'available';
+    }
+
+    /**
+     * Calculate total sisa dynamically
+     * Formula: stok_awal + stok_masuk_dynamic - produksi_dynamic - defect
+     * Note: produksi mengurangi stok sticker karena sticker digunakan untuk produksi
+     */
+    public function getSisaDynamicAttribute()
+    {
+        return $this->stok_awal + $this->stok_masuk_dynamic - $this->produksi_dynamic - $this->defect;
+    }
+
+    /**
      * Get status options for stickers
      */
     public static function getStatusOptions()
     {
         return [
+            'available' => 'Available',
+            'need_order' => 'Need Order',
             'active' => 'Active',
             'inactive' => 'Inactive',
             'out_of_stock' => 'Out of Stock'
@@ -42,24 +99,98 @@ class Sticker extends Model
     }
 
     /**
-     * Get the ukuran sticker options
+     * Get the ukuran sticker options based on packaging
+     * P1 = EXTRA SMALL PACK, T1 = TIN CANISTER, T2 = TIN CANISTER CUSTOM, No Packaging = JAPANESE TEABAGS
      */
     public static function getUkuranSticker()
     {
         return [
-            1 => "5 X 17",
-            2 => "11.5 X 5.7",
-            3 => "13 X 5",
-            4 => "10 X 3"
+            'P1' => "5 X 17",      // EXTRA SMALL PACK (15-100 GRAM) -> 14 sticker per A3
+            'T1' => "11.5 X 5.7",  // TIN CANISTER SERIES -> 17 sticker per A3
+            'T2' => "13 X 5",      // TIN CANISTER SERIES (CUSTOM) -> 16 sticker per A3
+            '-' => "10 X 3"        // JAPANESE TEABAGS (No packaging) -> 42 sticker per A3
         ];
     }
 
     /**
-     * Get products that are eligible for stickers (specific labels only)
+     * Get jumlah sticker per A3 based on packaging
+     */
+    public static function getJumlahPerA3()
+    {
+        return [
+            'P1' => 14,   // 5 X 17
+            'T1' => 17,   // 11.5 X 5.7
+            'T2' => 16,   // 13 X 5
+            '-' => 42     // 10 X 3
+        ];
+    }
+
+    /**
+     * Get products that are eligible for stickers
+     * Based on labels: EXTRA SMALL PACK, TIN CANISTER SERIES, JAPANESE TEABAGS
      */
     public static function getEligibleProducts()
     {
-        // Labels: 1 = EXTRA SMALL PACK, 5 = TIN CANISTER SERIES
-        return Product::whereIn('label', [1, 5])->get();
+        return Product::whereIn('label', [1, 5, 10]) // 1=EXTRA SMALL PACK, 5=TIN CANISTER SERIES, 10=JAPANESE TEABAGS
+            ->whereIn('packaging', ['P1', 'T1', 'T2', '-'])
+            ->orderBy('name_product')
+            ->get();
+    }
+
+    /**
+     * Update produksi automatically based on catatan produksi
+     * This method can be called when CatatanProduksi is created/updated/deleted
+     */
+    public function updateProduksiFromCatatanProduksi()
+    {
+        // Calculate total production quantity for this product
+        $totalProduksi = $this->catatanProduksi()->sum('quantity');
+
+        // Update the produksi field
+        $this->update(['produksi' => $totalProduksi]);
+
+        return $this;
+    }
+
+    /**
+     * Create or update sticker data for a product
+     * This method ensures that when a product is used in production, its sticker record exists
+     */
+    public static function ensureStickerExists($productId)
+    {
+        $product = Product::find($productId);
+
+        if (!$product || !in_array($product->label, [1, 5, 10])) {
+            return null; // Product is not eligible for stickers
+        }
+
+        $sticker = static::where('product_id', $productId)->first();
+
+        if (!$sticker) {
+            // Determine sticker specifications based on packaging
+            $ukuranMapping = static::getUkuranSticker();
+            $jumlahMapping = static::getJumlahPerA3();
+
+            $packaging = $product->packaging ?: '-';
+            $ukuran = $ukuranMapping[$packaging] ?? '10 X 3';
+            $jumlah = $jumlahMapping[$packaging] ?? 42;
+
+            $sticker = static::create([
+                'product_id' => $productId,
+                'ukuran' => $ukuran,
+                'jumlah' => (string) $jumlah,
+                'stok_awal' => 0,
+                'stok_masuk' => 0,
+                'produksi' => 0,
+                'defect' => 0,
+                'sisa' => 0,
+                'status' => 'active'
+            ]);
+        }
+
+        // Update produksi from catatan produksi
+        $sticker->updateProduksiFromCatatanProduksi();
+
+        return $sticker;
     }
 }

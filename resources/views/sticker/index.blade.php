@@ -11,6 +11,8 @@
     <!-- data tables css -->
     <link rel="stylesheet" href="{{ URL::asset('build/css/plugins/datatables/dataTables.bootstrap5.min.css') }}">
     <link rel="stylesheet" href="{{ URL::asset('build/css/plugins/datatables/buttons.bootstrap5.min.css') }}">
+    <!-- Choices css -->
+    <link rel="stylesheet" href="{{ URL::asset('build/css/plugins/choices.min.css') }}">
     <!-- [Page specific CSS] end -->
     <style>
         .form-section {
@@ -86,6 +88,17 @@
             .paginate_button {
                 padding: 0.3rem 0.5rem !important;
             }
+
+            /* Inline editing responsive */
+            .stock-input {
+                width: 60px !important;
+                font-size: 12px !important;
+            }
+
+            .btn-sm {
+                padding: 0.2rem 0.4rem !important;
+                font-size: 0.75rem !important;
+            }
         }
 
         @media (max-width: 576px) {
@@ -108,6 +121,48 @@
                 padding: 0.2rem 0.3rem !important;
                 font-size: 0.8rem;
             }
+
+            .stock-input {
+                width: 50px !important;
+                font-size: 11px !important;
+            }
+        }
+
+        /* Inline editing styles */
+        .stock-input {
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            text-align: center;
+            transition: border-color 0.3s ease;
+        }
+
+        .stock-input:focus {
+            border-color: #007bff;
+            box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+            outline: none;
+        }
+
+        .auto-field {
+            background-color: #f8f9fa;
+            color: #6c757d;
+            font-weight: bold;
+        }
+
+        .sisa-display {
+            font-weight: bold;
+        }
+
+        .update-btn {
+            margin-right: 5px;
+        }
+
+        .table td {
+            vertical-align: middle;
+        }
+
+        .badge.auto {
+            font-size: 0.7em;
+            margin-left: 5px;
         }
     </style>
 @endsection
@@ -144,10 +199,13 @@
             <div class="card">
                 <div class="card-header">
                     <div class="d-flex justify-content-between align-items-center flex-wrap">
-                        <h5 class="mb-2 mb-sm-0">Daftar Sticker</h5>
+                        <h5 class="mb-2 mb-sm-0">Manajemen Sticker - Input Langsung</h5>
                         <div class="d-flex flex-wrap">
                             <button id="clear-filters" class="btn btn btn-secondary me-2 mb-2 mb-sm-0">
                                 <i class="fas fa-filter"></i> Hapus Filter
+                            </button>
+                            <button id="export-stickers" class="btn btn-success me-2 mb-2 mb-sm-0">
+                                <i class="fas fa-file-excel"></i> Export Excel
                             </button>
                             <button type="button" class="btn btn-primary mb-2 mb-sm-0" data-bs-toggle="modal"
                                 data-bs-target="#addStickerModal">
@@ -187,6 +245,17 @@
                             </div>
                         </div>
                     </div>
+
+                    <!-- Info Box -->
+                    <div class="alert alert-info" role="alert">
+                        <h6 class="alert-heading"><i class="fas fa-info-circle"></i> Informasi Penggunaan</h6>
+                        <p class="mb-1">• <strong>Stok Awal & Defect:</strong> Dapat diubah langsung di tabel</p>
+                        <p class="mb-1">• <strong>Stok Masuk:</strong> Otomatis dari Purchase Sticker</p>
+                        <p class="mb-1">• <strong>Produksi:</strong> Otomatis dari Catatan Produksi</p>
+                        <p class="mb-0">• <strong>Sisa:</strong> Kalkulasi otomatis (Stok Awal + Stok Masuk - Produksi -
+                            Defect)</p>
+                    </div>
+
                     <div class="dt-responsive table-responsive">
                         <table id="sticker-table" class="table table-striped table-bordered nowrap">
                             <thead>
@@ -195,14 +264,13 @@
                                     <th>Produk</th>
                                     <th>SKU</th>
                                     <th>Ukuran</th>
-                                    <th>Jumlah</th>
+                                    <th>Jumlah/A3</th>
                                     <th>Stok Awal</th>
                                     <th>Stok Masuk</th>
                                     <th>Produksi</th>
                                     <th>Defect</th>
                                     <th>Sisa</th>
                                     <th>Status</th>
-                                    <th>Dibuat</th>
                                     <th>Aksi</th>
                                 </tr>
                             </thead>
@@ -268,18 +336,10 @@
                                 <label for="add_stok_masuk" class="form-label">Stok Masuk <span
                                         class="text-danger">*</span></label>
                                 <input type="number" class="form-control" id="add_stok_masuk" name="stok_masuk"
-                                    min="0" required>
+                                    min="0" value="0" readonly>
+                                <small class="text-muted">Nilai otomatis dari Purchase Sticker</small>
                                 <div class="invalid-feedback"></div>
                             </div>
-                            <div class="col-md-6 mb-3">
-                                <label for="add_produksi" class="form-label">Produksi <span
-                                        class="text-danger">*</span></label>
-                                <input type="number" class="form-control" id="add_produksi" name="produksi"
-                                    min="0" required>
-                                <div class="invalid-feedback"></div>
-                            </div>
-                        </div>
-                        <div class="row">
                             <div class="col-md-6 mb-3">
                                 <label for="add_defect" class="form-label">Defect <span
                                         class="text-danger">*</span></label>
@@ -287,14 +347,15 @@
                                     min="0" required>
                                 <div class="invalid-feedback"></div>
                             </div>
+                        </div>
+                        <div class="row">
                             <div class="col-md-6 mb-3">
                                 <label for="add_sisa" class="form-label">Sisa <span class="text-danger">*</span></label>
                                 <input type="number" class="form-control" id="add_sisa" name="sisa" min="0"
-                                    required>
+                                    value="0" readonly>
+                                <small class="text-muted">Kalkulasi otomatis</small>
                                 <div class="invalid-feedback"></div>
                             </div>
-                        </div>
-                        <div class="row">
                             <div class="col-md-6 mb-3">
                                 <label for="add_status" class="form-label">Status <span
                                         class="text-danger">*</span></label>
@@ -313,130 +374,6 @@
                         <button type="submit" class="btn btn-primary">Simpan</button>
                     </div>
                 </form>
-            </div>
-        </div>
-    </div>
-
-    <!-- Edit Sticker Modal -->
-    <div class="modal fade" id="editStickerModal" tabindex="-1" aria-labelledby="editStickerModalLabel"
-        aria-hidden="true">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="editStickerModalLabel">Edit Sticker</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <form id="editStickerForm">
-                    <div class="modal-body">
-                        <input type="hidden" id="edit_sticker_id" name="sticker_id">
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label for="edit_product_id" class="form-label">Produk <span
-                                        class="text-danger">*</span></label>
-                                <select class="form-select" id="edit_product_id" name="product_id" required>
-                                    <option value="">Pilih Produk</option>
-                                    @foreach ($products as $product)
-                                        <option value="{{ $product->id }}">{{ $product->name_product }}
-                                            ({{ $product->sku }})
-                                        </option>
-                                    @endforeach
-                                </select>
-                                <div class="invalid-feedback"></div>
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label for="edit_ukuran" class="form-label">Ukuran <span
-                                        class="text-danger">*</span></label>
-                                <input type="text" class="form-control" id="edit_ukuran" name="ukuran" required>
-                                <div class="invalid-feedback"></div>
-                            </div>
-                        </div>
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label for="edit_jumlah" class="form-label">Jumlah <span
-                                        class="text-danger">*</span></label>
-                                <input type="text" class="form-control" id="edit_jumlah" name="jumlah" required>
-                                <div class="invalid-feedback"></div>
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label for="edit_stok_awal" class="form-label">Stok Awal <span
-                                        class="text-danger">*</span></label>
-                                <input type="number" class="form-control" id="edit_stok_awal" name="stok_awal"
-                                    min="0" required>
-                                <div class="invalid-feedback"></div>
-                            </div>
-                        </div>
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label for="edit_stok_masuk" class="form-label">Stok Masuk <span
-                                        class="text-danger">*</span></label>
-                                <input type="number" class="form-control" id="edit_stok_masuk" name="stok_masuk"
-                                    min="0" required>
-                                <div class="invalid-feedback"></div>
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label for="edit_produksi" class="form-label">Produksi <span
-                                        class="text-danger">*</span></label>
-                                <input type="number" class="form-control" id="edit_produksi" name="produksi"
-                                    min="0" required>
-                                <div class="invalid-feedback"></div>
-                            </div>
-                        </div>
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label for="edit_defect" class="form-label">Defect <span
-                                        class="text-danger">*</span></label>
-                                <input type="number" class="form-control" id="edit_defect" name="defect"
-                                    min="0" required>
-                                <div class="invalid-feedback"></div>
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label for="edit_sisa" class="form-label">Sisa <span class="text-danger">*</span></label>
-                                <input type="number" class="form-control" id="edit_sisa" name="sisa" min="0"
-                                    required>
-                                <div class="invalid-feedback"></div>
-                            </div>
-                        </div>
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label for="edit_status" class="form-label">Status <span
-                                        class="text-danger">*</span></label>
-                                <select class="form-select" id="edit_status" name="status" required>
-                                    <option value="">Pilih Status</option>
-                                    @foreach ($statuses as $key => $status)
-                                        <option value="{{ $key }}">{{ $status }}</option>
-                                    @endforeach
-                                </select>
-                                <div class="invalid-feedback"></div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
-                        <button type="submit" class="btn btn-primary">Update</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <!-- Delete Confirmation Modal -->
-    <div class="modal fade" id="deleteStickerModal" tabindex="-1" aria-labelledby="deleteStickerModalLabel"
-        aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="deleteStickerModalLabel">Konfirmasi Hapus</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <p>Apakah Anda yakin ingin menghapus sticker ini?</p>
-                    <p><strong>Produk:</strong> <span id="delete-sticker-product"></span></p>
-                    <p><strong>Ukuran:</strong> <span id="delete-sticker-ukuran"></span></p>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
-                    <button type="button" class="btn btn-danger" id="confirmDeleteSticker">Hapus</button>
-                </div>
             </div>
         </div>
     </div>
@@ -460,6 +397,15 @@
     <script src="{{ URL::asset('build/js/plugins/datatables/buttons.print.min.js') }}"></script>
     <script src="{{ URL::asset('build/js/plugins/datatables/buttons.colVis.min.js') }}"></script>
 
+    <!-- Choices JS -->
+    <script src="{{ URL::asset('build/js/plugins/choices.min.js') }}"></script>
+
+    <!-- SweetAlert2 -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+    <!-- XLSX library for Excel export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
     <script>
         $(document).ready(function() {
             // Setup CSRF token for AJAX requests
@@ -467,6 +413,15 @@
                 headers: {
                     'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
                 }
+            });
+
+            // Initialize Choices for product filter
+            var filterProductChoices = new Choices('#filter-product', {
+                searchEnabled: true,
+                searchPlaceholderValue: "Cari produk",
+                itemSelectText: '',
+                placeholder: true,
+                placeholderValue: "Semua produk"
             });
 
             // Initialize DataTable
@@ -504,31 +459,47 @@
                     },
                     {
                         data: 'stok_awal',
-                        name: 'stok_awal'
+                        name: 'stok_awal',
+                        render: function(data, type, row) {
+                            return `<input type="number" class="form-control form-control-sm stock-input" 
+                                    data-field="stok_awal" data-sticker-id="${row.id}" 
+                                    value="${data}" min="0" style="width: 80px;">`;
+                        }
                     },
                     {
-                        data: 'stok_masuk',
-                        name: 'stok_masuk'
+                        data: 'dynamic_stok_masuk',
+                        name: 'stok_masuk',
+                        render: function(data, type, row) {
+                            return `<span class="auto-field">${data}</span>`;
+                        }
                     },
                     {
-                        data: 'produksi',
-                        name: 'produksi'
+                        data: 'dynamic_produksi',
+                        name: 'produksi',
+                        render: function(data, type, row) {
+                            return `<span class="auto-field">${data}</span>`;
+                        }
                     },
                     {
                         data: 'defect',
-                        name: 'defect'
+                        name: 'defect',
+                        render: function(data, type, row) {
+                            return `<input type="number" class="form-control form-control-sm stock-input" 
+                                    data-field="defect" data-sticker-id="${row.id}" 
+                                    value="${data}" min="0" style="width: 80px;">`;
+                        }
                     },
                     {
-                        data: 'sisa',
-                        name: 'sisa'
+                        data: 'dynamic_sisa',
+                        name: 'sisa',
+                        render: function(data, type, row) {
+                            let badgeClass = data < 30 ? 'bg-danger' : 'bg-success';
+                            return `<span class="badge ${badgeClass} sisa-display" data-sticker-id="${row.id}">${data}</span>`;
+                        }
                     },
                     {
-                        data: 'status',
+                        data: 'formatted_status',
                         name: 'status'
-                    },
-                    {
-                        data: 'created_at',
-                        name: 'created_at'
                     },
                     {
                         data: 'action',
@@ -538,13 +509,10 @@
                         render: function(data, type, row) {
                             return `
                                 <div class="action-buttons">
-                                    <button class="btn btn-sm btn-info view-sticker" data-id="${data}" title="Lihat">
-                                        <i class="fas fa-eye"></i>
+                                    <button type="button" class="btn btn-sm btn-success update-btn" data-id="${data}">
+                                        <i class="fas fa-save"></i> Update
                                     </button>
-                                    <button class="btn btn-sm btn-warning edit-sticker" data-id="${data}" title="Edit">
-                                        <i class="fas fa-edit"></i>
-                                    </button>
-                                    <button class="btn btn-sm btn-danger delete-sticker" data-id="${data}" title="Hapus">
+                                    <button type="button" class="btn btn-sm btn-danger delete-sticker" data-id="${data}" title="Hapus">
                                         <i class="fas fa-trash"></i>
                                     </button>
                                 </div>
@@ -558,7 +526,7 @@
                 ],
                 responsive: true,
                 order: [
-                    [11, 'desc']
+                    [1, 'asc']
                 ]
             });
 
@@ -569,29 +537,175 @@
 
             // Clear filters
             $('#clear-filters').click(function() {
-                $('#filter-product').val('');
+                filterProductChoices.setChoiceByValue('');
                 $('#filter-status').val('');
                 table.draw();
+            });
+
+            // Function to calculate sisa for a specific row
+            function calculateRowSisa(stickerId) {
+                const stokAwal = parseInt($(`input[data-sticker-id="${stickerId}"][data-field="stok_awal"]`)
+                    .val()) || 0;
+                const defect = parseInt($(`input[data-sticker-id="${stickerId}"][data-field="defect"]`).val()) || 0;
+
+                // Get dynamic values from the row data (these are readonly)
+                const rowData = table.row($(`input[data-sticker-id="${stickerId}"]`).closest('tr')).data();
+                const stokMasuk = rowData ? rowData.dynamic_stok_masuk : 0;
+                const produksi = rowData ? rowData.dynamic_produksi : 0;
+
+                const sisa = stokAwal + stokMasuk - produksi - defect;
+
+                // Update display
+                const sisaElement = $(`.sisa-display[data-sticker-id="${stickerId}"]`);
+                sisaElement.text(sisa);
+
+                // Update badge class based on value
+                sisaElement.removeClass('bg-success bg-danger');
+                sisaElement.addClass(sisa < 30 ? 'bg-danger' : 'bg-success');
+
+                return sisa;
+            }
+
+            // Live sisa calculation when input changes
+            $(document).on('input', '.stock-input', function() {
+                const stickerId = $(this).data('sticker-id');
+                calculateRowSisa(stickerId);
+            });
+
+            // Update button click
+            $(document).on('click', '.update-btn', function() {
+                const stickerId = $(this).data('id');
+                const stokAwal = parseInt($(`input[data-sticker-id="${stickerId}"][data-field="stok_awal"]`)
+                    .val()) || 0;
+                const defect = parseInt($(`input[data-sticker-id="${stickerId}"][data-field="defect"]`)
+                    .val()) || 0;
+
+                // Calculate sisa for validation
+                const sisa = calculateRowSisa(stickerId);
+
+                // Disable button during update
+                $(this).prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Updating...');
+
+                // Prepare form data
+                const formData = new FormData();
+                formData.append('stok_awal', stokAwal);
+                formData.append('defect', defect);
+                formData.append('sisa', sisa);
+                formData.append('status', 'active'); // Default status
+                formData.append('_method', 'PUT');
+
+                $.ajax({
+                    url: "{{ route('stickers.update', ':id') }}".replace(':id', stickerId),
+                    method: 'POST',
+                    data: formData,
+                    processData: false,
+                    contentType: false,
+                    success: function(response) {
+                        if (response.success) {
+                            // Show success message
+                            Swal.fire({
+                                title: 'Berhasil!',
+                                text: response.message,
+                                icon: 'success',
+                                timer: 1500,
+                                showConfirmButton: false,
+                                toast: true,
+                                position: 'top-end'
+                            });
+
+                            // Refresh the table to get updated dynamic values
+                            table.draw(false);
+                        }
+                    },
+                    error: function(xhr) {
+                        if (xhr.status === 422) {
+                            // Validation errors
+                            const errors = xhr.responseJSON.errors;
+                            const errorMessages = Object.values(errors).flat();
+
+                            Swal.fire({
+                                title: 'Mohon Periksa Input Anda',
+                                html: errorMessages.join('<br>'),
+                                icon: 'warning',
+                                confirmButtonText: 'Saya Mengerti',
+                                confirmButtonColor: '#3085d6'
+                            });
+                        } else {
+                            // Other errors
+                            Swal.fire({
+                                title: 'Gagal Memperbarui',
+                                text: xhr.responseJSON?.message ||
+                                    'Tidak dapat memperbarui sticker saat ini.',
+                                icon: 'error',
+                                confirmButtonText: 'OK',
+                                confirmButtonColor: '#3085d6'
+                            });
+                        }
+                    },
+                    complete: function() {
+                        // Re-enable button
+                        $(`.update-btn[data-id="${stickerId}"]`).prop('disabled', false).html(
+                            '<i class="fas fa-save"></i> Update');
+                    }
+                });
+            });
+
+            // Export Stickers
+            $('#export-stickers').click(function() {
+                var btn = $(this);
+                var originalText = btn.html();
+
+                // Show loading state
+                btn.html('<i class="fas fa-spinner fa-spin"></i> Mengekspor...');
+                btn.prop('disabled', true);
+
+                // Prepare export data with current filters
+                var exportData = {
+                    product_id: $('#filter-product').val(),
+                    status: $('#filter-status').val(),
+                    ukuran: ''
+                };
+
+                $.ajax({
+                    url: "{{ route('stickers.export') }}",
+                    type: 'POST',
+                    data: exportData,
+                    success: function(response) {
+                        if (response.status === 'success') {
+                            // Create and download the Excel file
+                            downloadExcel(response.data, 'Data_Sticker_' +
+                                getCurrentDateString() + '.xlsx');
+                            showAlert('success',
+                                `Berhasil mengekspor ${response.count} data sticker ke Excel.`
+                            );
+                        } else {
+                            showAlert('error', response.message ||
+                                'Terjadi kesalahan saat mengekspor data.');
+                        }
+                    },
+                    error: function(xhr) {
+                        console.error('Export error:', xhr);
+                        var errorMessage = xhr.responseJSON && xhr.responseJSON.message ?
+                            xhr.responseJSON.message :
+                            'Terjadi kesalahan saat mengekspor data.';
+                        showAlert('error', errorMessage);
+                    },
+                    complete: function() {
+                        // Restore button state
+                        btn.html(originalText);
+                        btn.prop('disabled', false);
+                    }
+                });
             });
 
             // Add Sticker Form Submit
             $('#addStickerForm').on('submit', function(e) {
                 e.preventDefault();
 
-                console.log('Form submission started');
-
                 var formData = new FormData(this);
 
-                // Debug: Log form data
-                console.log('Form data entries:');
-                for (let [key, value] of formData.entries()) {
-                    console.log(key + ': ' + value);
-                }
-
                 // Debug: Check if all required fields are filled
-                var requiredFields = ['product_id', 'ukuran', 'jumlah', 'stok_awal', 'stok_masuk',
-                    'produksi', 'defect', 'sisa', 'status'
-                ];
+                var requiredFields = ['product_id', 'ukuran', 'jumlah', 'stok_awal', 'defect', 'status'];
                 var missingFields = [];
 
                 requiredFields.forEach(function(field) {
@@ -607,143 +721,34 @@
                     return;
                 }
 
-                console.log('All required fields are filled, sending AJAX request...');
-
                 $.ajax({
                     url: "{{ route('stickers.store') }}",
                     type: 'POST',
                     data: formData,
                     processData: false,
                     contentType: false,
-                    beforeSend: function(xhr) {
-                        console.log('AJAX request about to be sent');
-                        console.log('URL:', "{{ route('stickers.store') }}");
-                        console.log('CSRF Token:', $('meta[name="csrf-token"]').attr(
-                            'content'));
-                    },
                     success: function(response) {
-                        console.log('AJAX Success Response:', response);
-
                         if (response.success) {
                             $('#addStickerModal').modal('hide');
                             $('#addStickerForm')[0].reset();
                             table.draw();
-
-                            // Show success message
                             showAlert('success', response.message);
                         } else {
-                            console.error('Response indicates failure:', response);
                             showAlert('error', response.message ||
                                 'Terjadi kesalahan yang tidak diketahui.');
                         }
                     },
-                    error: function(xhr, status, error) {
-                        console.error('AJAX Error Details:');
-                        console.error('Status:', status);
-                        console.error('Error:', error);
-                        console.error('Response Status:', xhr.status);
-                        console.error('Response Text:', xhr.responseText);
-
-                        try {
-                            var responseJson = JSON.parse(xhr.responseText);
-                            console.error('Parsed Response:', responseJson);
-                        } catch (e) {
-                            console.error('Could not parse response as JSON');
-                        }
-
+                    error: function(xhr) {
                         if (xhr.status === 422) {
                             var errors = xhr.responseJSON ? xhr.responseJSON.errors : {};
-                            console.error('Validation Errors:', errors);
                             displayValidationErrors(errors, 'add');
-
                             if (xhr.responseJSON && xhr.responseJSON.message) {
                                 showAlert('error', xhr.responseJSON.message);
                             }
-                        } else if (xhr.status === 419) {
-                            console.error('CSRF Token Mismatch');
-                            showAlert('error',
-                                'CSRF Token tidak valid. Silakan refresh halaman dan coba lagi.'
-                            );
-                        } else if (xhr.status === 500) {
-                            console.error('Server Error');
-                            var errorMessage = xhr.responseJSON && xhr.responseJSON.message ?
-                                xhr.responseJSON.message : 'Terjadi kesalahan server.';
-                            showAlert('error', errorMessage);
                         } else {
-                            console.error('Unknown Error');
                             showAlert('error', xhr.responseJSON && xhr.responseJSON.message ?
                                 xhr.responseJSON.message :
                                 'Terjadi kesalahan saat menyimpan data.');
-                        }
-                    },
-                    complete: function(xhr, status) {
-                        console.log('AJAX Request completed with status:', status);
-                    }
-                });
-            });
-
-            // Edit Sticker
-            $(document).on('click', '.edit-sticker', function() {
-                var id = $(this).data('id');
-
-                $.ajax({
-                    url: "{{ route('stickers.edit', ':id') }}".replace(':id', id),
-                    type: 'GET',
-                    success: function(response) {
-                        if (response.success) {
-                            var sticker = response.data;
-
-                            $('#edit_sticker_id').val(sticker.id);
-                            $('#edit_product_id').val(sticker.product_id);
-                            $('#edit_ukuran').val(sticker.ukuran);
-                            $('#edit_jumlah').val(sticker.jumlah);
-                            $('#edit_stok_awal').val(sticker.stok_awal);
-                            $('#edit_stok_masuk').val(sticker.stok_masuk);
-                            $('#edit_produksi').val(sticker.produksi);
-                            $('#edit_defect').val(sticker.defect);
-                            $('#edit_sisa').val(sticker.sisa);
-                            $('#edit_status').val(sticker.status);
-
-                            $('#editStickerModal').modal('show');
-                        }
-                    },
-                    error: function(xhr) {
-                        showAlert('error', xhr.responseJSON.message ||
-                            'Terjadi kesalahan saat mengambil data.');
-                    }
-                });
-            });
-
-            // Update Sticker Form Submit
-            $('#editStickerForm').on('submit', function(e) {
-                e.preventDefault();
-
-                var id = $('#edit_sticker_id').val();
-                var formData = new FormData(this);
-                formData.append('_method', 'PUT');
-
-                $.ajax({
-                    url: "{{ route('stickers.update', ':id') }}".replace(':id', id),
-                    type: 'POST',
-                    data: formData,
-                    processData: false,
-                    contentType: false,
-                    success: function(response) {
-                        if (response.success) {
-                            $('#editStickerModal').modal('hide');
-                            table.draw();
-
-                            // Show success message
-                            showAlert('success', response.message);
-                        }
-                    },
-                    error: function(xhr) {
-                        if (xhr.status === 422) {
-                            var errors = xhr.responseJSON.errors;
-                            displayValidationErrors(errors, 'edit');
-                        } else {
-                            showAlert('error', xhr.responseJSON.message ||
-                                'Terjadi kesalahan saat memperbarui data.');
                         }
                     }
                 });
@@ -754,70 +759,32 @@
                 var id = $(this).data('id');
                 var row = table.row($(this).parents('tr')).data();
 
-                $('#delete-sticker-product').text(row.product_name);
-                $('#delete-sticker-ukuran').text(row.ukuran);
-                $('#confirmDeleteSticker').data('id', id);
-                $('#deleteStickerModal').modal('show');
-            });
-
-            // Confirm Delete
-            $('#confirmDeleteSticker').on('click', function() {
-                var id = $(this).data('id');
-
-                $.ajax({
-                    url: "{{ route('stickers.destroy', ':id') }}".replace(':id', id),
-                    type: 'DELETE',
-                    success: function(response) {
-                        if (response.success) {
-                            $('#deleteStickerModal').modal('hide');
-                            table.draw();
-
-                            // Show success message
-                            showAlert('success', response.message);
-                        }
-                    },
-                    error: function(xhr) {
-                        showAlert('error', xhr.responseJSON.message ||
-                            'Terjadi kesalahan saat menghapus data.');
-                    }
-                });
-            });
-
-            // View Sticker
-            $(document).on('click', '.view-sticker', function() {
-                var id = $(this).data('id');
-
-                $.ajax({
-                    url: "{{ route('stickers.show', ':id') }}".replace(':id', id),
-                    type: 'GET',
-                    success: function(response) {
-                        if (response.success) {
-                            var sticker = response.data;
-                            var content = `
-                                <div class="row">
-                                    <div class="col-md-6">
-                                        <p><strong>Produk:</strong> ${sticker.product ? sticker.product.name_product : '-'}</p>
-                                        <p><strong>SKU:</strong> ${sticker.product ? sticker.product.sku : '-'}</p>
-                                        <p><strong>Ukuran:</strong> ${sticker.ukuran}</p>
-                                        <p><strong>Jumlah:</strong> ${sticker.jumlah}</p>
-                                        <p><strong>Status:</strong> ${sticker.status}</p>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <p><strong>Stok Awal:</strong> ${sticker.stok_awal}</p>
-                                        <p><strong>Stok Masuk:</strong> ${sticker.stok_masuk}</p>
-                                        <p><strong>Produksi:</strong> ${sticker.produksi}</p>
-                                        <p><strong>Defect:</strong> ${sticker.defect}</p>
-                                        <p><strong>Sisa:</strong> ${sticker.sisa}</p>
-                                    </div>
-                                </div>
-                            `;
-
-                            showAlert('info', content, 'Detail Sticker');
-                        }
-                    },
-                    error: function(xhr) {
-                        showAlert('error', xhr.responseJSON.message ||
-                            'Terjadi kesalahan saat mengambil data.');
+                Swal.fire({
+                    title: 'Konfirmasi Hapus',
+                    html: `Apakah Anda yakin ingin menghapus sticker ini?<br><strong>Produk:</strong> ${row.product_name}<br><strong>Ukuran:</strong> ${row.ukuran}`,
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#d33',
+                    cancelButtonColor: '#3085d6',
+                    confirmButtonText: 'Ya, Hapus!',
+                    cancelButtonText: 'Batal'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        $.ajax({
+                            url: "{{ route('stickers.destroy', ':id') }}".replace(':id',
+                                id),
+                            type: 'DELETE',
+                            success: function(response) {
+                                if (response.success) {
+                                    table.draw();
+                                    showAlert('success', response.message);
+                                }
+                            },
+                            error: function(xhr) {
+                                showAlert('error', xhr.responseJSON.message ||
+                                    'Terjadi kesalahan saat menghapus data.');
+                            }
+                        });
                     }
                 });
             });
@@ -857,11 +824,76 @@
             }
 
             // Reset modal forms when closed
-            $('#addStickerModal, #editStickerModal').on('hidden.bs.modal', function() {
+            $('#addStickerModal').on('hidden.bs.modal', function() {
                 $(this).find('form')[0].reset();
                 $(this).find('.is-invalid').removeClass('is-invalid');
                 $(this).find('.invalid-feedback').text('');
             });
+
+            // Helper function to download Excel file
+            function downloadExcel(data, filename) {
+                if (!data || data.length === 0) {
+                    showAlert('warning', 'Tidak ada data untuk diekspor.');
+                    return;
+                }
+
+                // Create workbook and worksheet
+                var ws = XLSX.utils.json_to_sheet(data);
+                var wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, "Data Sticker");
+
+                // Auto-fit column widths
+                var wscols = [{
+                        wch: 5
+                    }, {
+                        wch: 12
+                    }, {
+                        wch: 25
+                    }, {
+                        wch: 8
+                    }, {
+                        wch: 12
+                    },
+                    {
+                        wch: 15
+                    }, {
+                        wch: 15
+                    }, {
+                        wch: 10
+                    }, {
+                        wch: 10
+                    }, {
+                        wch: 10
+                    },
+                    {
+                        wch: 8
+                    }, {
+                        wch: 8
+                    }, {
+                        wch: 10
+                    }, {
+                        wch: 20
+                    }, {
+                        wch: 20
+                    }
+                ];
+                ws['!cols'] = wscols;
+
+                // Write and save file
+                XLSX.writeFile(wb, filename);
+            }
+
+            // Helper function to get current date string
+            function getCurrentDateString() {
+                var now = new Date();
+                var year = now.getFullYear();
+                var month = String(now.getMonth() + 1).padStart(2, '0');
+                var day = String(now.getDate()).padStart(2, '0');
+                var hours = String(now.getHours()).padStart(2, '0');
+                var minutes = String(now.getMinutes()).padStart(2, '0');
+
+                return `${year}${month}${day}_${hours}${minutes}`;
+            }
         });
     </script>
 @endsection

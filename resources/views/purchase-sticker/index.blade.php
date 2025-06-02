@@ -232,8 +232,9 @@
                                     <label for="ukuran_stiker" class="form-label">Ukuran Stiker <span
                                             class="text-danger">*</span></label>
                                     <input type="text" class="form-control" id="ukuran_stiker" name="ukuran_stiker"
-                                        placeholder="Contoh: 10x15 cm" required>
+                                        placeholder="Akan terisi otomatis saat produk dipilih" readonly required>
                                     <div class="invalid-feedback" id="error-ukuran_stiker"></div>
+                                    <small class="text-muted">Ukuran akan terisi otomatis berdasarkan data produk</small>
                                 </div>
                             </div>
                         </div>
@@ -246,6 +247,7 @@
                                     <input type="number" class="form-control" id="jumlah_stiker" name="jumlah_stiker"
                                         min="1" required>
                                     <div class="invalid-feedback" id="error-jumlah_stiker"></div>
+                                    <small class="text-muted">Jumlah stiker yang akan dibeli/dipesan</small>
                                 </div>
                             </div>
                             <div class="col-md-6">
@@ -255,6 +257,22 @@
                                     <input type="number" class="form-control" id="jumlah_order" name="jumlah_order"
                                         min="0" required>
                                     <div class="invalid-feedback" id="error-jumlah_order"></div>
+                                    <small class="text-muted">Jumlah stiker yang akan digunakan untuk order</small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Info box for sticker per A3 -->
+                        <div class="row">
+                            <div class="col-md-12">
+                                <div class="alert alert-light border" id="sticker-info" style="display: none;">
+                                    <div class="d-flex align-items-center">
+                                        <i class="fas fa-info-circle text-info me-2"></i>
+                                        <div>
+                                            <strong>Info Sticker:</strong>
+                                            <span id="sticker-details">Pilih produk untuk melihat detail sticker</span>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -284,8 +302,13 @@
                         <div class="alert alert-info">
                             <strong>Informasi:</strong>
                             <ul class="mb-0">
+                                <li><strong>Ukuran Sticker:</strong> Akan terisi otomatis berdasarkan data produk yang
+                                    dipilih</li>
+                                <li><strong>Jumlah per A3:</strong> Informasi jumlah sticker yang bisa dicetak dalam 1
+                                    lembar A3</li>
                                 <li>Jika Total Order dikosongkan, akan otomatis sama dengan Jumlah Order</li>
-                                <li>Produk yang bisa dibuat stiker: Tea Bag, Drip Bag, dan Box Tea</li>
+                                <li>Produk yang bisa dibuat stiker: EXTRA SMALL PACK, TIN CANISTER, dan JAPANESE TEABAGS
+                                </li>
                             </ul>
                         </div>
                     </div>
@@ -607,6 +630,72 @@
                 $('.modal-backdrop').remove();
                 $('body').removeClass('modal-open');
                 $('body').css('padding-right', '');
+
+                // Reset sticker info when modal is closed
+                $('#sticker-info').hide();
+                $('#ukuran_stiker').val('');
+            });
+
+            // Auto-fill sticker data when product is selected
+            $('#product_id').on('change', function() {
+                var productId = $(this).val();
+
+                if (productId) {
+                    // Show loading state
+                    $('#ukuran_stiker').val('Memuat...');
+                    $('#sticker-info').hide();
+
+                    $.ajax({
+                        url: `/purchase-sticker/get-sticker-data/${productId}`,
+                        type: 'GET',
+                        success: function(response) {
+                            if (response.success) {
+                                // Fill in the sticker data
+                                $('#ukuran_stiker').val(response.data.ukuran_stiker);
+
+                                // Show sticker info
+                                $('#sticker-details').html(
+                                    `Ukuran: <strong>${response.data.ukuran_stiker}</strong> | ` +
+                                    `Jumlah per A3: <strong>${response.data.jumlah_per_a3}</strong> sticker`
+                                );
+                                $('#sticker-info').fadeIn();
+                            } else {
+                                $('#ukuran_stiker').val('');
+                                $('#sticker-info').hide();
+
+                                Swal.fire({
+                                    title: 'Perhatian',
+                                    text: response.message ||
+                                        'Data sticker untuk produk ini tidak ditemukan',
+                                    icon: 'warning',
+                                    timer: 3000,
+                                    showConfirmButton: false,
+                                    toast: true,
+                                    position: 'top-end'
+                                });
+                            }
+                        },
+                        error: function(xhr) {
+                            $('#ukuran_stiker').val('');
+                            $('#sticker-info').hide();
+
+                            console.error('Error getting sticker data:', xhr);
+                            Swal.fire({
+                                title: 'Error',
+                                text: 'Gagal mengambil data sticker. Silakan coba lagi.',
+                                icon: 'error',
+                                timer: 3000,
+                                showConfirmButton: false,
+                                toast: true,
+                                position: 'top-end'
+                            });
+                        }
+                    });
+                } else {
+                    // Clear fields when no product selected
+                    $('#ukuran_stiker').val('');
+                    $('#sticker-info').hide();
+                }
             });
         });
 
@@ -640,6 +729,23 @@
                     $('#jumlah_order').val(data.jumlah_order);
                     $('#stok_masuk').val(data.stok_masuk);
                     $('#total_order').val(data.total_order);
+
+                    // Load sticker info for the selected product
+                    if (data.product_id) {
+                        $.ajax({
+                            url: `/purchase-sticker/get-sticker-data/${data.product_id}`,
+                            type: 'GET',
+                            success: function(stickerResponse) {
+                                if (stickerResponse.success) {
+                                    $('#sticker-details').html(
+                                        `Ukuran: <strong>${stickerResponse.data.ukuran_stiker}</strong> | ` +
+                                        `Jumlah per A3: <strong>${stickerResponse.data.jumlah_per_a3}</strong> sticker`
+                                    );
+                                    $('#sticker-info').show();
+                                }
+                            }
+                        });
+                    }
 
                     $('#purchaseStickerModalLabel').text('Edit Purchase Stiker');
                     $('#purchaseStickerModal').modal('show');
