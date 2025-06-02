@@ -11,6 +11,8 @@
     <!-- data tables css -->
     <link rel="stylesheet" href="{{ URL::asset('build/css/plugins/datatables/dataTables.bootstrap5.min.css') }}">
     <link rel="stylesheet" href="{{ URL::asset('build/css/plugins/datatables/buttons.bootstrap5.min.css') }}">
+    <!-- Choices css -->
+    <link rel="stylesheet" href="{{ URL::asset('build/css/plugins/choices.min.css') }}">
     <!-- [Page specific CSS] end -->
     <style>
         .form-section {
@@ -18,6 +20,36 @@
             padding: 20px;
             border-radius: 5px;
             margin-bottom: 20px;
+        }
+
+        /* Choices.js custom styling */
+        .choices__inner {
+            min-height: 38px;
+            padding: 4px 8px;
+            border: 1px solid #dee2e6;
+            border-radius: 0.375rem;
+        }
+
+        .choices__list--dropdown .choices__item {
+            padding: 6px 10px;
+        }
+
+        .is-open .choices__inner {
+            border-radius: 0.375rem 0.375rem 0 0;
+        }
+
+        .choices[data-type*="select-one"] .choices__inner {
+            padding-bottom: 4px;
+        }
+
+        .choices__list--single .choices__item {
+            display: flex;
+            align-items: center;
+        }
+
+        /* Product select container */
+        .product-select-container {
+            width: 100%;
         }
 
         /* Responsive styling */
@@ -180,10 +212,12 @@
                                     <th>Produk</th>
                                     <th>SKU</th>
                                     <th>Ukuran Stiker</th>
-                                    <th>Jumlah Stiker</th>
-                                    <th>Jumlah Order</th>
-                                    <th>Stok Masuk</th>
-                                    <th>Total Order</th>
+                                    <th title="Informasi jumlah stiker yang bisa didapat per lembar A3">Jumlah Stiker / A3
+                                        (PCS)</th>
+                                    <th title="Jumlah stiker yang direncanakan untuk order pelanggan">Jumlah Order</th>
+                                    <th title="Jumlah stiker yang sudah diterima dari supplier">Stok Masuk</th>
+                                    <th title="Total akhir order setelah penyesuaian">
+                                        Total Order</th>
                                     <th>Aksi</th>
                                 </tr>
                             </thead>
@@ -242,12 +276,13 @@
                         <div class="row">
                             <div class="col-md-6">
                                 <div class="mb-3">
-                                    <label for="jumlah_stiker" class="form-label">Jumlah Stiker <span
+                                    <label for="jumlah_stiker" class="form-label">Jumlah Stiker / A3 <span
                                             class="text-danger">*</span></label>
                                     <input type="number" class="form-control" id="jumlah_stiker" name="jumlah_stiker"
                                         min="1" required>
                                     <div class="invalid-feedback" id="error-jumlah_stiker"></div>
-                                    <small class="text-muted">Jumlah stiker yang akan dibeli/dipesan</small>
+                                    <small class="text-muted">Informasi jumlah stiker per lembar A3 (hanya
+                                        referensi)</small>
                                 </div>
                             </div>
                             <div class="col-md-6">
@@ -286,30 +321,42 @@
                                     <input type="number" class="form-control" id="stok_masuk" name="stok_masuk"
                                         min="0" value="0">
                                     <div class="invalid-feedback" id="error-stok_masuk"></div>
+                                    <small class="text-muted">Jumlah stiker yang sudah diterima/masuk ke gudang</small>
                                 </div>
                             </div>
                             <div class="col-md-6">
                                 <div class="mb-3">
-                                    <label for="total_order" class="form-label">Total Order</label>
+                                    <label for="total_order" class="form-label">Total Order Final</label>
                                     <input type="number" class="form-control" id="total_order" name="total_order"
                                         min="0" value="0">
                                     <div class="invalid-feedback" id="error-total_order"></div>
-                                    <small class="text-muted">Kosongkan untuk sama dengan jumlah order</small>
+                                    <small class="text-muted">Total akhir order setelah penyesuaian</small>
                                 </div>
                             </div>
                         </div>
 
                         <div class="alert alert-info">
-                            <strong>Informasi:</strong>
-                            <ul class="mb-0">
-                                <li><strong>Ukuran Sticker:</strong> Akan terisi otomatis berdasarkan data produk yang
-                                    dipilih</li>
-                                <li><strong>Jumlah per A3:</strong> Informasi jumlah sticker yang bisa dicetak dalam 1
-                                    lembar A3</li>
-                                <li>Jika Total Order dikosongkan, akan otomatis sama dengan Jumlah Order</li>
-                                <li>Produk yang bisa dibuat stiker: EXTRA SMALL PACK, TIN CANISTER, dan JAPANESE TEABAGS
+                            <strong>Penjelasan Field:</strong>
+                            <ul class="mb-2">
+                                <li><strong>Jumlah Stiker / A3:</strong> Informasi referensi berapa stiker per lembar A3
                                 </li>
+                                <li><strong>Jumlah Order:</strong> Jumlah stiker yang direncanakan untuk order pelanggan
+                                    (DATA DINAMIS)</li>
+                                <li><strong>Stok Masuk:</strong> Jumlah stiker yang sudah diterima dari supplier (DATA
+                                    DINAMIS)</li>
+                                <li><strong>Total Order Final:</strong> Total akhir order setelah ada penyesuaian (DATA
+                                    DINAMIS)</li>
                             </ul>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <small class="text-muted"><strong>Info:</strong> Yang penting adalah data dinamis
+                                        (Order, Stok Masuk, Total Order)</small>
+                                </div>
+                                <div class="col-md-6">
+                                    <small class="text-muted"><strong>Auto:</strong> Ukuran Stiker otomatis dari data
+                                        produk</small>
+                                </div>
+                            </div>
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -359,8 +406,263 @@
     <script src="{{ URL::asset('build/js/plugins/buttons.print.min.js') }}"></script>
     <script src="{{ URL::asset('build/js/plugins/buttons.colVis.min.js') }}"></script>
 
+    <!-- Choices JS -->
+    <script src="{{ URL::asset('build/js/plugins/choices.min.js') }}"></script>
+
     <script type="text/javascript">
+        // Global debug function - harus di luar document ready
+        const DEBUG = true;
+
+        function debugLog(...args) {
+            if (DEBUG) {
+                console.log('[DEBUG Purchase Sticker]', new Date().toISOString(), ...args);
+            }
+        }
+
+        // Global helper functions
+        function clearValidationErrors() {
+            $('.is-invalid').removeClass('is-invalid');
+            $('.invalid-feedback').text('');
+        }
+
+        function showValidationErrors(errors) {
+            $.each(errors, function(field, messages) {
+                const input = $(`[name="${field}"]`);
+                input.addClass('is-invalid');
+                $(`#error-${field}`).text(messages[0]);
+            });
+        }
+
+        // Global variables for Choices instances
+        let productChoicesInstance = null;
+
+        // Global function to reset form
+        function resetForm() {
+            $('#purchaseStickerForm')[0].reset();
+            $('#purchase_sticker_id').val('');
+            clearValidationErrors();
+
+            // Reset Choices.js if initialized
+            if (productChoicesInstance) {
+                try {
+                    productChoicesInstance.setChoiceByValue('');
+                    debugLog('Product Choices.js reset successfully');
+                } catch (e) {
+                    debugLog('Error resetting product choices:', e);
+                    // Try to reinitialize if reset fails
+                    forceReinitializeChoices();
+                }
+            }
+
+            // Reset sticker info
+            $('#sticker-info').hide();
+            $('#ukuran_stiker').val('');
+        }
+
+        // Function to force reinitialize Choices.js if there are issues
+        function forceReinitializeChoices() {
+            debugLog('Force reinitializing Choices.js...');
+
+            // Clean up existing instance
+            if (productChoicesInstance) {
+                try {
+                    productChoicesInstance.destroy();
+                    productChoicesInstance = null;
+                } catch (e) {
+                    debugLog('Error destroying choices during force reinit:', e);
+                }
+            }
+
+            // Reinitialize after a short delay
+            setTimeout(() => {
+                initProductChoices();
+                debugLog('Choices.js force reinitialized');
+            }, 50);
+        }
+
+        // Function to initialize product choices
+        function initProductChoices() {
+            const productSelect = document.querySelector('#product_id');
+            if (productSelect) {
+                // Destroy existing instance if it exists
+                if (productChoicesInstance) {
+                    try {
+                        productChoicesInstance.destroy();
+                    } catch (e) {
+                        debugLog('Error destroying product choices:', e);
+                    }
+                }
+
+                productChoicesInstance = new Choices(productSelect, {
+                    searchEnabled: true,
+                    searchPlaceholderValue: "Cari produk...",
+                    itemSelectText: '',
+                    placeholder: true,
+                    placeholderValue: "-- Pilih Produk --",
+                    removeItemButton: true,
+                    classNames: {
+                        containerOuter: 'choices form-select product-select-container',
+                    }
+                });
+
+                debugLog('Product Choices.js initialized');
+            }
+        }
+
+        // Function to clean up choices instances
+        function cleanupChoicesInstances() {
+            if (productChoicesInstance) {
+                try {
+                    productChoicesInstance.destroy();
+                    productChoicesInstance = null;
+                    debugLog('Product Choices.js destroyed');
+                } catch (e) {
+                    debugLog('Error destroying product choices:', e);
+                }
+            }
+        }
+
+        // Function to handle product selection (compatible with both native select and Choices.js)
+        function handleProductSelection(productId) {
+            debugLog('Handling product selection:', productId);
+
+            if (productId) {
+                // Show loading state
+                $('#ukuran_stiker').val('Memuat...');
+                $('#sticker-info').hide();
+
+                debugLog('Making AJAX request to get sticker data for product:', productId);
+
+                $.ajax({
+                    url: `/purchase-sticker/get-sticker-data/${productId}`,
+                    type: 'GET',
+                    success: function(response) {
+                        debugLog('Sticker data response received:', response);
+
+                        if (response.success) {
+                            // Fill in the sticker data
+                            $('#ukuran_stiker').val(response.data.ukuran_stiker);
+
+                            // Show sticker info
+                            $('#sticker-details').html(
+                                `Ukuran: <strong>${response.data.ukuran_stiker}</strong> | ` +
+                                `Jumlah per A3: <strong>${response.data.jumlah_per_a3}</strong> sticker`
+                            );
+                            $('#sticker-info').fadeIn();
+
+                            debugLog('Sticker data loaded successfully:', response.data);
+                        } else {
+                            $('#ukuran_stiker').val('');
+                            $('#sticker-info').hide();
+
+                            debugLog('Sticker data not found:', response.message);
+
+                            Swal.fire({
+                                title: 'Perhatian',
+                                text: response.message ||
+                                    'Data sticker untuk produk ini tidak ditemukan',
+                                icon: 'warning',
+                                timer: 3000,
+                                showConfirmButton: false,
+                                toast: true,
+                                position: 'top-end'
+                            });
+                        }
+                    },
+                    error: function(xhr) {
+                        $('#ukuran_stiker').val('');
+                        $('#sticker-info').hide();
+
+                        debugLog('Error getting sticker data:', xhr);
+                        console.error('Error getting sticker data:', xhr);
+
+                        Swal.fire({
+                            title: 'Error',
+                            text: 'Gagal mengambil data sticker. Silakan coba lagi.',
+                            icon: 'error',
+                            timer: 3000,
+                            showConfirmButton: false,
+                            toast: true,
+                            position: 'top-end'
+                        });
+                    }
+                });
+            } else {
+                // Clear fields when no product selected
+                $('#ukuran_stiker').val('');
+                $('#sticker-info').hide();
+                debugLog('No product selected, clearing fields');
+            }
+        }
+
         $(document).ready(function() {
+            // Log that script is starting
+            debugLog('Purchase Sticker script starting...');
+
+            // Test if bootstrap modal is available
+            if (typeof window.bootstrap === 'undefined' && typeof $.fn.modal === 'undefined') {
+                console.error('Bootstrap modal not available');
+                return;
+            }
+
+            // Test if SweetAlert is available
+            if (typeof Swal === 'undefined') {
+                console.error('SweetAlert not available');
+                return;
+            }
+
+            debugLog('All dependencies available, proceeding with initialization...');
+
+            // Initialize choices when modal is shown
+            $('#purchaseStickerModal').on('shown.bs.modal', function() {
+                debugLog('Modal shown - initializing Choices.js');
+                setTimeout(() => {
+                    initProductChoices();
+
+                    // Add event listener for Choices.js change event
+                    if (productChoicesInstance) {
+                        const productElement = document.querySelector('#product_id');
+                        if (productElement) {
+                            // Remove existing event listeners to avoid duplicates
+                            productElement.removeEventListener('choice', handleChoiceEvent);
+
+                            // Add new event listener
+                            productElement.addEventListener('choice', handleChoiceEvent);
+
+                            debugLog('Choices.js event listener added for edit modal');
+                        }
+                    }
+                }, 100);
+            });
+
+            // Define the choice event handler function
+            function handleChoiceEvent(event) {
+                debugLog('Product choice changed via Choices.js:', event.detail.choice.value);
+                handleProductSelection(event.detail.choice.value);
+            }
+
+            // Clean up when modal is hidden
+            $('#purchaseStickerModal').on('hidden.bs.modal', function() {
+                debugLog('Modal hidden - cleaning up Choices.js');
+                cleanupChoicesInstances();
+
+                // Reset form
+                $('#purchaseStickerForm')[0].reset();
+                $('#purchase_sticker_id').val('');
+                clearValidationErrors();
+
+                // Reset sticker info
+                $('#sticker-info').hide();
+                $('#ukuran_stiker').val('');
+
+                // Remove any remaining backdrop
+                $('.modal-backdrop').remove();
+                $('body').removeClass('modal-open');
+                $('body').css('padding-right', '');
+            });
+
+            // Total Order Final dapat diedit bebas tanpa auto-calculation
+
             // Show session flash messages with SweetAlert
             @if (session('success'))
                 Swal.fire({
@@ -530,9 +832,98 @@
                     table.draw();
                 });
 
-                // Form submission
+                // Handle product selection change with Choices.js compatibility
+                $(document).on('change', '#product_id', function() {
+                    const selectedValue = $(this).val();
+                    debugLog('Product selection changed via jQuery event:', selectedValue);
+                    debugLog('Event triggered by element:', this);
+
+                    // Only handle if it's a valid selection
+                    if (selectedValue && selectedValue !== '') {
+                        handleProductSelection(selectedValue);
+                    } else {
+                        debugLog('Empty product selection, clearing fields');
+                        $('#ukuran_stiker').val('');
+                        $('#sticker-info').hide();
+                    }
+                });
+
+                // Also keep the original change handler for backup
+                $('#product_id').on('change', function() {
+                    var productId = $(this).val();
+                    debugLog('Product selection changed via direct handler:', productId);
+
+                    if (productId) {
+                        // Show loading state
+                        $('#ukuran_stiker').val('Memuat...');
+                        $('#sticker-info').hide();
+
+                        $.ajax({
+                            url: `/purchase-sticker/get-sticker-data/${productId}`,
+                            type: 'GET',
+                            success: function(response) {
+                                if (response.success) {
+                                    // Fill in the sticker data
+                                    $('#ukuran_stiker').val(response.data.ukuran_stiker);
+
+                                    // Show sticker info
+                                    $('#sticker-details').html(
+                                        `Ukuran: <strong>${response.data.ukuran_stiker}</strong> | ` +
+                                        `Jumlah per A3: <strong>${response.data.jumlah_per_a3}</strong> sticker`
+                                    );
+                                    $('#sticker-info').fadeIn();
+                                } else {
+                                    $('#ukuran_stiker').val('');
+                                    $('#sticker-info').hide();
+
+                                    Swal.fire({
+                                        title: 'Perhatian',
+                                        text: response.message ||
+                                            'Data sticker untuk produk ini tidak ditemukan',
+                                        icon: 'warning',
+                                        timer: 3000,
+                                        showConfirmButton: false,
+                                        toast: true,
+                                        position: 'top-end'
+                                    });
+                                }
+                            },
+                            error: function(xhr) {
+                                $('#ukuran_stiker').val('');
+                                $('#sticker-info').hide();
+
+                                console.error('Error getting sticker data:', xhr);
+                                Swal.fire({
+                                    title: 'Error',
+                                    text: 'Gagal mengambil data sticker. Silakan coba lagi.',
+                                    icon: 'error',
+                                    timer: 3000,
+                                    showConfirmButton: false,
+                                    toast: true,
+                                    position: 'top-end'
+                                });
+                            }
+                        });
+                    } else {
+                        // Clear fields when no product selected
+                        $('#ukuran_stiker').val('');
+                        $('#sticker-info').hide();
+                    }
+                });
+
+                // Form submission with Choices.js compatibility
                 $('#purchaseStickerForm').on('submit', function(e) {
                     e.preventDefault();
+
+                    // Ensure we get the correct value from Choices.js
+                    if (productChoicesInstance) {
+                        const selectedProduct = productChoicesInstance.getValue(true);
+                        if (selectedProduct) {
+                            // Manually set the value to the hidden select
+                            $('#product_id').val(selectedProduct);
+                            debugLog('Product ID fixed from Choices.js:', selectedProduct);
+                        }
+                    }
 
                     var formData = new FormData(this);
                     var purchaseStickerId = $('#purchase_sticker_id').val();
@@ -542,6 +933,16 @@
                     if (purchaseStickerId) {
                         formData.append('_method', 'PUT');
                     }
+
+                    // Debug form data
+                    debugLog('Form submission data:', {
+                        product_id: formData.get('product_id'),
+                        ukuran_stiker: formData.get('ukuran_stiker'),
+                        jumlah_stiker: formData.get('jumlah_stiker'),
+                        jumlah_order: formData.get('jumlah_order'),
+                        stok_masuk: formData.get('stok_masuk'),
+                        total_order: formData.get('total_order')
+                    });
 
                     Swal.fire({
                         title: purchaseStickerId ? 'Memperbarui...' : 'Menyimpan...',
@@ -622,147 +1023,195 @@
                     icon: 'error'
                 });
             }
-
-            // Clean up modal when it's hidden
-            $('#purchaseStickerModal, #detailModal').on('hidden.bs.modal', function() {
-                $(this).find('form')[0]?.reset();
-                $(this).find('.is-invalid').removeClass('is-invalid');
-                $('.modal-backdrop').remove();
-                $('body').removeClass('modal-open');
-                $('body').css('padding-right', '');
-
-                // Reset sticker info when modal is closed
-                $('#sticker-info').hide();
-                $('#ukuran_stiker').val('');
-            });
-
-            // Auto-fill sticker data when product is selected
-            $('#product_id').on('change', function() {
-                var productId = $(this).val();
-
-                if (productId) {
-                    // Show loading state
-                    $('#ukuran_stiker').val('Memuat...');
-                    $('#sticker-info').hide();
-
-                    $.ajax({
-                        url: `/purchase-sticker/get-sticker-data/${productId}`,
-                        type: 'GET',
-                        success: function(response) {
-                            if (response.success) {
-                                // Fill in the sticker data
-                                $('#ukuran_stiker').val(response.data.ukuran_stiker);
-
-                                // Show sticker info
-                                $('#sticker-details').html(
-                                    `Ukuran: <strong>${response.data.ukuran_stiker}</strong> | ` +
-                                    `Jumlah per A3: <strong>${response.data.jumlah_per_a3}</strong> sticker`
-                                );
-                                $('#sticker-info').fadeIn();
-                            } else {
-                                $('#ukuran_stiker').val('');
-                                $('#sticker-info').hide();
-
-                                Swal.fire({
-                                    title: 'Perhatian',
-                                    text: response.message ||
-                                        'Data sticker untuk produk ini tidak ditemukan',
-                                    icon: 'warning',
-                                    timer: 3000,
-                                    showConfirmButton: false,
-                                    toast: true,
-                                    position: 'top-end'
-                                });
-                            }
-                        },
-                        error: function(xhr) {
-                            $('#ukuran_stiker').val('');
-                            $('#sticker-info').hide();
-
-                            console.error('Error getting sticker data:', xhr);
-                            Swal.fire({
-                                title: 'Error',
-                                text: 'Gagal mengambil data sticker. Silakan coba lagi.',
-                                icon: 'error',
-                                timer: 3000,
-                                showConfirmButton: false,
-                                toast: true,
-                                position: 'top-end'
-                            });
-                        }
-                    });
-                } else {
-                    // Clear fields when no product selected
-                    $('#ukuran_stiker').val('');
-                    $('#sticker-info').hide();
-                }
-            });
         });
 
         // Global functions
         window.showCreateModal = function() {
-            resetForm();
-            $('#purchaseStickerModalLabel').text('Tambah Purchase Stiker');
-            $('#purchaseStickerModal').modal('show');
+            try {
+                debugLog('showCreateModal called');
+
+                // Check if modal element exists
+                const modalElement = document.getElementById('purchaseStickerModal');
+                if (!modalElement) {
+                    console.error('Modal element #purchaseStickerModal not found');
+                    Swal.fire({
+                        title: 'Error',
+                        text: 'Modal tidak ditemukan. Silakan refresh halaman.',
+                        icon: 'error'
+                    });
+                    return;
+                }
+
+                debugLog('Modal element found, resetting form...');
+                resetForm();
+
+                debugLog('Setting modal title...');
+                $('#purchaseStickerModalLabel').text('Tambah Purchase Stiker');
+
+                debugLog('Showing modal...');
+                $('#purchaseStickerModal').modal('show');
+
+                debugLog('showCreateModal completed successfully');
+            } catch (error) {
+                console.error('Error in showCreateModal:', error);
+                debugLog('Error in showCreateModal:', error);
+
+                Swal.fire({
+                    title: 'Error',
+                    text: 'Terjadi kesalahan saat membuka form. Silakan refresh halaman.',
+                    icon: 'error'
+                });
+            }
         };
 
         window.editPurchaseSticker = function(id) {
-            Swal.fire({
-                title: 'Memuat...',
-                text: 'Mengambil data purchase stiker',
-                allowOutsideClick: false,
-                showConfirmButton: false,
-                willOpen: () => {
-                    Swal.showLoading();
-                }
-            });
+            try {
+                debugLog('editPurchaseSticker called with id:', id);
 
-            $.get(`/purchase-sticker/${id}/edit`, function(response) {
-                Swal.close();
-
-                if (response.success) {
-                    var data = response.data;
-                    $('#purchase_sticker_id').val(data.id);
-                    $('#product_id').val(data.product_id);
-                    $('#ukuran_stiker').val(data.ukuran_stiker);
-                    $('#jumlah_stiker').val(data.jumlah_stiker);
-                    $('#jumlah_order').val(data.jumlah_order);
-                    $('#stok_masuk').val(data.stok_masuk);
-                    $('#total_order').val(data.total_order);
-
-                    // Load sticker info for the selected product
-                    if (data.product_id) {
-                        $.ajax({
-                            url: `/purchase-sticker/get-sticker-data/${data.product_id}`,
-                            type: 'GET',
-                            success: function(stickerResponse) {
-                                if (stickerResponse.success) {
-                                    $('#sticker-details').html(
-                                        `Ukuran: <strong>${stickerResponse.data.ukuran_stiker}</strong> | ` +
-                                        `Jumlah per A3: <strong>${stickerResponse.data.jumlah_per_a3}</strong> sticker`
-                                    );
-                                    $('#sticker-info').show();
-                                }
-                            }
-                        });
-                    }
-
-                    $('#purchaseStickerModalLabel').text('Edit Purchase Stiker');
-                    $('#purchaseStickerModal').modal('show');
-                } else {
+                // Check if modal element exists
+                const modalElement = document.getElementById('purchaseStickerModal');
+                if (!modalElement) {
+                    console.error('Modal element #purchaseStickerModal not found');
                     Swal.fire({
                         title: 'Error',
-                        text: response.message || 'Gagal mengambil data purchase stiker',
+                        text: 'Modal tidak ditemukan. Silakan refresh halaman.',
                         icon: 'error'
                     });
+                    return;
                 }
-            }).fail(function(xhr) {
+
+                if (!id) {
+                    console.error('No ID provided to editPurchaseSticker');
+                    Swal.fire({
+                        title: 'Error',
+                        text: 'ID data tidak valid.',
+                        icon: 'error'
+                    });
+                    return;
+                }
+
+                Swal.fire({
+                    title: 'Memuat...',
+                    text: 'Mengambil data purchase stiker',
+                    allowOutsideClick: false,
+                    showConfirmButton: false,
+                    willOpen: () => {
+                        Swal.showLoading();
+                    }
+                });
+
+                debugLog('Making AJAX request to get edit data...');
+
+                $.get(`/purchase-sticker/${id}/edit`, function(response) {
+                    Swal.close();
+
+                    if (response.success) {
+                        var data = response.data;
+                        debugLog('Edit data received:', data);
+
+                        $('#purchase_sticker_id').val(data.id);
+                        $('#purchaseStickerModalLabel').text('Edit Purchase Stiker');
+
+                        debugLog('Showing edit modal...');
+                        // Show the modal first
+                        $('#purchaseStickerModal').modal('show');
+
+                        // Wait for modal to be fully shown and Choices.js to be initialized
+                        $('#purchaseStickerModal').one('shown.bs.modal', function() {
+                            debugLog('Edit modal shown, setting form data...');
+
+                            setTimeout(() => {
+                                // Set product value first
+                                if (productChoicesInstance) {
+                                    try {
+                                        // Check if the product exists in choices
+                                        const productExists = productChoicesInstance.getValue(
+                                            true);
+                                        debugLog('Current Choices.js value:', productExists);
+
+                                        // Clear current selection first
+                                        productChoicesInstance.removeActiveItems();
+
+                                        // Set new value
+                                        productChoicesInstance.setChoiceByValue(data.product_id
+                                            .toString());
+
+                                        // Verify the value was set
+                                        const newValue = productChoicesInstance.getValue(true);
+                                        debugLog('Product set via Choices.js - New value:',
+                                            newValue);
+
+                                        // Also update the underlying select element
+                                        $('#product_id').val(data.product_id);
+
+                                        // Trigger change event manually to ensure handlers are called
+                                        $('#product_id').trigger('change');
+
+                                    } catch (e) {
+                                        debugLog('Error setting product via Choices.js:', e);
+                                        // Fallback to regular select
+                                        $('#product_id').val(data.product_id).trigger('change');
+                                        debugLog('Product set via regular select fallback:',
+                                            data
+                                            .product_id);
+                                    }
+                                } else {
+                                    debugLog(
+                                        'Choices.js not initialized, using regular select');
+                                    $('#product_id').val(data.product_id).trigger('change');
+                                }
+
+                                // Set other form values after a small delay to ensure product is set first
+                                setTimeout(() => {
+                                    $('#ukuran_stiker').val(data.ukuran_stiker);
+                                    $('#jumlah_stiker').val(data.jumlah_stiker);
+                                    $('#jumlah_order').val(data.jumlah_order);
+                                    $('#stok_masuk').val(data.stok_masuk);
+                                    $('#total_order').val(data.total_order);
+
+                                    debugLog('All form fields set:', {
+                                        product_id: data.product_id,
+                                        ukuran_stiker: data.ukuran_stiker,
+                                        jumlah_stiker: data.jumlah_stiker,
+                                        jumlah_order: data.jumlah_order,
+                                        stok_masuk: data.stok_masuk,
+                                        total_order: data.total_order
+                                    });
+
+                                    // Force trigger product selection to load sticker data
+                                    if (data.product_id) {
+                                        handleProductSelection(data.product_id);
+                                    }
+                                }, 100);
+
+                            }, 300); // Increased delay to ensure Choices.js is fully ready
+                        });
+                    } else {
+                        Swal.fire({
+                            title: 'Error',
+                            text: response.message || 'Gagal mengambil data purchase stiker',
+                            icon: 'error'
+                        });
+                    }
+                }).fail(function(xhr) {
+                    Swal.close();
+                    debugLog('Edit request failed:', xhr);
+                    Swal.fire({
+                        title: 'Error',
+                        text: xhr.responseJSON?.message || 'Gagal memuat data purchase stiker',
+                        icon: 'error'
+                    });
+                });
+            } catch (error) {
+                console.error('Error in editPurchaseSticker:', error);
+                debugLog('Error in editPurchaseSticker:', error);
+
                 Swal.fire({
                     title: 'Error',
-                    text: xhr.responseJSON?.message || 'Gagal memuat data purchase stiker',
+                    text: 'Terjadi kesalahan saat membuka form edit. Silakan refresh halaman.',
                     icon: 'error'
                 });
-            });
+            }
         };
 
         window.deletePurchaseSticker = function(id) {
@@ -863,23 +1312,18 @@
             }
         };
 
-        function resetForm() {
-            $('#purchaseStickerForm')[0].reset();
-            $('#purchase_sticker_id').val('');
-            clearValidationErrors();
-        }
+        // Test functions availability at the end
+        debugLog('Testing function availability...');
+        debugLog('showCreateModal available:', typeof window.showCreateModal);
+        debugLog('editPurchaseSticker available:', typeof window.editPurchaseSticker);
+        debugLog('deletePurchaseSticker available:', typeof window.deletePurchaseSticker);
 
-        function showValidationErrors(errors) {
-            $.each(errors, function(field, messages) {
-                const input = $(`[name="${field}"]`);
-                input.addClass('is-invalid');
-                $(`#error-${field}`).text(messages[0]);
-            });
-        }
+        // Log that initialization is complete
+        debugLog('Purchase Sticker initialization completed successfully');
 
-        function clearValidationErrors() {
-            $('.is-invalid').removeClass('is-invalid');
-            $('.invalid-feedback').text('');
-        }
+        // Test modal element availability
+        debugLog('Modal element #purchaseStickerModal exists:', !!document.getElementById('purchaseStickerModal'));
+        debugLog('Button element with onclick="showCreateModal()" exists:', !!document.querySelector(
+            '[onclick*="showCreateModal"]'));
     </script>
 @endsection

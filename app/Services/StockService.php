@@ -25,7 +25,7 @@ class StockService
 
         try {
             DB::transaction(function () use ($productId, $quantity) {
-                $finishedGood = FinishedGoods::firstOrNew(['id_product' => $productId]);
+                $finishedGood = FinishedGoods::firstOrNew(['product_id' => $productId]);
 
                 if (!$finishedGood->exists) {
                     $finishedGood->stok_awal = 0;
@@ -62,7 +62,7 @@ class StockService
 
         try {
             DB::transaction(function () use ($productId, $difference) {
-                $finishedGood = FinishedGoods::where('id_product', $productId)->firstOrFail();
+                $finishedGood = FinishedGoods::where('product_id', $productId)->firstOrFail();
                 $finishedGood->stok_masuk += $difference;
                 $this->recalculateLiveStock($finishedGood);
                 $finishedGood->save();
@@ -88,7 +88,7 @@ class StockService
 
         try {
             DB::transaction(function () use ($productId, $quantity) {
-                $finishedGood = FinishedGoods::where('id_product', $productId)->firstOrFail();
+                $finishedGood = FinishedGoods::where('product_id', $productId)->firstOrFail();
                 $finishedGood->stok_masuk -= $quantity;
                 $this->recalculateLiveStock($finishedGood);
                 $finishedGood->save();
@@ -168,7 +168,7 @@ class StockService
      */
     private function updateStockForProduct($productId, $quantity)
     {
-        $finishedGood = FinishedGoods::where('id_product', $productId)->first();
+        $finishedGood = FinishedGoods::where('product_id', $productId)->first();
         if (!$finishedGood) {
             throw new \Exception("Finished Good tidak ditemukan untuk produk ID: {$productId}");
         }
@@ -258,7 +258,7 @@ class StockService
      */
     private function decreaseStockForProduct($productId, $quantity)
     {
-        $finishedGood = FinishedGoods::where('id_product', $productId)->first();
+        $finishedGood = FinishedGoods::where('product_id', $productId)->first();
         if (!$finishedGood) {
             return; // Skip jika finished good tidak ditemukan
         }
@@ -289,7 +289,7 @@ class StockService
 
         if ($finishedGood->live_stock < 0) {
             $finishedGood->live_stock = 0; // Pastikan live stock tidak negatif
-            Log::warning("Perhitungan menyebabkan stok negatif untuk product ID: {$finishedGood->id_product}");
+            Log::warning("Perhitungan menyebabkan stok negatif untuk product ID: {$finishedGood->product_id}");
         }
     }
 
@@ -304,7 +304,7 @@ class StockService
     {
         try {
             DB::transaction(function () use ($productId, $defectiveCount) {
-                $finishedGood = FinishedGoods::where('id_product', $productId)->firstOrFail();
+                $finishedGood = FinishedGoods::where('product_id', $productId)->firstOrFail();
                 $finishedGood->defective = $defectiveCount;
                 $this->recalculateLiveStock($finishedGood);
                 $finishedGood->save();

@@ -185,4 +185,42 @@ class CatatanProduksi extends Model
 
         return true;
     }
+
+    /**
+     * Boot method to register model events
+     */
+    protected static function boot()
+    {
+        parent::boot();
+
+        // Auto-update FinishedGoods when CatatanProduksi is created
+        static::created(function ($catatanProduksi) {
+            try {
+                \App\Models\FinishedGoods::syncStockForProduct($catatanProduksi->product_id);
+                \Illuminate\Support\Facades\Log::info("Auto-synced FinishedGoods after CatatanProduksi created for product_id: {$catatanProduksi->product_id}");
+            } catch (\Exception $e) {
+                \Illuminate\Support\Facades\Log::error("Failed to sync FinishedGoods after CatatanProduksi created: " . $e->getMessage());
+            }
+        });
+
+        // Auto-update FinishedGoods when CatatanProduksi is updated
+        static::updated(function ($catatanProduksi) {
+            try {
+                \App\Models\FinishedGoods::syncStockForProduct($catatanProduksi->product_id);
+                \Illuminate\Support\Facades\Log::info("Auto-synced FinishedGoods after CatatanProduksi updated for product_id: {$catatanProduksi->product_id}");
+            } catch (\Exception $e) {
+                \Illuminate\Support\Facades\Log::error("Failed to sync FinishedGoods after CatatanProduksi updated: " . $e->getMessage());
+            }
+        });
+
+        // Auto-update FinishedGoods when CatatanProduksi is deleted
+        static::deleted(function ($catatanProduksi) {
+            try {
+                \App\Models\FinishedGoods::syncStockForProduct($catatanProduksi->product_id);
+                \Illuminate\Support\Facades\Log::info("Auto-synced FinishedGoods after CatatanProduksi deleted for product_id: {$catatanProduksi->product_id}");
+            } catch (\Exception $e) {
+                \Illuminate\Support\Facades\Log::error("Failed to sync FinishedGoods after CatatanProduksi deleted: " . $e->getMessage());
+            }
+        });
+    }
 }

@@ -10,23 +10,19 @@ use Illuminate\Support\Facades\Log;
 use Yajra\DataTables\Facades\DataTables;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Facades\DB;
-use App\Services\StockService;
 
 class FinishedGoodsController extends Controller
 {
-    protected $stockService;
-
     /**
      * Constructor to apply permissions middleware
      */
-    public function __construct(StockService $stockService)
+    public function __construct()
     {
         $this->middleware('permission:Finished Goods List', ['only' => ['index']]);
         $this->middleware('permission:Finished Goods Create', ['only' => ['store']]);
         $this->middleware('permission:Finished Goods Update', ['only' => ['edit', 'update']]);
         $this->middleware('permission:Finished Goods Delete', ['only' => ['destroy']]);
         $this->middleware('permission:Finished Goods View', ['only' => ['show']]);
-        $this->stockService = $stockService;
     }
 
     /**
@@ -41,14 +37,6 @@ class FinishedGoodsController extends Controller
             'stok_awal.required' => 'Silahkan masukkan stok awal',
             'stok_awal.integer' => 'Stok awal harus berupa angka bulat',
             'stok_awal.min' => 'Stok awal minimal 0',
-
-            'stok_masuk.required' => 'Silahkan masukkan stok masuk',
-            'stok_masuk.integer' => 'Stok masuk harus berupa angka bulat',
-            'stok_masuk.min' => 'Stok masuk minimal 0',
-
-            'stok_keluar.required' => 'Silahkan masukkan stok keluar',
-            'stok_keluar.integer' => 'Stok keluar harus berupa angka bulat',
-            'stok_keluar.min' => 'Stok keluar minimal 0',
 
             'defective.required' => 'Silahkan masukkan jumlah produk cacat',
             'defective.integer' => 'Jumlah produk cacat harus berupa angka bulat',
@@ -127,16 +115,81 @@ class FinishedGoodsController extends Controller
                         return $row->stok_awal ?? 0;
                     })
                     ->addColumn('stok_masuk_display', function ($row) {
-                        return $row->stok_masuk ?? 0;
+                        // Show dynamic value from CatatanProduksi
+                        try {
+                            $dynamicValue = \App\Models\CatatanProduksi::where('product_id', $row->product_id)->sum('quantity');
+                            return $dynamicValue;
+                        } catch (\Exception $e) {
+                            Log::error('Error calculating dynamic stok_masuk', ['error' => $e->getMessage()]);
+                            return $row->stok_masuk ?? 0;
+                        }
                     })
                     ->addColumn('stok_keluar_display', function ($row) {
-                        return $row->stok_keluar ?? 0;
+                        // Show dynamic value from HistorySale
+                        try {
+                            $product = \App\Models\Product::find($row->product_id);
+                            if (!$product) {
+                                return $row->stok_keluar ?? 0;
+                            }
+
+                            $totalSales = 0;
+                            $historySales = \App\Models\HistorySale::whereNotNull('no_sku')->get();
+
+                            foreach ($historySales as $sale) {
+                                $skuArray = is_string($sale->no_sku) ? json_decode($sale->no_sku, true) : $sale->no_sku;
+                                $qtyArray = is_string($sale->qty) ? json_decode($sale->qty, true) : $sale->qty;
+
+                                if (is_array($skuArray) && is_array($qtyArray)) {
+                                    foreach ($skuArray as $index => $sku) {
+                                        if ($sku === $product->sku) {
+                                            $totalSales += $qtyArray[$index] ?? 0;
+                                        }
+                                    }
+                                }
+                            }
+
+                            return $totalSales;
+                        } catch (\Exception $e) {
+                            Log::error('Error calculating dynamic stok_keluar', ['error' => $e->getMessage()]);
+                            return $row->stok_keluar ?? 0;
+                        }
                     })
                     ->addColumn('defective_display', function ($row) {
                         return $row->defective ?? 0;
                     })
                     ->addColumn('live_stock_display', function ($row) {
-                        return $row->live_stock ?? 0;
+                        // Calculate dynamic live stock
+                        try {
+                            $stokAwal = $row->stok_awal ?? 0;
+                            $stokMasuk = \App\Models\CatatanProduksi::where('product_id', $row->product_id)->sum('quantity');
+                            $defective = $row->defective ?? 0;
+
+                            $product = \App\Models\Product::find($row->product_id);
+                            $stokKeluar = 0;
+
+                            if ($product) {
+                                $historySales = \App\Models\HistorySale::whereNotNull('no_sku')->get();
+
+                                foreach ($historySales as $sale) {
+                                    $skuArray = is_string($sale->no_sku) ? json_decode($sale->no_sku, true) : $sale->no_sku;
+                                    $qtyArray = is_string($sale->qty) ? json_decode($sale->qty, true) : $sale->qty;
+
+                                    if (is_array($skuArray) && is_array($qtyArray)) {
+                                        foreach ($skuArray as $index => $sku) {
+                                            if ($sku === $product->sku) {
+                                                $stokKeluar += $qtyArray[$index] ?? 0;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            $liveStock = $stokAwal + $stokMasuk - $stokKeluar - $defective;
+                            return max(0, $liveStock); // Ensure not negative
+                        } catch (\Exception $e) {
+                            Log::error('Error calculating dynamic live_stock', ['error' => $e->getMessage()]);
+                            return $row->live_stock ?? 0;
+                        }
                     })
                     ->filterColumn('name_product', function ($query, $keyword) {
                         $query->where('products.name_product', 'like', "%{$keyword}%");
@@ -217,28 +270,22 @@ class FinishedGoodsController extends Controller
             $validated = $request->validate([
                 'product_id' => 'required|exists:products,id',
                 'stok_awal' => 'required|integer|min:0',
-                'stok_masuk' => 'required|integer|min:0',
-                'stok_keluar' => 'required|integer|min:0',
                 'defective' => 'required|integer|min:0',
             ], $this->getValidationMessages());
 
-            // Calculate live stock
-            $liveStock = $validated['stok_awal'] + $validated['stok_masuk'] - $validated['stok_keluar'] - $validated['defective'];
+            // Get or create finished goods record
+            $finishedGoods = FinishedGoods::firstOrNew(['product_id' => $validated['product_id']]);
 
-            // Add live_stock to validated data
-            $validated['live_stock'] = $liveStock;
+            // Set manual input values
+            $finishedGoods->stok_awal = $validated['stok_awal'];
+            $finishedGoods->defective = $validated['defective'];
 
-            // Use updateOrCreate to update existing record or create new one
-            $finishedGoods = FinishedGoods::updateOrCreate(
-                ['product_id' => $validated['product_id']],
-                [
-                    'stok_awal' => $validated['stok_awal'],
-                    'stok_masuk' => $validated['stok_masuk'],
-                    'stok_keluar' => $validated['stok_keluar'],
-                    'defective' => $validated['defective'],
-                    'live_stock' => $liveStock
-                ]
-            );
+            // Auto-calculate stok_masuk and stok_keluar
+            $finishedGoods->updateStokMasukFromCatatanProduksi();
+            $finishedGoods->updateStokKeluarFromHistorySales();
+
+            // Save the record
+            $finishedGoods->save();
 
             // Get product name for logging
             $productName = Product::find($validated['product_id'])->name_product;
@@ -253,8 +300,19 @@ class FinishedGoodsController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Berhasil! Data stok finished goods telah diperbarui.',
-                'data' => $finishedGoods
+                'message' => 'Berhasil! Data stok finished goods telah diperbarui. Stok masuk dan keluar dihitung otomatis.',
+                'data' => [
+                    'id' => $finishedGoods->id,
+                    'product_id' => $finishedGoods->product_id,
+                    'stok_awal' => $finishedGoods->stok_awal,
+                    'stok_masuk' => $finishedGoods->stok_masuk,
+                    'stok_keluar' => $finishedGoods->stok_keluar,
+                    'defective' => $finishedGoods->defective,
+                    'live_stock' => $finishedGoods->live_stock,
+                    'stok_masuk_dynamic' => $finishedGoods->stok_masuk_dynamic,
+                    'stok_keluar_dynamic' => $finishedGoods->stok_keluar_dynamic,
+                    'live_stock_dynamic' => $finishedGoods->live_stock_dynamic,
+                ]
             ]);
         } catch (ValidationException $e) {
             return response()->json([
@@ -286,19 +344,35 @@ class FinishedGoodsController extends Controller
             // If it's a new record, set default values
             if (!$finishedGoods->exists) {
                 $finishedGoods->stok_awal = 0;
-                $finishedGoods->stok_masuk = 0;
-                $finishedGoods->stok_keluar = 0;
                 $finishedGoods->defective = 0;
-                $finishedGoods->live_stock = 0;
+                // Auto-calculate stok_masuk and stok_keluar for new records
+                $finishedGoods->updateStokMasukFromCatatanProduksi();
+                $finishedGoods->updateStokKeluarFromHistorySales();
             }
 
             // Add product information to the response
             $finishedGoods->product_id = $productId;
 
+            // Prepare response data with both static and dynamic values
+            $responseData = [
+                'id' => $finishedGoods->id,
+                'product_id' => $finishedGoods->product_id,
+                'stok_awal' => $finishedGoods->stok_awal,
+                'stok_masuk' => $finishedGoods->stok_masuk,
+                'stok_keluar' => $finishedGoods->stok_keluar,
+                'defective' => $finishedGoods->defective,
+                'live_stock' => $finishedGoods->live_stock,
+                'stok_masuk_dynamic' => $finishedGoods->stok_masuk_dynamic,
+                'stok_keluar_dynamic' => $finishedGoods->stok_keluar_dynamic,
+                'live_stock_dynamic' => $finishedGoods->live_stock_dynamic,
+                'product_name' => $product->name_product,
+                'product_sku' => $product->sku,
+            ];
+
             Log::info('Permintaan edit finished goods diterima', [
                 'product_id' => $productId,
                 'product_name' => $product->name_product,
-                'finished_goods' => $finishedGoods->toArray()
+                'finished_goods' => $responseData
             ]);
 
             // Log activity
@@ -306,7 +380,7 @@ class FinishedGoodsController extends Controller
 
             return response()->json([
                 'success' => true,
-                'data' => $finishedGoods
+                'data' => $responseData
             ]);
         } catch (\Exception $e) {
             Log::error('Error pada edit finished goods', ['error' => $e->getMessage()]);
@@ -329,28 +403,22 @@ class FinishedGoodsController extends Controller
 
             $validated = $request->validate([
                 'stok_awal' => 'required|integer|min:0',
-                'stok_masuk' => 'required|integer|min:0',
-                'stok_keluar' => 'required|integer|min:0',
                 'defective' => 'required|integer|min:0',
             ], $this->getValidationMessages());
 
-            // Calculate live stock
-            $liveStock = $validated['stok_awal'] + $validated['stok_masuk'] - $validated['stok_keluar'] - $validated['defective'];
+            // Get or create finished goods record
+            $finishedGoods = FinishedGoods::firstOrNew(['product_id' => $productId]);
 
-            // Get old values for logging (if exists)
-            $oldFinishedGoods = FinishedGoods::where('product_id', $productId)->first();
+            // Set manual input values
+            $finishedGoods->stok_awal = $validated['stok_awal'];
+            $finishedGoods->defective = $validated['defective'];
 
-            // Use updateOrCreate to update existing record or create new one
-            $finishedGoods = FinishedGoods::updateOrCreate(
-                ['product_id' => $productId],
-                [
-                    'stok_awal' => $validated['stok_awal'],
-                    'stok_masuk' => $validated['stok_masuk'],
-                    'stok_keluar' => $validated['stok_keluar'],
-                    'defective' => $validated['defective'],
-                    'live_stock' => $liveStock
-                ]
-            );
+            // Auto-calculate stok_masuk and stok_keluar
+            $finishedGoods->updateStokMasukFromCatatanProduksi();
+            $finishedGoods->updateStokKeluarFromHistorySales();
+
+            // Save the record
+            $finishedGoods->save();
 
             // Log activity
             $action = $finishedGoods->wasRecentlyCreated ? 'create' : 'update';
@@ -362,8 +430,19 @@ class FinishedGoodsController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Berhasil! Data stok finished goods telah diperbarui.',
-                'data' => $finishedGoods
+                'message' => 'Berhasil! Data stok finished goods telah diperbarui. Stok masuk dan keluar dihitung otomatis.',
+                'data' => [
+                    'id' => $finishedGoods->id,
+                    'product_id' => $finishedGoods->product_id,
+                    'stok_awal' => $finishedGoods->stok_awal,
+                    'stok_masuk' => $finishedGoods->stok_masuk,
+                    'stok_keluar' => $finishedGoods->stok_keluar,
+                    'defective' => $finishedGoods->defective,
+                    'live_stock' => $finishedGoods->live_stock,
+                    'stok_masuk_dynamic' => $finishedGoods->stok_masuk_dynamic,
+                    'stok_keluar_dynamic' => $finishedGoods->stok_keluar_dynamic,
+                    'live_stock_dynamic' => $finishedGoods->live_stock_dynamic,
+                ]
             ]);
         } catch (ValidationException $e) {
             return response()->json([
@@ -450,16 +529,81 @@ class FinishedGoodsController extends Controller
                     return $row->stok_awal ?? 0;
                 })
                 ->addColumn('stok_masuk_display', function ($row) {
-                    return $row->stok_masuk ?? 0;
+                    // Show dynamic value from CatatanProduksi
+                    try {
+                        $dynamicValue = \App\Models\CatatanProduksi::where('product_id', $row->product_id)->sum('quantity');
+                        return $dynamicValue;
+                    } catch (\Exception $e) {
+                        Log::error('Error calculating dynamic stok_masuk in data method', ['error' => $e->getMessage()]);
+                        return $row->stok_masuk ?? 0;
+                    }
                 })
                 ->addColumn('stok_keluar_display', function ($row) {
-                    return $row->stok_keluar ?? 0;
+                    // Show dynamic value from HistorySale
+                    try {
+                        $product = \App\Models\Product::find($row->product_id);
+                        if (!$product) {
+                            return $row->stok_keluar ?? 0;
+                        }
+
+                        $totalSales = 0;
+                        $historySales = \App\Models\HistorySale::whereNotNull('no_sku')->get();
+
+                        foreach ($historySales as $sale) {
+                            $skuArray = is_string($sale->no_sku) ? json_decode($sale->no_sku, true) : $sale->no_sku;
+                            $qtyArray = is_string($sale->qty) ? json_decode($sale->qty, true) : $sale->qty;
+
+                            if (is_array($skuArray) && is_array($qtyArray)) {
+                                foreach ($skuArray as $index => $sku) {
+                                    if ($sku === $product->sku) {
+                                        $totalSales += $qtyArray[$index] ?? 0;
+                                    }
+                                }
+                            }
+                        }
+
+                        return $totalSales;
+                    } catch (\Exception $e) {
+                        Log::error('Error calculating dynamic stok_keluar in data method', ['error' => $e->getMessage()]);
+                        return $row->stok_keluar ?? 0;
+                    }
                 })
                 ->addColumn('defective_display', function ($row) {
                     return $row->defective ?? 0;
                 })
                 ->addColumn('live_stock_display', function ($row) {
-                    return $row->live_stock ?? 0;
+                    // Calculate dynamic live stock
+                    try {
+                        $stokAwal = $row->stok_awal ?? 0;
+                        $stokMasuk = \App\Models\CatatanProduksi::where('product_id', $row->product_id)->sum('quantity');
+                        $defective = $row->defective ?? 0;
+
+                        $product = \App\Models\Product::find($row->product_id);
+                        $stokKeluar = 0;
+
+                        if ($product) {
+                            $historySales = \App\Models\HistorySale::whereNotNull('no_sku')->get();
+
+                            foreach ($historySales as $sale) {
+                                $skuArray = is_string($sale->no_sku) ? json_decode($sale->no_sku, true) : $sale->no_sku;
+                                $qtyArray = is_string($sale->qty) ? json_decode($sale->qty, true) : $sale->qty;
+
+                                if (is_array($skuArray) && is_array($qtyArray)) {
+                                    foreach ($skuArray as $index => $sku) {
+                                        if ($sku === $product->sku) {
+                                            $stokKeluar += $qtyArray[$index] ?? 0;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        $liveStock = $stokAwal + $stokMasuk - $stokKeluar - $defective;
+                        return max(0, $liveStock); // Ensure not negative
+                    } catch (\Exception $e) {
+                        Log::error('Error calculating dynamic live_stock in data method', ['error' => $e->getMessage()]);
+                        return $row->live_stock ?? 0;
+                    }
                 })
                 ->addColumn('action', function ($row) {
                     return '

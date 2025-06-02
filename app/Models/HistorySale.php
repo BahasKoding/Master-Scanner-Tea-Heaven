@@ -67,4 +67,63 @@ class HistorySale extends Model
             'qty' => $quantities
         ];
     }
+
+    /**
+     * Boot method to register model events
+     */
+    protected static function boot()
+    {
+        parent::boot();
+
+        // Auto-update FinishedGoods when HistorySale is created
+        static::created(function ($historySale) {
+            try {
+                static::syncFinishedGoodsFromHistorySale($historySale);
+                \Illuminate\Support\Facades\Log::info("Auto-synced FinishedGoods after HistorySale created for resi: {$historySale->no_resi}");
+            } catch (\Exception $e) {
+                \Illuminate\Support\Facades\Log::error("Failed to sync FinishedGoods after HistorySale created: " . $e->getMessage());
+            }
+        });
+
+        // Auto-update FinishedGoods when HistorySale is updated
+        static::updated(function ($historySale) {
+            try {
+                static::syncFinishedGoodsFromHistorySale($historySale);
+                \Illuminate\Support\Facades\Log::info("Auto-synced FinishedGoods after HistorySale updated for resi: {$historySale->no_resi}");
+            } catch (\Exception $e) {
+                \Illuminate\Support\Facades\Log::error("Failed to sync FinishedGoods after HistorySale updated: " . $e->getMessage());
+            }
+        });
+
+        // Auto-update FinishedGoods when HistorySale is deleted
+        static::deleted(function ($historySale) {
+            try {
+                static::syncFinishedGoodsFromHistorySale($historySale);
+                \Illuminate\Support\Facades\Log::info("Auto-synced FinishedGoods after HistorySale deleted for resi: {$historySale->no_resi}");
+            } catch (\Exception $e) {
+                \Illuminate\Support\Facades\Log::error("Failed to sync FinishedGoods after HistorySale deleted: " . $e->getMessage());
+            }
+        });
+    }
+
+    /**
+     * Sync FinishedGoods for all products affected by this HistorySale
+     */
+    protected static function syncFinishedGoodsFromHistorySale($historySale)
+    {
+        try {
+            $skuArray = is_string($historySale->no_sku) ? json_decode($historySale->no_sku, true) : $historySale->no_sku;
+
+            if (is_array($skuArray)) {
+                $products = \App\Models\Product::whereIn('sku', $skuArray)->get();
+
+                foreach ($products as $product) {
+                    \App\Models\FinishedGoods::syncStockForProduct($product->id);
+                }
+            }
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error("Error in syncFinishedGoodsFromHistorySale: " . $e->getMessage());
+            throw $e;
+        }
+    }
 }

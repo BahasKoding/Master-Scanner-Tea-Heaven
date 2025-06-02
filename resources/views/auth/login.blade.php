@@ -7,7 +7,7 @@
         <div class="card my-5 shadow-sm">
             <div class="card-body p-4">
                 <div class="text-center">
-                    <img src="{{ asset('img/tea-heaven.png') }}" alt="Logo Tea Heaven" class="img-fluid mb-3"
+                    <img src="{{ asset('img/tea-heaven.webp') }}" alt="Logo Tea Heaven" class="img-fluid mb-3"
                         style="max-height: 80px;">
                     <h4 class="fw-bold mb-4">Administrator Login</h4>
                 </div>

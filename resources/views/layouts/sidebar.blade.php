@@ -4,7 +4,7 @@
         <div class="m-header">
             <a href="/dashboard" class="b-brand text-primary">
                 <!-- ========   Change your logo from here   ============ -->
-                <img src="{{ asset('img/tea-heaven.png') }}" width="100px" alt="">
+                <img src="{{ asset('img/tea-heaven.webp') }}" width="100px" alt="">
                 <span class="badge bg-brand-color-2 rounded-pill ms-2 theme-version">v1.0</span>
             </a>
         </div>

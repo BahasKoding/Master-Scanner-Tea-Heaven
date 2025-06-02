@@ -145,6 +145,23 @@
         .table td {
             vertical-align: middle;
         }
+
+        .auto-field {
+            background-color: #f8f9fa;
+            color: #6c757d;
+            font-weight: bold;
+            cursor: not-allowed;
+        }
+
+        .auto-field:disabled {
+            background-color: #e9ecef !important;
+            border-color: #ced4da !important;
+            opacity: 0.8;
+        }
+
+        .sisa-display {
+            font-weight: bold;
+        }
     </style>
 @endsection
 
@@ -209,6 +226,31 @@
                         </div>
                     </div>
                     <!-- End Filter Section -->
+
+                    <!-- Info Box -->
+                    <div class="alert alert-info" role="alert">
+                        <h6 class="alert-heading"><i class="fas fa-info-circle"></i> Informasi Input Data</h6>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <p class="mb-1"><strong><i class="fas fa-edit text-primary"></i> Manual Input:</strong>
+                                </p>
+                                <ul class="mb-2">
+                                    <li><strong>Stok Awal:</strong> Input manual oleh user</li>
+                                    <li><strong>Defective:</strong> Input manual oleh user</li>
+                                </ul>
+                            </div>
+                            <div class="col-md-6">
+                                <p class="mb-1"><strong><i class="fas fa-cog text-secondary"></i> Otomatis:</strong></p>
+                                <ul class="mb-2">
+                                    <li><strong>Stok Masuk:</strong> Dari Catatan Produksi</li>
+                                    <li><strong>Stok Keluar:</strong> Dari History Sales Scanner</li>
+                                    <li><strong>Live Stock:</strong> Kalkulasi otomatis</li>
+                                </ul>
+                            </div>
+                        </div>
+                        <small class="text-muted">💡 Field dengan latar abu-abu tidak dapat diedit karena nilainya dihitung
+                            otomatis dari sistem</small>
+                    </div>
 
                     <div class="dt-responsive table-responsive">
                         <table id="finishedGoods-table" class="table table-striped table-bordered nowrap">
@@ -279,7 +321,7 @@
                     url: "{{ route('finished-goods.data') }}",
                     type: "POST",
                     data: function(d) {
-                        d.id_product = $('#filter-product').val();
+                        d.product_id = $('#filter-product').val();
                         d.category_product = $('#filter-category').val();
                         d.label = $('#filter-label').val();
                         d._token = "{{ csrf_token() }}";
@@ -313,18 +355,20 @@
                         data: 'stok_masuk_display',
                         name: 'stok_masuk_display',
                         render: function(data, type, row) {
-                            return `<input type="number" class="form-control form-control-sm stock-input" 
+                            return `<input type="number" class="form-control form-control-sm stock-input auto-field" 
                                     data-field="stok_masuk" data-product-id="${row.product_id}" 
-                                    value="${data}" min="0" style="width: 80px;">`;
+                                    value="${data}" min="0" style="width: 80px;" readonly disabled>
+                                    <small class="text-muted d-block">Auto</small>`;
                         }
                     },
                     {
                         data: 'stok_keluar_display',
                         name: 'stok_keluar_display',
                         render: function(data, type, row) {
-                            return `<input type="number" class="form-control form-control-sm stock-input" 
+                            return `<input type="number" class="form-control form-control-sm stock-input auto-field" 
                                     data-field="stok_keluar" data-product-id="${row.product_id}" 
-                                    value="${data}" min="0" style="width: 80px;">`;
+                                    value="${data}" min="0" style="width: 80px;" readonly disabled>
+                                    <small class="text-muted d-block">Auto</small>`;
                         }
                     },
                     {
@@ -340,7 +384,8 @@
                         data: 'live_stock_display',
                         name: 'live_stock_display',
                         render: function(data, type, row) {
-                            return `<span class="badge bg-primary live-stock" data-product-id="${row.product_id}">${data}</span>`;
+                            return `<span class="badge bg-primary live-stock" data-product-id="${row.product_id}">${data}</span>
+                                    <small class="text-muted d-block">Auto</small>`;
                         }
                     },
                     {
@@ -403,47 +448,47 @@
 
             // Function to calculate live stock for a specific row
             function calculateRowLiveStock(productId) {
+                // Only get values from enabled inputs (manual inputs)
                 const stokAwal = parseInt($(`input[data-product-id="${productId}"][data-field="stok_awal"]`)
-                    .val()) || 0;
-                const stokMasuk = parseInt($(`input[data-product-id="${productId}"][data-field="stok_masuk"]`)
-                    .val()) || 0;
-                const stokKeluar = parseInt($(`input[data-product-id="${productId}"][data-field="stok_keluar"]`)
                     .val()) || 0;
                 const defective = parseInt($(`input[data-product-id="${productId}"][data-field="defective"]`)
                     .val()) || 0;
 
+                // Get auto values from disabled inputs (just for display, but actual calculation will be server-side)
+                const stokMasuk = parseInt($(`input[data-product-id="${productId}"][data-field="stok_masuk"]`)
+                    .val()) || 0;
+                const stokKeluar = parseInt($(`input[data-product-id="${productId}"][data-field="stok_keluar"]`)
+                    .val()) || 0;
+
                 const liveStock = stokAwal + stokMasuk - stokKeluar - defective;
-                $(`.live-stock[data-product-id="${productId}"]`).text(liveStock);
+                $(`.live-stock[data-product-id="${productId}"]`).text(Math.max(0, liveStock));
 
                 return liveStock;
             }
 
-            // Live stock calculation when input changes
-            $(document).on('input', '.stock-input', function() {
+            // Live stock calculation when input changes (only for enabled inputs)
+            $(document).on('input', '.stock-input:not([disabled])', function() {
                 const productId = $(this).data('product-id');
                 calculateRowLiveStock(productId);
             });
 
-            // Update button click
+            // Update button click - only send manual input fields
             $(document).on('click', '.update-btn', function() {
                 const productId = $(this).data('id');
+
+                // Only get values from manual input fields (enabled inputs)
                 const stokAwal = parseInt($(`input[data-product-id="${productId}"][data-field="stok_awal"]`)
                     .val()) || 0;
-                const stokMasuk = parseInt($(
-                    `input[data-product-id="${productId}"][data-field="stok_masuk"]`).val()) || 0;
-                const stokKeluar = parseInt($(
-                    `input[data-product-id="${productId}"][data-field="stok_keluar"]`).val()) || 0;
                 const defective = parseInt($(
-                    `input[data-product-id="${productId}"][data-field="defective"]`).val()) || 0;
+                        `input[data-product-id="${productId}"][data-field="defective"]`)
+                    .val()) || 0;
 
                 // Disable button during update
                 $(this).prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Updating...');
 
-                // Prepare form data
+                // Prepare form data - only send manual fields
                 const formData = new FormData();
                 formData.append('stok_awal', stokAwal);
-                formData.append('stok_masuk', stokMasuk);
-                formData.append('stok_keluar', stokKeluar);
                 formData.append('defective', defective);
                 formData.append('_method', 'PUT');
                 formData.append('_token', '{{ csrf_token() }}');
@@ -467,8 +512,8 @@
                                 position: 'top-end'
                             });
 
-                            // Update live stock display
-                            calculateRowLiveStock(productId);
+                            // Reload table to get updated dynamic values
+                            table.ajax.reload(null, false);
                         }
                     },
                     error: function(xhr) {
@@ -504,13 +549,13 @@
                 });
             });
 
-            // Reset button click
+            // Reset button click - only reset manual fields
             $(document).on('click', '.reset-btn', function() {
                 const productId = $(this).data('id');
 
                 Swal.fire({
-                    title: 'Reset Data?',
-                    text: "Apakah Anda yakin ingin mereset data stok ke nilai awal?",
+                    title: 'Reset Data Manual?',
+                    text: "Apakah Anda yakin ingin mereset data stok manual (Stok Awal & Defective) ke 0?",
                     icon: 'question',
                     showCancelButton: true,
                     confirmButtonColor: '#3085d6',
@@ -519,13 +564,14 @@
                     cancelButtonText: 'Batal'
                 }).then((result) => {
                     if (result.isConfirmed) {
-                        // Reset all inputs to 0
-                        $(`input[data-product-id="${productId}"]`).val(0);
+                        // Reset only manual input fields to 0
+                        $(`input[data-product-id="${productId}"][data-field="stok_awal"]`).val(0);
+                        $(`input[data-product-id="${productId}"][data-field="defective"]`).val(0);
                         calculateRowLiveStock(productId);
 
                         Swal.fire({
                             title: 'Direset!',
-                            text: 'Data stok telah direset ke 0.',
+                            text: 'Data stok manual telah direset ke 0.',
                             icon: 'success',
                             timer: 1500,
                             showConfirmButton: false,

@@ -49,7 +49,7 @@ class DatabaseSeeder extends Seeder
         // 6. Panggil seeder lainnya
         $this->call([
             BahanBakuSeeder::class,
-            HistorySaleSeeder::class,
+            // HistorySaleSeeder::class,
         ]);
     }
 

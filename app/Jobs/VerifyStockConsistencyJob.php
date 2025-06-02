@@ -37,60 +37,71 @@ class VerifyStockConsistencyJob implements ShouldQueue
         $issuesFound = 0;
 
         foreach ($finishedGoods as $finishedGood) {
-            // Hitung total stok masuk dari catatan produksi
-            $totalProduction = CatatanProduksi::where('product_id', $finishedGood->id_product)
+            // Hitung total produksi dari CatatanProduksi
+            $totalProduction = CatatanProduksi::where('product_id', $finishedGood->product_id)
                 ->sum('quantity');
 
-            // Hitung total stok keluar dari history sales
-            $productSku = Product::find($finishedGood->id_product)->sku;
+            // Hitung total penjualan dari HistorySale
+            $productSku = Product::find($finishedGood->product_id)->sku;
             $totalSales = $this->calculateTotalSales($productSku);
 
-            // Verifikasi data stok masuk
-            if ($finishedGood->stok_masuk != $totalProduction) {
+            // Verifikasi stok masuk
+            if (abs($finishedGood->stok_masuk - $totalProduction) > 0.01) {
                 $issuesFound++;
-                Log::warning("Perbedaan stok masuk untuk product_id: {$finishedGood->id_product}. " .
-                    "DB: {$finishedGood->stok_masuk}, Hitung: {$totalProduction}");
+                Log::warning("Perbedaan stok masuk untuk product_id: {$finishedGood->product_id}. " .
+                    "Database: {$finishedGood->stok_masuk}, Calculated: {$totalProduction}");
 
-                // Auto-koreksi opsional (uncomment to enable)
-                // $finishedGood->stok_masuk = $totalProduction;
-                // $needsSave = true;
+                $this->discrepancies['stok_masuk'][] = [
+                    'product_id' => $finishedGood->product_id,
+                    'database' => $finishedGood->stok_masuk,
+                    'calculated' => $totalProduction
+                ];
+
+                $this->correctionsMade++;
             }
 
-            // Verifikasi data stok keluar
-            if ($finishedGood->stok_keluar != $totalSales) {
+            // Verifikasi stok keluar
+            if (abs($finishedGood->stok_keluar - $totalSales) > 0.01) {
                 $issuesFound++;
-                Log::warning("Perbedaan stok keluar untuk product_id: {$finishedGood->id_product}. " .
-                    "DB: {$finishedGood->stok_keluar}, Hitung: {$totalSales}");
+                Log::warning("Perbedaan stok keluar untuk product_id: {$finishedGood->product_id}. " .
+                    "Database: {$finishedGood->stok_keluar}, Calculated: {$totalSales}");
 
-                // Auto-koreksi opsional (uncomment to enable)
-                // $finishedGood->stok_keluar = $totalSales;
-                // $needsSave = true;
+                $this->discrepancies['stok_keluar'][] = [
+                    'product_id' => $finishedGood->product_id,
+                    'database' => $finishedGood->stok_keluar,
+                    'calculated' => $totalSales
+                ];
+
+                $this->correctionsMade++;
             }
+
+            // Hitung live stock yang benar
+            $calculatedLiveStock = $finishedGood->stok_awal + $totalProduction - $totalSales - $finishedGood->defective;
+
+            // Pastikan live stock tidak negatif
+            $calculatedLiveStock = max(0, $calculatedLiveStock);
 
             // Verifikasi live stock
-            $calculatedLiveStock = $finishedGood->stok_awal +
-                $finishedGood->stok_masuk -
-                $finishedGood->stok_keluar -
-                $finishedGood->defective;
-
-            if ($calculatedLiveStock < 0) {
-                $calculatedLiveStock = 0;
-            }
-
-            if ($finishedGood->live_stock != $calculatedLiveStock) {
+            if (abs($finishedGood->live_stock - $calculatedLiveStock) > 0.01) {
                 $issuesFound++;
-                Log::warning("Perbedaan live stock untuk product_id: {$finishedGood->id_product}. " .
-                    "DB: {$finishedGood->live_stock}, Hitung: {$calculatedLiveStock}");
+                Log::warning("Perbedaan live stock untuk product_id: {$finishedGood->product_id}. " .
+                    "Database: {$finishedGood->live_stock}, Calculated: {$calculatedLiveStock}");
 
-                // Auto-koreksi opsional (uncomment to enable)
-                // $finishedGood->live_stock = $calculatedLiveStock;
-                // $needsSave = true;
+                $this->discrepancies['live_stock'][] = [
+                    'product_id' => $finishedGood->product_id,
+                    'database' => $finishedGood->live_stock,
+                    'calculated' => $calculatedLiveStock
+                ];
+
+                $this->correctionsMade++;
             }
 
-            // Simpan perubahan jika auto-koreksi diaktifkan
-            // if (isset($needsSave) && $needsSave) {
+            // if ($this->shouldAutoCorrect) {
+            //     $finishedGood->stok_masuk = $totalProduction;
+            //     $finishedGood->stok_keluar = $totalSales;
+            //     $finishedGood->live_stock = $calculatedLiveStock;
             //     $finishedGood->save();
-            //     Log::info("Koreksi stok otomatis untuk product_id: {$finishedGood->id_product}");
+            //     Log::info("Koreksi stok otomatis untuk product_id: {$finishedGood->product_id}");
             // }
         }
 
