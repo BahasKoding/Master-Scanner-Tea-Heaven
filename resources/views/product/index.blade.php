@@ -672,7 +672,7 @@
             // Edit Button Click
             $(document).on('click', '.edit-btn', function() {
                 var id = $(this).data('id');
-                console.log('Edit button clicked for ID:', id);
+                // Debug log removed for production
 
                 // Clear previous error messages
                 $('#editProductForm').find('.is-invalid').removeClass('is-invalid');

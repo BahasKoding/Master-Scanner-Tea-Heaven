@@ -13,7 +13,11 @@ return new class extends Migration
     {
         Schema::create('purchases', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('bahan_baku_id')->constrained('bahan_bakus')->onDelete('cascade');
+            $table->enum('kategori', ['bahan_baku', 'finished_goods'])->default('bahan_baku');
+
+            // Flexible item reference - no foreign key constraint to allow both bahan_baku and product IDs
+            $table->unsignedBigInteger('bahan_baku_id'); // This will store either bahan_baku_id or product_id based on kategori
+
             $table->integer('qty_pembelian');
             $table->date('tanggal_kedatangan_barang')->nullable();
             $table->integer('qty_barang_masuk')->default(0);
@@ -22,6 +26,9 @@ return new class extends Migration
             $table->integer('total_stok_masuk')->default(0);
             $table->string('checker_penerima_barang')->nullable();
             $table->timestamps();
+
+            // Add index for better performance
+            $table->index(['kategori', 'bahan_baku_id']);
         });
     }
 

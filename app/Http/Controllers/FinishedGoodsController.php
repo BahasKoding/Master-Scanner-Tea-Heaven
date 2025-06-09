@@ -125,10 +125,11 @@ class FinishedGoodsController extends Controller
                         }
                     })
                     ->addColumn('stok_keluar_display', function ($row) {
-                        // Show dynamic value from HistorySale
+                        // Show dynamic value from HistorySale with improved validation
                         try {
                             $product = \App\Models\Product::find($row->product_id);
                             if (!$product) {
+                                Log::warning('Product not found for stok_keluar calculation', ['product_id' => $row->product_id]);
                                 return $row->stok_keluar ?? 0;
                             }
 
@@ -136,21 +137,55 @@ class FinishedGoodsController extends Controller
                             $historySales = \App\Models\HistorySale::whereNotNull('no_sku')->get();
 
                             foreach ($historySales as $sale) {
-                                $skuArray = is_string($sale->no_sku) ? json_decode($sale->no_sku, true) : $sale->no_sku;
-                                $qtyArray = is_string($sale->qty) ? json_decode($sale->qty, true) : $sale->qty;
+                                try {
+                                    $skuArray = is_string($sale->no_sku) ? json_decode($sale->no_sku, true) : $sale->no_sku;
+                                    $qtyArray = is_string($sale->qty) ? json_decode($sale->qty, true) : $sale->qty;
 
-                                if (is_array($skuArray) && is_array($qtyArray)) {
+                                    // Validate data integrity
+                                    if (!is_array($skuArray) || !is_array($qtyArray)) {
+                                        Log::warning('Invalid SKU or QTY data in HistorySale', [
+                                            'sale_id' => $sale->id,
+                                            'no_sku' => $sale->no_sku,
+                                            'qty' => $sale->qty
+                                        ]);
+                                        continue;
+                                    }
+
+                                    // Ensure arrays have same length
+                                    if (count($skuArray) !== count($qtyArray)) {
+                                        Log::warning('SKU and QTY arrays length mismatch', [
+                                            'sale_id' => $sale->id,
+                                            'sku_count' => count($skuArray),
+                                            'qty_count' => count($qtyArray)
+                                        ]);
+                                        continue;
+                                    }
+
                                     foreach ($skuArray as $index => $sku) {
-                                        if ($sku === $product->sku) {
-                                            $totalSales += $qtyArray[$index] ?? 0;
+                                        // Validate SKU exists in products table
+                                        if (trim($sku) === $product->sku) {
+                                            $quantity = $qtyArray[$index] ?? 0;
+                                            if (is_numeric($quantity) && $quantity > 0) {
+                                                $totalSales += (int)$quantity;
+                                            }
                                         }
                                     }
+                                } catch (\Exception $saleError) {
+                                    Log::error('Error processing individual sale for stok_keluar', [
+                                        'sale_id' => $sale->id,
+                                        'error' => $saleError->getMessage()
+                                    ]);
+                                    continue;
                                 }
                             }
 
                             return $totalSales;
                         } catch (\Exception $e) {
-                            Log::error('Error calculating dynamic stok_keluar', ['error' => $e->getMessage()]);
+                            Log::error('Error calculating dynamic stok_keluar', [
+                                'product_id' => $row->product_id,
+                                'error' => $e->getMessage(),
+                                'trace' => $e->getTraceAsString()
+                            ]);
                             return $row->stok_keluar ?? 0;
                         }
                     })
@@ -158,7 +193,7 @@ class FinishedGoodsController extends Controller
                         return $row->defective ?? 0;
                     })
                     ->addColumn('live_stock_display', function ($row) {
-                        // Calculate dynamic live stock
+                        // Calculate dynamic live stock with improved validation
                         try {
                             $stokAwal = $row->stok_awal ?? 0;
                             $stokMasuk = \App\Models\CatatanProduksi::where('product_id', $row->product_id)->sum('quantity');
@@ -171,15 +206,31 @@ class FinishedGoodsController extends Controller
                                 $historySales = \App\Models\HistorySale::whereNotNull('no_sku')->get();
 
                                 foreach ($historySales as $sale) {
-                                    $skuArray = is_string($sale->no_sku) ? json_decode($sale->no_sku, true) : $sale->no_sku;
-                                    $qtyArray = is_string($sale->qty) ? json_decode($sale->qty, true) : $sale->qty;
+                                    try {
+                                        $skuArray = is_string($sale->no_sku) ? json_decode($sale->no_sku, true) : $sale->no_sku;
+                                        $qtyArray = is_string($sale->qty) ? json_decode($sale->qty, true) : $sale->qty;
 
-                                    if (is_array($skuArray) && is_array($qtyArray)) {
+                                        // Validate data integrity
+                                        if (!is_array($skuArray) || !is_array($qtyArray)) {
+                                            continue;
+                                        }
+
+                                        // Ensure arrays have same length
+                                        if (count($skuArray) !== count($qtyArray)) {
+                                            continue;
+                                        }
+
                                         foreach ($skuArray as $index => $sku) {
-                                            if ($sku === $product->sku) {
-                                                $stokKeluar += $qtyArray[$index] ?? 0;
+                                            if (trim($sku) === $product->sku) {
+                                                $quantity = $qtyArray[$index] ?? 0;
+                                                if (is_numeric($quantity) && $quantity > 0) {
+                                                    $stokKeluar += (int)$quantity;
+                                                }
                                             }
                                         }
+                                    } catch (\Exception $saleError) {
+                                        // Skip problematic sales data
+                                        continue;
                                     }
                                 }
                             }
@@ -187,7 +238,10 @@ class FinishedGoodsController extends Controller
                             $liveStock = $stokAwal + $stokMasuk - $stokKeluar - $defective;
                             return max(0, $liveStock); // Ensure not negative
                         } catch (\Exception $e) {
-                            Log::error('Error calculating dynamic live_stock', ['error' => $e->getMessage()]);
+                            Log::error('Error calculating dynamic live_stock', [
+                                'product_id' => $row->product_id,
+                                'error' => $e->getMessage()
+                            ]);
                             return $row->live_stock ?? 0;
                         }
                     })
@@ -395,19 +449,19 @@ class FinishedGoodsController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, $productId)
+    public function update(Request $request, $id)
     {
         try {
-            // Validate that the product exists
-            $product = Product::findOrFail($productId);
+            // PERBAIKAN: Gunakan $id sebagai product_id
+            $product = Product::findOrFail($id);
 
             $validated = $request->validate([
                 'stok_awal' => 'required|integer|min:0',
                 'defective' => 'required|integer|min:0',
             ], $this->getValidationMessages());
 
-            // Get or create finished goods record
-            $finishedGoods = FinishedGoods::firstOrNew(['product_id' => $productId]);
+            // PERBAIKAN: Gunakan $id sebagai product_id
+            $finishedGoods = FinishedGoods::firstOrNew(['product_id' => $id]);
 
             // Set manual input values
             $finishedGoods->stok_awal = $validated['stok_awal'];
@@ -420,6 +474,9 @@ class FinishedGoodsController extends Controller
             // Save the record
             $finishedGoods->save();
 
+            // Trigger recalculation untuk memastikan live_stock terupdate
+            $finishedGoods->recalculateLiveStock();
+
             // Log activity
             $action = $finishedGoods->wasRecentlyCreated ? 'create' : 'update';
             $message = $finishedGoods->wasRecentlyCreated
@@ -430,7 +487,7 @@ class FinishedGoodsController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Berhasil! Data stok finished goods telah diperbarui. Stok masuk dan keluar dihitung otomatis.',
+                'message' => 'Berhasil! Data stok finished goods telah diperbarui.',
                 'data' => [
                     'id' => $finishedGoods->id,
                     'product_id' => $finishedGoods->product_id,
@@ -439,9 +496,7 @@ class FinishedGoodsController extends Controller
                     'stok_keluar' => $finishedGoods->stok_keluar,
                     'defective' => $finishedGoods->defective,
                     'live_stock' => $finishedGoods->live_stock,
-                    'stok_masuk_dynamic' => $finishedGoods->stok_masuk_dynamic,
-                    'stok_keluar_dynamic' => $finishedGoods->stok_keluar_dynamic,
-                    'live_stock_dynamic' => $finishedGoods->live_stock_dynamic,
+                    'updated_at' => $finishedGoods->updated_at->format('Y-m-d H:i:s')
                 ]
             ]);
         } catch (ValidationException $e) {
@@ -539,10 +594,11 @@ class FinishedGoodsController extends Controller
                     }
                 })
                 ->addColumn('stok_keluar_display', function ($row) {
-                    // Show dynamic value from HistorySale
+                    // Show dynamic value from HistorySale with improved validation
                     try {
                         $product = \App\Models\Product::find($row->product_id);
                         if (!$product) {
+                            Log::warning('Product not found for stok_keluar calculation in data method', ['product_id' => $row->product_id]);
                             return $row->stok_keluar ?? 0;
                         }
 
@@ -550,21 +606,55 @@ class FinishedGoodsController extends Controller
                         $historySales = \App\Models\HistorySale::whereNotNull('no_sku')->get();
 
                         foreach ($historySales as $sale) {
-                            $skuArray = is_string($sale->no_sku) ? json_decode($sale->no_sku, true) : $sale->no_sku;
-                            $qtyArray = is_string($sale->qty) ? json_decode($sale->qty, true) : $sale->qty;
+                            try {
+                                $skuArray = is_string($sale->no_sku) ? json_decode($sale->no_sku, true) : $sale->no_sku;
+                                $qtyArray = is_string($sale->qty) ? json_decode($sale->qty, true) : $sale->qty;
 
-                            if (is_array($skuArray) && is_array($qtyArray)) {
+                                // Validate data integrity
+                                if (!is_array($skuArray) || !is_array($qtyArray)) {
+                                    Log::warning('Invalid SKU or QTY data in HistorySale (data method)', [
+                                        'sale_id' => $sale->id,
+                                        'no_sku' => $sale->no_sku,
+                                        'qty' => $sale->qty
+                                    ]);
+                                    continue;
+                                }
+
+                                // Ensure arrays have same length
+                                if (count($skuArray) !== count($qtyArray)) {
+                                    Log::warning('SKU and QTY arrays length mismatch (data method)', [
+                                        'sale_id' => $sale->id,
+                                        'sku_count' => count($skuArray),
+                                        'qty_count' => count($qtyArray)
+                                    ]);
+                                    continue;
+                                }
+
                                 foreach ($skuArray as $index => $sku) {
-                                    if ($sku === $product->sku) {
-                                        $totalSales += $qtyArray[$index] ?? 0;
+                                    // Validate SKU exists in products table
+                                    if (trim($sku) === $product->sku) {
+                                        $quantity = $qtyArray[$index] ?? 0;
+                                        if (is_numeric($quantity) && $quantity > 0) {
+                                            $totalSales += (int)$quantity;
+                                        }
                                     }
                                 }
+                            } catch (\Exception $saleError) {
+                                Log::error('Error processing individual sale for stok_keluar (data method)', [
+                                    'sale_id' => $sale->id,
+                                    'error' => $saleError->getMessage()
+                                ]);
+                                continue;
                             }
                         }
 
                         return $totalSales;
                     } catch (\Exception $e) {
-                        Log::error('Error calculating dynamic stok_keluar in data method', ['error' => $e->getMessage()]);
+                        Log::error('Error calculating dynamic stok_keluar in data method', [
+                            'product_id' => $row->product_id,
+                            'error' => $e->getMessage(),
+                            'trace' => $e->getTraceAsString()
+                        ]);
                         return $row->stok_keluar ?? 0;
                     }
                 })
@@ -572,7 +662,7 @@ class FinishedGoodsController extends Controller
                     return $row->defective ?? 0;
                 })
                 ->addColumn('live_stock_display', function ($row) {
-                    // Calculate dynamic live stock
+                    // Calculate dynamic live stock with improved validation
                     try {
                         $stokAwal = $row->stok_awal ?? 0;
                         $stokMasuk = \App\Models\CatatanProduksi::where('product_id', $row->product_id)->sum('quantity');
@@ -585,15 +675,31 @@ class FinishedGoodsController extends Controller
                             $historySales = \App\Models\HistorySale::whereNotNull('no_sku')->get();
 
                             foreach ($historySales as $sale) {
-                                $skuArray = is_string($sale->no_sku) ? json_decode($sale->no_sku, true) : $sale->no_sku;
-                                $qtyArray = is_string($sale->qty) ? json_decode($sale->qty, true) : $sale->qty;
+                                try {
+                                    $skuArray = is_string($sale->no_sku) ? json_decode($sale->no_sku, true) : $sale->no_sku;
+                                    $qtyArray = is_string($sale->qty) ? json_decode($sale->qty, true) : $sale->qty;
 
-                                if (is_array($skuArray) && is_array($qtyArray)) {
+                                    // Validate data integrity
+                                    if (!is_array($skuArray) || !is_array($qtyArray)) {
+                                        continue;
+                                    }
+
+                                    // Ensure arrays have same length
+                                    if (count($skuArray) !== count($qtyArray)) {
+                                        continue;
+                                    }
+
                                     foreach ($skuArray as $index => $sku) {
-                                        if ($sku === $product->sku) {
-                                            $stokKeluar += $qtyArray[$index] ?? 0;
+                                        if (trim($sku) === $product->sku) {
+                                            $quantity = $qtyArray[$index] ?? 0;
+                                            if (is_numeric($quantity) && $quantity > 0) {
+                                                $stokKeluar += (int)$quantity;
+                                            }
                                         }
                                     }
+                                } catch (\Exception $saleError) {
+                                    // Skip problematic sales data
+                                    continue;
                                 }
                             }
                         }
@@ -601,7 +707,10 @@ class FinishedGoodsController extends Controller
                         $liveStock = $stokAwal + $stokMasuk - $stokKeluar - $defective;
                         return max(0, $liveStock); // Ensure not negative
                     } catch (\Exception $e) {
-                        Log::error('Error calculating dynamic live_stock in data method', ['error' => $e->getMessage()]);
+                        Log::error('Error calculating dynamic live_stock in data method', [
+                            'product_id' => $row->product_id,
+                            'error' => $e->getMessage()
+                        ]);
                         return $row->live_stock ?? 0;
                     }
                 })

@@ -6,7 +6,7 @@ use App\Models\CatatanProduksi;
 use App\Models\FinishedGoods;
 use App\Models\HistorySale;
 use App\Models\Product;
-use App\Models\HistorySaleDetail;
+
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -109,53 +109,45 @@ class StockService
      */
     public function updateStockFromSales(HistorySale $historySale)
     {
-        // Support untuk format lama (JSON array)
-        if (empty($historySale->details) || $historySale->details->count() === 0) {
-            $skuArray = $historySale->no_sku;
-            $qtyArray = $historySale->qty;
+        // Sistem menggunakan format JSON array untuk no_sku dan qty
+        $skuArray = is_string($historySale->no_sku) ? json_decode($historySale->no_sku, true) : $historySale->no_sku;
+        $qtyArray = is_string($historySale->qty) ? json_decode($historySale->qty, true) : $historySale->qty;
 
-            if (count($skuArray) !== count($qtyArray)) {
-                throw new \Exception("Data SKU dan Quantity tidak sesuai");
-            }
+        if (!is_array($skuArray) || !is_array($qtyArray)) {
+            Log::warning("Invalid SKU or QTY data in HistorySale ID: {$historySale->id}");
+            return;
+        }
 
-            try {
-                DB::transaction(function () use ($historySale, $skuArray, $qtyArray) {
-                    // Pertama, buat detail records untuk menjaga integritas data
-                    foreach ($skuArray as $index => $sku) {
-                        $product = Product::where('sku', $sku)->first();
-                        if (!$product) {
-                            throw new \Exception("SKU tidak ditemukan: {$sku}");
-                        }
+        if (count($skuArray) !== count($qtyArray)) {
+            Log::warning("SKU and QTY array length mismatch in HistorySale ID: {$historySale->id}");
+            return;
+        }
 
-                        $quantity = $qtyArray[$index];
-
-                        // Buat detail record
-                        HistorySaleDetail::create([
-                            'history_sale_id' => $historySale->id,
-                            'product_id' => $product->id,
-                            'quantity' => $quantity
-                        ]);
-
-                        // Perbarui stok
-                        $this->updateStockForProduct($product->id, $quantity);
+        try {
+            DB::transaction(function () use ($historySale, $skuArray, $qtyArray) {
+                foreach ($skuArray as $index => $sku) {
+                    $product = Product::where('sku', trim($sku))->first();
+                    if (!$product) {
+                        Log::warning("SKU tidak ditemukan: {$sku} (HistorySale ID: {$historySale->id})");
+                        continue; // Skip invalid SKU instead of throwing exception
                     }
-                });
-            } catch (\Exception $e) {
-                Log::error("Gagal menambahkan stok keluar: " . $e->getMessage());
-                throw $e;
-            }
-        } else {
-            // Format baru (menggunakan relasi)
-            try {
-                DB::transaction(function () use ($historySale) {
-                    foreach ($historySale->details as $detail) {
-                        $this->updateStockForProduct($detail->product_id, $detail->quantity);
+
+                    $quantity = $qtyArray[$index] ?? 1;
+                    if (!is_numeric($quantity) || $quantity <= 0) {
+                        Log::warning("Invalid quantity for SKU {$sku}: {$quantity} (HistorySale ID: {$historySale->id})");
+                        continue;
                     }
-                });
-            } catch (\Exception $e) {
-                Log::error("Gagal menambahkan stok keluar: " . $e->getMessage());
-                throw $e;
-            }
+
+                    // Perbarui stok
+                    $this->updateStockForProduct($product->id, (int)$quantity);
+                }
+            });
+        } catch (\Exception $e) {
+            Log::error("Gagal menambahkan stok keluar: " . $e->getMessage(), [
+                'history_sale_id' => $historySale->id,
+                'error' => $e->getMessage()
+            ]);
+            throw $e;
         }
     }
 
@@ -170,13 +162,23 @@ class StockService
     {
         $finishedGood = FinishedGoods::where('product_id', $productId)->first();
         if (!$finishedGood) {
-            throw new \Exception("Finished Good tidak ditemukan untuk produk ID: {$productId}");
+            // Create new FinishedGoods record if not exists
+            $finishedGood = FinishedGoods::create([
+                'product_id' => $productId,
+                'stok_awal' => 0,
+                'stok_masuk' => 0,
+                'stok_keluar' => 0,
+                'defective' => 0,
+                'live_stock' => 0
+            ]);
+            Log::info("Created new FinishedGoods record for product ID: {$productId}");
         }
 
+        // Allow negative stock for scanner input - log warning instead of throwing exception
         if ($finishedGood->live_stock < $quantity) {
             $product = Product::find($productId);
             $sku = $product ? $product->sku : 'Unknown';
-            throw new \Exception("Stok tidak mencukupi untuk {$sku}. Tersedia: {$finishedGood->live_stock}, Diminta: {$quantity}");
+            Log::warning("Stock insufficient for {$sku}. Available: {$finishedGood->live_stock}, Requested: {$quantity}. Allowing negative stock.");
         }
 
         $finishedGood->stok_keluar += $quantity;
@@ -212,39 +214,44 @@ class StockService
     {
         try {
             DB::transaction(function () use ($historySale, $isUpdate) {
-                // Format lama (JSON array)
-                if ($isUpdate || empty($historySale->details) || $historySale->details->count() === 0) {
-                    // Jika update, gunakan data original, jika delete gunakan data current
-                    $skuArray = $isUpdate ? $historySale->getOriginal('no_sku') : $historySale->no_sku;
-                    $qtyArray = $isUpdate ? $historySale->getOriginal('qty') : $historySale->qty;
+                // Jika update, gunakan data original, jika delete gunakan data current
+                $skuArray = $isUpdate ? $historySale->getOriginal('no_sku') : $historySale->no_sku;
+                $qtyArray = $isUpdate ? $historySale->getOriginal('qty') : $historySale->qty;
 
-                    // Jika adalah array JSON yang disimpan, decode terlebih dahulu
-                    if (is_string($skuArray)) {
-                        $skuArray = json_decode($skuArray, true);
+                // Jika adalah array JSON yang disimpan, decode terlebih dahulu
+                if (is_string($skuArray)) {
+                    $skuArray = json_decode($skuArray, true);
+                }
+
+                if (is_string($qtyArray)) {
+                    $qtyArray = json_decode($qtyArray, true);
+                }
+
+                if (!is_array($skuArray) || !is_array($qtyArray)) {
+                    Log::warning("Invalid SKU or QTY data when restoring stock for HistorySale ID: {$historySale->id}");
+                    return;
+                }
+
+                foreach ($skuArray as $index => $sku) {
+                    $product = Product::where('sku', trim($sku))->first();
+                    if (!$product) {
+                        Log::warning("SKU tidak ditemukan saat restore: {$sku} (HistorySale ID: {$historySale->id})");
+                        continue; // Skip jika produk tidak ditemukan
                     }
 
-                    if (is_string($qtyArray)) {
-                        $qtyArray = json_decode($qtyArray, true);
+                    $quantity = $qtyArray[$index] ?? 1;
+                    if (!is_numeric($quantity) || $quantity <= 0) {
+                        continue;
                     }
 
-                    foreach ($skuArray as $index => $sku) {
-                        $product = Product::where('sku', $sku)->first();
-                        if (!$product) {
-                            continue; // Skip jika produk tidak ditemukan
-                        }
-
-                        $quantity = $qtyArray[$index];
-                        $this->decreaseStockForProduct($product->id, $quantity);
-                    }
-                } else {
-                    // Format baru menggunakan relasi
-                    foreach ($historySale->details as $detail) {
-                        $this->decreaseStockForProduct($detail->product_id, $detail->quantity);
-                    }
+                    $this->decreaseStockForProduct($product->id, (int)$quantity);
                 }
             });
         } catch (\Exception $e) {
-            Log::error("Gagal mengembalikan stok keluar: " . $e->getMessage());
+            Log::error("Gagal mengembalikan stok keluar: " . $e->getMessage(), [
+                'history_sale_id' => $historySale->id,
+                'error' => $e->getMessage()
+            ]);
             throw $e;
         }
     }
@@ -282,14 +289,28 @@ class StockService
      */
     public function recalculateLiveStock(FinishedGoods $finishedGood)
     {
+        $oldLiveStock = $finishedGood->live_stock;
+
         $finishedGood->live_stock = $finishedGood->stok_awal +
             $finishedGood->stok_masuk -
             $finishedGood->stok_keluar -
             $finishedGood->defective;
 
+        // Allow negative stock but log a warning
         if ($finishedGood->live_stock < 0) {
-            $finishedGood->live_stock = 0; // Pastikan live stock tidak negatif
-            Log::warning("Perhitungan menyebabkan stok negatif untuk product ID: {$finishedGood->product_id}");
+            // Get product info for better logging
+            $product = Product::find($finishedGood->product_id);
+            $sku = $product ? $product->sku : 'Unknown';
+
+            Log::warning("Negative stock detected for product {$sku} (ID: {$finishedGood->product_id}). " .
+                "Values: stok_awal={$finishedGood->stok_awal}, stok_masuk={$finishedGood->stok_masuk}, " .
+                "stok_keluar={$finishedGood->stok_keluar}, defective={$finishedGood->defective}, " .
+                "live_stock={$finishedGood->live_stock}");
+        }
+
+        // Log stock change if significant
+        if ($oldLiveStock != $finishedGood->live_stock) {
+            Log::info("Live stock updated for product ID {$finishedGood->product_id}: {$oldLiveStock} -> {$finishedGood->live_stock}");
         }
     }
 

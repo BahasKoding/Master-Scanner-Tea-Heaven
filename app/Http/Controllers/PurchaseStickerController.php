@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\PurchaseSticker;
 use App\Models\Product;
 use App\Models\Sticker;
+use App\Services\StickerService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Yajra\DataTables\Facades\DataTables;
@@ -68,7 +69,10 @@ class PurchaseStickerController extends Controller
     {
         try {
             $validated = $this->validateRequest($request);
-            $purchaseSticker = PurchaseSticker::create($validated);
+
+            // Create purchase sticker using service (with DB transaction)
+            $stickerService = app(StickerService::class);
+            $purchaseSticker = $stickerService->createPurchaseSticker($validated);
 
             $this->logActivity('create', $purchaseSticker);
 
@@ -129,7 +133,10 @@ class PurchaseStickerController extends Controller
             $validated = $this->validateRequest($request);
 
             $oldProduct = $purchaseSticker->product;
-            $purchaseSticker->update($validated);
+
+            // Update purchase sticker using service (with DB transaction)
+            $stickerService = app(StickerService::class);
+            $purchaseSticker = $stickerService->updatePurchaseSticker($purchaseSticker, $validated);
 
             $this->logUpdateActivity($purchaseSticker, $oldProduct);
 
@@ -150,7 +157,10 @@ class PurchaseStickerController extends Controller
             $purchaseSticker = PurchaseSticker::with('product')->findOrFail($id);
             $productName = $purchaseSticker->product?->name_product ?? 'Unknown';
 
-            $purchaseSticker->delete();
+            // Delete purchase sticker using service (with DB transaction)
+            $stickerService = app(StickerService::class);
+            $stickerService->deletePurchaseSticker($purchaseSticker);
+
             addActivity('purchase_sticker', 'delete', 'Pengguna menghapus purchase stiker: ' . $productName, $id);
 
             return response()->json(['success' => true, 'message' => 'Purchase stiker telah berhasil dihapus dari sistem.']);

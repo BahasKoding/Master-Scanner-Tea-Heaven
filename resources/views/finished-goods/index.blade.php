@@ -582,5 +582,27 @@
                 });
             });
         });
+        
+        // Load the enhanced auto-refresh script
+        $.getScript('{{ asset("js/finished-goods/auto-refresh.js") }}', function() {
+            console.log('Auto-refresh script loaded successfully');
+        }).fail(function(jqxhr, settings, exception) {
+            console.error('Error loading auto-refresh script:', exception);
+            
+            // Fallback to basic auto-refresh if script fails to load
+            setInterval(function() {
+                if (table) {
+                    table.ajax.reload(null, false); // false = tidak reset pagination
+                }
+            }, 30000); // 30 detik
+
+            // Optional: Refresh saat tab menjadi aktif kembali
+            document.addEventListener('visibilitychange', function() {
+                if (!document.hidden && table) {
+                    table.ajax.reload(null, false);
+                }
+            });
+        });
     </script>
+
 @endsection

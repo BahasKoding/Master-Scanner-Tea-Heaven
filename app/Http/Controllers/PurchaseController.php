@@ -4,14 +4,17 @@ namespace App\Http\Controllers;
 
 use App\Models\Purchase;
 use App\Models\BahanBaku;
+use App\Models\Product;
+use App\Models\InventoryBahanBaku;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
 use Yajra\DataTables\Facades\DataTables;
 use Illuminate\Validation\ValidationException;
 
 class PurchaseController extends Controller
 {
-    protected $item = 'Purchase Bahan Baku';
+    protected $item = 'Purchase Items';
 
     /**
      * Constructor to apply permissions middleware
@@ -31,8 +34,10 @@ class PurchaseController extends Controller
     private function getValidationMessages()
     {
         return [
-            'bahan_baku_id.required' => 'Silahkan pilih bahan baku',
-            'bahan_baku_id.exists' => 'Bahan baku yang dipilih tidak valid',
+            'kategori.required' => 'Silahkan pilih kategori',
+            'kategori.in' => 'Kategori yang dipilih tidak valid',
+            'bahan_baku_id.required' => 'Silahkan pilih item',
+            'bahan_baku_id.exists' => 'Item yang dipilih tidak valid. Pastikan item yang dipilih sesuai dengan kategori.',
             'qty_pembelian.required' => 'Silahkan masukkan quantity pembelian',
             'qty_pembelian.integer' => 'Quantity pembelian harus berupa angka',
             'qty_pembelian.min' => 'Quantity pembelian minimal 1',
@@ -55,9 +60,10 @@ class PurchaseController extends Controller
     {
         if ($request->ajax()) {
             try {
-                $query = Purchase::with('bahanBaku')
+                $query = Purchase::with(['bahanBaku', 'product'])
                     ->select([
                         'purchases.id',
+                        'purchases.kategori',
                         'purchases.bahan_baku_id',
                         'purchases.qty_pembelian',
                         'purchases.tanggal_kedatangan_barang',
@@ -69,6 +75,11 @@ class PurchaseController extends Controller
                         'purchases.created_at',
                         'purchases.updated_at'
                     ]);
+
+                // Filter by kategori if provided
+                if ($request->has('kategori') && !empty($request->kategori)) {
+                    $query->where('purchases.kategori', $request->kategori);
+                }
 
                 // Filter by bahan baku if provided
                 if ($request->has('bahan_baku_id') && !empty($request->bahan_baku_id)) {
@@ -88,10 +99,19 @@ class PurchaseController extends Controller
                     ->addColumn('action', function ($row) {
                         return $row->id;
                     })
-                    ->addColumn('bahan_baku_name', function ($row) {
-                        return $row->bahanBaku ? $row->bahanBaku->full_name : '-';
+                    ->addColumn('kategori_display', function ($row) {
+                        return $row->kategori === 'finished_goods' ? 'Finished Goods' : 'Bahan Baku';
+                    })
+                    ->addColumn('item_name', function ($row) {
+                        return $row->item_name;
+                    })
+                    ->addColumn('item_sku', function ($row) {
+                        return $row->item_sku;
                     })
                     ->addColumn('satuan', function ($row) {
+                        if ($row->kategori === 'finished_goods') {
+                            return $row->product ? $row->product->satuan : 'pcs';
+                        }
                         return $row->bahanBaku ? $row->bahanBaku->satuan : '-';
                     })
                     ->editColumn('qty_pembelian', function ($row) {
@@ -115,10 +135,15 @@ class PurchaseController extends Controller
                     ->editColumn('checker_penerima_barang', function ($row) {
                         return $row->checker_penerima_barang ?: '-';
                     })
-                    ->filterColumn('bahan_baku_name', function ($query, $keyword) {
-                        $query->whereHas('bahanBaku', function ($q) use ($keyword) {
-                            $q->where('nama_barang', 'like', "%{$keyword}%")
-                                ->orWhere('sku_induk', 'like', "%{$keyword}%");
+                    ->filterColumn('item_name', function ($query, $keyword) {
+                        $query->where(function ($q) use ($keyword) {
+                            $q->whereHas('bahanBaku', function ($subQ) use ($keyword) {
+                                $subQ->where('nama_barang', 'like', "%{$keyword}%")
+                                    ->orWhere('sku_induk', 'like', "%{$keyword}%");
+                            })->orWhereHas('product', function ($subQ) use ($keyword) {
+                                $subQ->where('name_product', 'like', "%{$keyword}%")
+                                    ->orWhere('sku', 'like', "%{$keyword}%");
+                            });
                         });
                     })
                     ->rawColumns(['action'])
@@ -142,15 +167,18 @@ class PurchaseController extends Controller
             // Get bahan baku options for filter
             $bahanBakus = BahanBaku::orderBy('nama_barang')->get();
 
+            // Get product options for filter
+            $products = Product::orderBy('name_product')->get();
+
             // Get initial data for the view
             $items = [
-                'Purchase Bahan Baku' => route('purchase.index'),
+                'Purchase Items' => route('purchase.index'),
             ];
 
             // Log activity
             addActivity('purchase', 'view', 'Pengguna melihat daftar purchase bahan baku', null);
 
-            return view('purchase.index', compact('items', 'bahanBakus'))
+            return view('purchase.index', compact('items', 'bahanBakus', 'products'))
                 ->with('item', $this->item);
         } catch (\Exception $e) {
             Log::error('Failed to load Purchase index', [
@@ -158,8 +186,9 @@ class PurchaseController extends Controller
             ]);
 
             return view('purchase.index', [
-                'items' => ['Purchase Bahan Baku' => route('purchase.index')],
+                'items' => ['Purchase Items' => route('purchase.index')],
                 'bahanBakus' => [],
+                'products' => [],
                 'error_message' => 'Gagal memuat data. Silakan coba refresh halaman.'
             ])->with('item', $this->item);
         }
@@ -172,11 +201,12 @@ class PurchaseController extends Controller
     {
         try {
             $bahanBakus = BahanBaku::orderBy('nama_barang')->get();
+            $products = Product::orderBy('name_product')->get();
 
             // Log activity
-            addActivity('purchase', 'view_create_form', 'Pengguna melihat form tambah purchase bahan baku', null);
+            addActivity('purchase', 'view_create_form', 'Pengguna melihat form tambah purchase items', null);
 
-            return view('purchase.create', compact('bahanBakus'))
+            return view('purchase.create', compact('bahanBakus', 'products'))
                 ->with('item', $this->item);
         } catch (\Exception $e) {
             Log::error('Failed to load Purchase create form', [
@@ -194,15 +224,32 @@ class PurchaseController extends Controller
     public function store(Request $request)
     {
         try {
-            $validated = $request->validate([
-                'bahan_baku_id' => 'required|exists:bahan_bakus,id',
+            DB::beginTransaction();
+
+            // Validate kategori first to determine which table to check
+            $request->validate([
+                'kategori' => 'required|in:bahan_baku,finished_goods',
+            ], $this->getValidationMessages());
+
+            // Custom validation based on kategori
+            $rules = [
+                'kategori' => 'required|in:bahan_baku,finished_goods',
                 'qty_pembelian' => 'required|integer|min:1',
                 'tanggal_kedatangan_barang' => 'nullable|date',
                 'qty_barang_masuk' => 'nullable|integer|min:0',
                 'barang_defect_tanpa_retur' => 'nullable|integer|min:0',
                 'barang_diretur_ke_supplier' => 'nullable|integer|min:0',
                 'checker_penerima_barang' => 'nullable|string|max:255',
-            ], $this->getValidationMessages());
+            ];
+
+            // Add dynamic validation for bahan_baku_id based on kategori
+            if ($request->kategori === 'finished_goods') {
+                $rules['bahan_baku_id'] = 'required|exists:products,id';
+            } else {
+                $rules['bahan_baku_id'] = 'required|exists:bahan_bakus,id';
+            }
+
+            $validated = $request->validate($rules, $this->getValidationMessages());
 
             // Set default values
             $validated['qty_barang_masuk'] = $validated['qty_barang_masuk'] ?? 0;
@@ -211,24 +258,39 @@ class PurchaseController extends Controller
 
             $purchase = Purchase::create($validated);
 
-            // Get bahan baku name for logging
-            $bahanBaku = BahanBaku::find($validated['bahan_baku_id']);
-            $bahanBakuName = $bahanBaku ? $bahanBaku->full_name : 'Unknown';
+            // Update inventory bahan baku jika kategori adalah bahan_baku
+            if ($validated['kategori'] === 'bahan_baku') {
+                InventoryBahanBaku::recalculateStokMasukFromPurchases($validated['bahan_baku_id']);
+            }
+
+            // Get item name for logging
+            if ($validated['kategori'] === 'finished_goods') {
+                $product = Product::find($validated['bahan_baku_id']);
+                $itemName = $product ? $product->name_product : 'Unknown';
+                $satuan = $product ? $product->satuan : 'pcs';
+            } else {
+                $bahanBaku = BahanBaku::find($validated['bahan_baku_id']);
+                $itemName = $bahanBaku ? $bahanBaku->full_name : 'Unknown';
+                $satuan = $bahanBaku ? $bahanBaku->satuan : '';
+            }
 
             // Log activity
-            addActivity('purchase', 'create', 'Pengguna membuat purchase baru untuk: ' . $bahanBakuName . ' sebanyak ' . $purchase->qty_pembelian . ' ' . ($bahanBaku ? $bahanBaku->satuan : ''), $purchase->id);
+            addActivity('purchase', 'create', 'Pengguna membuat purchase baru untuk: ' . $itemName . ' sebanyak ' . $purchase->qty_pembelian . ' ' . $satuan, $purchase->id);
+
+            DB::commit();
 
             if ($request->ajax()) {
                 return response()->json([
                     'success' => true,
-                    'message' => 'Berhasil! Purchase bahan baku telah ditambahkan ke dalam sistem.',
+                    'message' => 'Berhasil! Purchase item telah ditambahkan ke dalam sistem dan inventory telah diperbarui.',
                     'data' => $purchase
                 ]);
             }
 
             return redirect()->route('purchase.index')
-                ->with('success', 'Purchase bahan baku berhasil ditambahkan.');
+                ->with('success', 'Purchase item berhasil ditambahkan dan inventory telah diperbarui.');
         } catch (ValidationException $e) {
+            DB::rollBack();
             if ($request->ajax()) {
                 return response()->json([
                     'success' => false,
@@ -241,6 +303,7 @@ class PurchaseController extends Controller
                 ->withErrors($e->errors())
                 ->withInput();
         } catch (\Exception $e) {
+            DB::rollBack();
             Log::error('Failed to store purchase', [
                 'error' => $e->getMessage(),
                 'data' => $request->all()
@@ -265,10 +328,10 @@ class PurchaseController extends Controller
     public function show($id)
     {
         try {
-            $purchase = Purchase::with('bahanBaku')->findOrFail($id);
+            $purchase = Purchase::with(['bahanBaku', 'product'])->findOrFail($id);
 
             // Log activity
-            addActivity('purchase', 'view', 'Pengguna melihat detail purchase: ' . ($purchase->bahanBaku ? $purchase->bahanBaku->full_name : 'Unknown'), $purchase->id);
+            addActivity('purchase', 'view', 'Pengguna melihat detail purchase: ' . $purchase->item_name, $purchase->id);
 
             return view('purchase.show', compact('purchase'))
                 ->with('item', $this->item);
@@ -289,11 +352,12 @@ class PurchaseController extends Controller
     public function edit($id)
     {
         try {
-            $purchase = Purchase::with('bahanBaku')->findOrFail($id);
+            $purchase = Purchase::with(['bahanBaku', 'product'])->findOrFail($id);
             $bahanBakus = BahanBaku::orderBy('nama_barang')->get();
+            $products = Product::orderBy('name_product')->get();
 
             // Log activity
-            addActivity('purchase', 'edit', 'Pengguna melihat form edit purchase: ' . ($purchase->bahanBaku ? $purchase->bahanBaku->full_name : 'Unknown'), $purchase->id);
+            addActivity('purchase', 'edit', 'Pengguna melihat form edit purchase: ' . $purchase->item_name, $purchase->id);
 
             if (request()->ajax()) {
                 return response()->json([
@@ -302,7 +366,7 @@ class PurchaseController extends Controller
                 ]);
             }
 
-            return view('purchase.edit', compact('purchase', 'bahanBakus'))
+            return view('purchase.edit', compact('purchase', 'bahanBakus', 'products'))
                 ->with('item', $this->item);
         } catch (\Exception $e) {
             Log::error('Failed to edit purchase', [
@@ -328,45 +392,77 @@ class PurchaseController extends Controller
     public function update(Request $request, $id)
     {
         try {
-            $purchase = Purchase::findOrFail($id);
+            DB::beginTransaction();
 
-            $validated = $request->validate([
-                'bahan_baku_id' => 'required|exists:bahan_bakus,id',
+            $purchase = Purchase::findOrFail($id);
+            $oldBahanBakuId = $purchase->bahan_baku_id;
+            $oldKategori = $purchase->kategori;
+
+            // Custom validation based on kategori
+            $rules = [
+                'kategori' => 'required|in:bahan_baku,finished_goods',
                 'qty_pembelian' => 'required|integer|min:1',
                 'tanggal_kedatangan_barang' => 'nullable|date',
                 'qty_barang_masuk' => 'nullable|integer|min:0',
                 'barang_defect_tanpa_retur' => 'nullable|integer|min:0',
                 'barang_diretur_ke_supplier' => 'nullable|integer|min:0',
                 'checker_penerima_barang' => 'nullable|string|max:255',
-            ], $this->getValidationMessages());
+            ];
+
+            // Add dynamic validation for bahan_baku_id based on kategori
+            if ($request->kategori === 'finished_goods') {
+                $rules['bahan_baku_id'] = 'required|exists:products,id';
+            } else {
+                $rules['bahan_baku_id'] = 'required|exists:bahan_bakus,id';
+            }
+
+            $validated = $request->validate($rules, $this->getValidationMessages());
 
             // Set default values
             $validated['qty_barang_masuk'] = $validated['qty_barang_masuk'] ?? 0;
             $validated['barang_defect_tanpa_retur'] = $validated['barang_defect_tanpa_retur'] ?? 0;
             $validated['barang_diretur_ke_supplier'] = $validated['barang_diretur_ke_supplier'] ?? 0;
 
-            $oldBahanBaku = $purchase->bahanBaku;
+            $oldItemName = $purchase->item_name;
             $purchase->update($validated);
 
-            // Get new bahan baku name for logging
-            $newBahanBaku = BahanBaku::find($validated['bahan_baku_id']);
-            $newBahanBakuName = $newBahanBaku ? $newBahanBaku->full_name : 'Unknown';
-            $oldBahanBakuName = $oldBahanBaku ? $oldBahanBaku->full_name : 'Unknown';
+            // Update inventory bahan baku - recalculate for affected items
+            if ($oldKategori === 'bahan_baku') {
+                // Recalculate old bahan baku inventory
+                InventoryBahanBaku::recalculateStokMasukFromPurchases($oldBahanBakuId);
+            }
+
+            if ($validated['kategori'] === 'bahan_baku') {
+                // Recalculate new bahan baku inventory
+                InventoryBahanBaku::recalculateStokMasukFromPurchases($validated['bahan_baku_id']);
+            }
+
+            // Get new item name for logging
+            if ($validated['kategori'] === 'finished_goods') {
+                $product = Product::find($validated['bahan_baku_id']);
+                $newItemName = $product ? $product->name_product : 'Unknown';
+            } else {
+                $bahanBaku = BahanBaku::find($validated['bahan_baku_id']);
+                $newItemName = $bahanBaku ? $bahanBaku->full_name : 'Unknown';
+            }
 
             // Log activity
-            addActivity('purchase', 'update', 'Pengguna mengubah purchase dari "' . $oldBahanBakuName . '" menjadi "' . $newBahanBakuName . '"', $purchase->id);
+            addActivity('purchase', 'update', 'Pengguna mengubah purchase dari "' . $oldItemName . '" menjadi "' . $newItemName . '"', $purchase->id);
+
+            DB::commit();
 
             if ($request->ajax()) {
                 return response()->json([
                     'success' => true,
-                    'message' => 'Berhasil! Informasi purchase telah diperbarui.',
+                    'message' => 'Berhasil! Informasi purchase telah diperbarui dan inventory telah diperbarui.',
                     'data' => $purchase
                 ]);
             }
 
             return redirect()->route('purchase.index')
-                ->with('success', 'Purchase berhasil diperbarui.');
+                ->with('success', 'Purchase berhasil diperbarui dan inventory telah diperbarui.');
         } catch (ValidationException $e) {
+            DB::rollBack();
             if ($request->ajax()) {
                 return response()->json([
                     'success' => false,
@@ -379,6 +475,7 @@ class PurchaseController extends Controller
                 ->withErrors($e->errors())
                 ->withInput();
         } catch (\Exception $e) {
+            DB::rollBack();
             Log::error('Failed to update purchase', [
                 'id' => $id,
                 'error' => $e->getMessage(),
@@ -404,20 +501,32 @@ class PurchaseController extends Controller
     public function destroy($id)
     {
         try {
-            $purchase = Purchase::with('bahanBaku')->findOrFail($id);
-            $bahanBakuName = $purchase->bahanBaku ? $purchase->bahanBaku->full_name : 'Unknown';
+            DB::beginTransaction();
+
+            $purchase = Purchase::with(['bahanBaku', 'product'])->findOrFail($id);
+            $itemName = $purchase->item_name;
             $purchaseId = $purchase->id;
+            $bahanBakuId = $purchase->bahan_baku_id;
+            $kategori = $purchase->kategori;
 
             $purchase->delete();
 
+            // Update inventory bahan baku jika kategori adalah bahan_baku
+            if ($kategori === 'bahan_baku') {
+                InventoryBahanBaku::recalculateStokMasukFromPurchases($bahanBakuId);
+            }
+
             // Log activity
-            addActivity('purchase', 'delete', 'Pengguna menghapus purchase: ' . $bahanBakuName, $purchaseId);
+            addActivity('purchase', 'delete', 'Pengguna menghapus purchase: ' . $itemName, $purchaseId);
+
+            DB::commit();
 
             return response()->json([
                 'success' => true,
-                'message' => 'Purchase telah berhasil dihapus dari sistem.'
+                'message' => 'Purchase telah berhasil dihapus dari sistem dan inventory telah diperbarui.'
             ]);
         } catch (\Exception $e) {
+            DB::rollBack();
             Log::error('Failed to delete purchase', [
                 'id' => $id,
                 'error' => $e->getMessage()

@@ -5,8 +5,11 @@ namespace App\Http\Controllers;
 use App\Models\CatatanProduksi;
 use App\Models\Product;
 use App\Models\BahanBaku;
+use App\Models\InventoryBahanBaku;
+use App\Services\ProductionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
 use Yajra\DataTables\Facades\DataTables;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Facades\Auth;
@@ -62,141 +65,153 @@ class CatatanProduksiController extends Controller
     public function index(Request $request)
     {
         if ($request->ajax()) {
-            $query = CatatanProduksi::with(['product'])
-                ->select([
-                    'catatan_produksis.id',
-                    'catatan_produksis.product_id',
-                    'catatan_produksis.packaging',
-                    'catatan_produksis.quantity',
-                    'catatan_produksis.sku_induk',
-                    'catatan_produksis.gramasi',
-                    'catatan_produksis.total_terpakai',
-                    'catatan_produksis.created_at',
-                    'catatan_produksis.updated_at'
-                ]);
+            try {
+                $query = CatatanProduksi::with(['product'])
+                    ->select([
+                        'catatan_produksis.id',
+                        'catatan_produksis.product_id',
+                        'catatan_produksis.packaging',
+                        'catatan_produksis.quantity',
+                        'catatan_produksis.sku_induk',
+                        'catatan_produksis.gramasi',
+                        'catatan_produksis.total_terpakai',
+                        'catatan_produksis.created_at',
+                        'catatan_produksis.updated_at'
+                    ]);
 
-            // Apply filters from request
-            if ($request->filled('sku')) {
-                $query->whereHas('product', function ($q) use ($request) {
-                    $q->where('sku', 'like', '%' . $request->sku . '%');
-                });
-            }
-
-            if ($request->filled('name_product')) {
-                $query->whereHas('product', function ($q) use ($request) {
-                    $q->where('name_product', 'like', '%' . $request->name_product . '%');
-                });
-            }
-
-            if ($request->filled('packaging')) {
-                $query->where('packaging', 'like', '%' . $request->packaging . '%');
-            }
-
-            if ($request->filled('label')) {
-                $query->whereHas('product', function ($q) use ($request) {
-                    $q->where('label', $request->label);
-                });
-            }
-
-            if ($request->filled('bahan_baku')) {
-                $query->where(function ($q) use ($request) {
-                    $q->whereJsonContains('sku_induk', $request->bahan_baku);
-                });
-            }
-
-            // Filter berdasarkan tanggal (hanya jika diisi oleh user)
-            if ($request->filled('start_date') || $request->filled('end_date')) {
-                $startDate = $request->filled('start_date') ? $request->start_date : '1900-01-01';
-                $endDate = $request->filled('end_date') ? $request->end_date : now()->format('Y-m-d');
-
-                // Konversi end_date untuk mencakup seluruh hari
-                if ($request->filled('end_date')) {
-                    $endDate = date('Y-m-d 23:59:59', strtotime($endDate));
-                } else {
-                    $endDate = now()->endOfDay()->format('Y-m-d H:i:s');
+                // Apply filters from request
+                if ($request->filled('sku')) {
+                    $query->whereHas('product', function ($q) use ($request) {
+                        $q->where('sku', 'like', '%' . $request->sku . '%');
+                    });
                 }
 
-                $startDate = date('Y-m-d 00:00:00', strtotime($startDate));
+                if ($request->filled('name_product')) {
+                    $query->whereHas('product', function ($q) use ($request) {
+                        $q->where('name_product', 'like', '%' . $request->name_product . '%');
+                    });
+                }
 
-                $query->where(function ($q) use ($startDate, $endDate) {
-                    $q->whereBetween('catatan_produksis.created_at', [$startDate, $endDate])
-                        ->orWhereBetween('catatan_produksis.updated_at', [$startDate, $endDate]);
-                });
+                if ($request->filled('packaging')) {
+                    $query->where('packaging', 'like', '%' . $request->packaging . '%');
+                }
+
+                if ($request->filled('label')) {
+                    $query->whereHas('product', function ($q) use ($request) {
+                        $q->where('label', $request->label);
+                    });
+                }
+
+                if ($request->filled('bahan_baku')) {
+                    $query->where(function ($q) use ($request) {
+                        $q->whereJsonContains('sku_induk', $request->bahan_baku);
+                    });
+                }
+
+                // Filter berdasarkan tanggal (hanya jika diisi oleh user)
+                if ($request->filled('start_date') || $request->filled('end_date')) {
+                    $startDate = $request->filled('start_date') ? $request->start_date : '1900-01-01';
+                    $endDate = $request->filled('end_date') ? $request->end_date : now()->format('Y-m-d');
+
+                    // Konversi end_date untuk mencakup seluruh hari
+                    if ($request->filled('end_date')) {
+                        $endDate = date('Y-m-d 23:59:59', strtotime($endDate));
+                    } else {
+                        $endDate = now()->endOfDay()->format('Y-m-d H:i:s');
+                    }
+
+                    $startDate = date('Y-m-d 00:00:00', strtotime($startDate));
+
+                    $query->where(function ($q) use ($startDate, $endDate) {
+                        $q->whereBetween('catatan_produksis.created_at', [$startDate, $endDate])
+                            ->orWhereBetween('catatan_produksis.updated_at', [$startDate, $endDate]);
+                    });
+                }
+
+                return DataTables::of($query)
+                    ->addIndexColumn()
+                    ->orderColumn('created_at', function ($query, $order) {
+                        $query->orderBy('created_at', $order);
+                    })
+                    ->addColumn('action', function ($row) {
+                        return $row->id;
+                    })
+                    ->addColumn('sku_product', function ($row) {
+                        return $row->product ? $row->product->sku : '';
+                    })
+                    ->addColumn('nama_product', function ($row) {
+                        return $row->product ? $row->product->name_product : '';
+                    })
+                    ->editColumn('sku_induk', function ($row) {
+                        // Get bahan baku details based on IDs
+                        $bahanBakuItems = BahanBaku::whereIn('id', $row->sku_induk ?? [])->get();
+                        $bahanBakuDetails = $bahanBakuItems->map(function ($item) {
+                            return $item->sku_induk . ' - ' . $item->nama_barang;
+                        });
+
+                        return $bahanBakuDetails->implode(', ');
+                    })
+                    ->editColumn('gramasi', function ($row) {
+                        $result = [];
+                        if (is_array($row->sku_induk) && is_array($row->gramasi) && is_array($row->total_terpakai)) {
+                            $bahanBakuItems = BahanBaku::whereIn('id', $row->sku_induk)->get()->keyBy('id');
+
+                            foreach ($row->sku_induk as $index => $bahanId) {
+                                if (isset($row->gramasi[$index]) && isset($bahanBakuItems[$bahanId])) {
+                                    $bahan = $bahanBakuItems[$bahanId];
+                                    $result[] = $bahan->nama_barang . ': ' . $row->gramasi[$index] . ' ' . $bahan->satuan;
+                                }
+                            }
+                        }
+
+                        return !empty($result) ? implode(', ', $result) : implode(', ', $row->gramasi ?? []);
+                    })
+                    ->editColumn('total_terpakai', function ($row) {
+                        $result = [];
+                        if (is_array($row->sku_induk) && is_array($row->total_terpakai)) {
+                            $bahanBakuItems = BahanBaku::whereIn('id', $row->sku_induk)->get()->keyBy('id');
+
+                            foreach ($row->sku_induk as $index => $bahanId) {
+                                if (isset($row->total_terpakai[$index]) && isset($bahanBakuItems[$bahanId])) {
+                                    $bahan = $bahanBakuItems[$bahanId];
+                                    $result[] = $bahan->nama_barang . ': ' . $row->total_terpakai[$index] . ' ' . $bahan->satuan;
+                                }
+                            }
+                        }
+
+                        return !empty($result) ? implode(', ', $result) : implode(', ', $row->total_terpakai ?? []);
+                    })
+                    ->editColumn('created_at', function ($row) {
+                        return $row->created_at ? $row->created_at->format('Y-m-d H:i:s') : '';
+                    })
+                    ->filterColumn('sku_product', function ($query, $keyword) {
+                        $query->whereHas('product', function ($q) use ($keyword) {
+                            $q->where('sku', 'like', "%{$keyword}%");
+                        });
+                    })
+                    ->filterColumn('nama_product', function ($query, $keyword) {
+                        $query->whereHas('product', function ($q) use ($keyword) {
+                            $q->where('name_product', 'like', "%{$keyword}%");
+                        });
+                    })
+                    ->filterColumn('packaging', function ($query, $keyword) {
+                        $query->where('packaging', 'like', "%{$keyword}%");
+                    })
+                    ->rawColumns(['action'])
+                    ->smart(true)
+                    ->startsWithSearch()
+                    ->make(true);
+            } catch (\Exception $e) {
+                Log::error('Error in CatatanProduksi DataTables', [
+                    'error' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString(),
+                    'request' => $request->all()
+                ]);
+
+                return response()->json([
+                    'error' => 'Terjadi kesalahan saat memuat data: ' . $e->getMessage()
+                ], 500);
             }
-
-            return DataTables::of($query)
-                ->addIndexColumn()
-                ->orderColumn('created_at', function ($query, $order) {
-                    $query->orderBy('created_at', $order);
-                })
-                ->addColumn('action', function ($row) {
-                    return $row->id;
-                })
-                ->addColumn('sku_product', function ($row) {
-                    return $row->product ? $row->product->sku : '';
-                })
-                ->addColumn('nama_product', function ($row) {
-                    return $row->product ? $row->product->name_product : '';
-                })
-                ->editColumn('sku_induk', function ($row) {
-                    // Get bahan baku details based on IDs
-                    $bahanBakuItems = BahanBaku::whereIn('id', $row->sku_induk ?? [])->get();
-                    $bahanBakuDetails = $bahanBakuItems->map(function ($item) {
-                        return $item->sku_induk . ' - ' . $item->nama_barang;
-                    });
-
-                    return $bahanBakuDetails->implode(', ');
-                })
-                ->editColumn('gramasi', function ($row) {
-                    $result = [];
-                    if (is_array($row->sku_induk) && is_array($row->gramasi) && is_array($row->total_terpakai)) {
-                        $bahanBakuItems = BahanBaku::whereIn('id', $row->sku_induk)->get()->keyBy('id');
-
-                        foreach ($row->sku_induk as $index => $bahanId) {
-                            if (isset($row->gramasi[$index]) && isset($bahanBakuItems[$bahanId])) {
-                                $bahan = $bahanBakuItems[$bahanId];
-                                $result[] = $bahan->nama_barang . ': ' . $row->gramasi[$index] . ' ' . $bahan->satuan;
-                            }
-                        }
-                    }
-
-                    return !empty($result) ? implode(', ', $result) : implode(', ', $row->gramasi ?? []);
-                })
-                ->editColumn('total_terpakai', function ($row) {
-                    $result = [];
-                    if (is_array($row->sku_induk) && is_array($row->total_terpakai)) {
-                        $bahanBakuItems = BahanBaku::whereIn('id', $row->sku_induk)->get()->keyBy('id');
-
-                        foreach ($row->sku_induk as $index => $bahanId) {
-                            if (isset($row->total_terpakai[$index]) && isset($bahanBakuItems[$bahanId])) {
-                                $bahan = $bahanBakuItems[$bahanId];
-                                $result[] = $bahan->nama_barang . ': ' . $row->total_terpakai[$index] . ' ' . $bahan->satuan;
-                            }
-                        }
-                    }
-
-                    return !empty($result) ? implode(', ', $result) : implode(', ', $row->total_terpakai ?? []);
-                })
-                ->editColumn('created_at', function ($row) {
-                    return $row->created_at ? $row->created_at->format('Y-m-d H:i:s') : '';
-                })
-                ->filterColumn('sku_product', function ($query, $keyword) {
-                    $query->whereHas('product', function ($q) use ($keyword) {
-                        $q->where('sku', 'like', "%{$keyword}%");
-                    });
-                })
-                ->filterColumn('nama_product', function ($query, $keyword) {
-                    $query->whereHas('product', function ($q) use ($keyword) {
-                        $q->where('name_product', 'like', "%{$keyword}%");
-                    });
-                })
-                ->filterColumn('packaging', function ($query, $keyword) {
-                    $query->where('packaging', 'like', "%{$keyword}%");
-                })
-                ->rawColumns(['action'])
-                ->smart(true)
-                ->startsWithSearch()
-                ->make(true);
         }
 
         // Get products filtered by specific labels for dropdown
@@ -255,6 +270,8 @@ class CatatanProduksiController extends Controller
     public function store(Request $request)
     {
         try {
+            DB::beginTransaction();
+
             // Validate request data with less strict rules for testing
             $validated = $request->validate([
                 'product_id' => 'required|exists:products,id',
@@ -272,8 +289,14 @@ class CatatanProduksiController extends Controller
 
             // Skip the total_terpakai calculation check for testing purposes
 
-            // Create catatan produksi
-            $catatanProduksi = CatatanProduksi::create($validated);
+            // Create catatan produksi using service (with DB transaction)
+            $productionService = app(ProductionService::class);
+            $catatanProduksi = $productionService->createProduction($validated);
+
+            // Update inventory bahan baku - recalculate terpakai for each bahan baku used
+            foreach ($validated['sku_induk'] as $bahanBakuId) {
+                InventoryBahanBaku::recalculateTerpakaiFromProduksi($bahanBakuId);
+            }
 
             // Get product info for activity log
             $product = Product::find($validated['product_id']);
@@ -283,18 +306,22 @@ class CatatanProduksiController extends Controller
             // Log activity (simplified)
             addActivity('catatan_produksi', 'create', 'Pengguna membuat catatan produksi baru: ' . $productName, $catatanProduksi->id);
 
+            DB::commit();
+
             return response()->json([
                 'success' => true,
-                'message' => 'Berhasil! Catatan produksi telah ditambahkan ke dalam sistem.',
+                'message' => 'Berhasil! Catatan produksi telah ditambahkan ke dalam sistem dan inventory telah diperbarui.',
                 'data' => $catatanProduksi
             ]);
         } catch (ValidationException $e) {
+            DB::rollBack();
             return response()->json([
                 'success' => false,
                 'message' => 'Terjadi Kesalahan',
                 'errors' => $e->errors()
             ], 422);
         } catch (\Exception $e) {
+            DB::rollBack();
             Log::error('Error saat membuat catatan produksi', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
@@ -370,6 +397,11 @@ class CatatanProduksiController extends Controller
     public function update(Request $request, CatatanProduksi $catatanProduksi)
     {
         try {
+            DB::beginTransaction();
+
+            // Store old bahan baku IDs for inventory update
+            $oldBahanBakuIds = $catatanProduksi->sku_induk ?? [];
+
             // Validate request data with less strict rules for testing
             $validated = $request->validate([
                 'product_id' => 'required|exists:products,id',
@@ -387,8 +419,15 @@ class CatatanProduksiController extends Controller
             $oldProduct = Product::find($catatanProduksi->product_id);
             $oldProductName = $oldProduct ? $oldProduct->name_product : 'Unknown Product';
 
-            // Update catatan produksi
-            $catatanProduksi->update($validated);
+            // Update catatan produksi using service (with DB transaction)
+            $productionService = app(ProductionService::class);
+            $catatanProduksi = $productionService->updateProduction($catatanProduksi, $validated);
+
+            // Update inventory bahan baku - recalculate for both old and new bahan baku
+            $allAffectedBahanBakuIds = array_unique(array_merge($oldBahanBakuIds, $validated['sku_induk']));
+            foreach ($allAffectedBahanBakuIds as $bahanBakuId) {
+                InventoryBahanBaku::recalculateTerpakaiFromProduksi($bahanBakuId);
+            }
 
             // Get new product info for logging
             $newProduct = Product::find($validated['product_id']);
@@ -399,18 +438,22 @@ class CatatanProduksiController extends Controller
 
             addActivity('catatan_produksi', 'update', $logMessage, $catatanProduksi->id);
 
+            DB::commit();
+
             return response()->json([
                 'success' => true,
-                'message' => 'Berhasil! Informasi catatan produksi telah diperbarui.',
+                'message' => 'Berhasil! Informasi catatan produksi telah diperbarui dan inventory telah diperbarui.',
                 'data' => $catatanProduksi
             ]);
         } catch (ValidationException $e) {
+            DB::rollBack();
             return response()->json([
                 'success' => false,
                 'message' => 'Terjadi Kesalahan',
                 'errors' => $e->errors()
             ], 422);
         } catch (\Exception $e) {
+            DB::rollBack();
             Log::error('Error saat memperbarui catatan produksi', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
@@ -432,6 +475,11 @@ class CatatanProduksiController extends Controller
     public function destroy(CatatanProduksi $catatanProduksi)
     {
         try {
+            DB::beginTransaction();
+
+            // Store bahan baku IDs for inventory update
+            $affectedBahanBakuIds = $catatanProduksi->sku_induk ?? [];
+
             // Get product info before deletion
             $product = Product::find($catatanProduksi->product_id);
             $productName = $product ? $product->name_product : 'Unknown Product';
@@ -455,7 +503,14 @@ class CatatanProduksiController extends Controller
 
             $produksiId = $catatanProduksi->id;
 
-            $catatanProduksi->delete();
+            // Delete catatan produksi using service (with DB transaction)
+            $productionService = app(ProductionService::class);
+            $productionService->deleteProduction($catatanProduksi);
+
+            // Update inventory bahan baku - recalculate terpakai for affected bahan baku
+            foreach ($affectedBahanBakuIds as $bahanBakuId) {
+                InventoryBahanBaku::recalculateTerpakaiFromProduksi($bahanBakuId);
+            }
 
             // Log detailed activity
             $logMessage = 'Pengguna menghapus catatan produksi: Produk: ' . $productName .
@@ -463,11 +518,14 @@ class CatatanProduksiController extends Controller
 
             addActivity('catatan_produksi', 'delete', $logMessage, $produksiId);
 
+            DB::commit();
+
             return response()->json([
                 'success' => true,
-                'message' => 'Catatan produksi telah berhasil dihapus dari sistem.'
+                'message' => 'Catatan produksi telah berhasil dihapus dari sistem dan inventory telah diperbarui.'
             ]);
         } catch (\Exception $e) {
+            DB::rollBack();
             Log::error('Error saat menghapus catatan produksi', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),

@@ -10,6 +10,7 @@ class Purchase extends Model
     use HasFactory;
 
     protected $fillable = [
+        'kategori',
         'bahan_baku_id',
         'qty_pembelian',
         'tanggal_kedatangan_barang',
@@ -30,11 +31,63 @@ class Purchase extends Model
     ];
 
     /**
-     * Relationship to BahanBaku
+     * Relationship to BahanBaku (when kategori = bahan_baku)
      */
     public function bahanBaku()
     {
         return $this->belongsTo(BahanBaku::class, 'bahan_baku_id');
+    }
+
+    /**
+     * Relationship to Product (when kategori = finished_goods)
+     */
+    public function product()
+    {
+        return $this->belongsTo(Product::class, 'bahan_baku_id');
+    }
+
+    /**
+     * Get the related item based on kategori (polymorphic-like behavior)
+     */
+    public function getRelatedItemAttribute()
+    {
+        if ($this->kategori === 'finished_goods') {
+            return $this->product;
+        }
+        return $this->bahanBaku;
+    }
+
+    /**
+     * Get the item based on kategori
+     */
+    public function getItemAttribute()
+    {
+        if ($this->kategori === 'finished_goods') {
+            return $this->product;
+        }
+        return $this->bahanBaku;
+    }
+
+    /**
+     * Get item name based on kategori
+     */
+    public function getItemNameAttribute()
+    {
+        if ($this->kategori === 'finished_goods') {
+            return $this->product ? $this->product->name_product : '-';
+        }
+        return $this->bahanBaku ? $this->bahanBaku->nama_barang : '-';
+    }
+
+    /**
+     * Get item SKU based on kategori
+     */
+    public function getItemSkuAttribute()
+    {
+        if ($this->kategori === 'finished_goods') {
+            return $this->product ? $this->product->sku : '-';
+        }
+        return $this->bahanBaku ? $this->bahanBaku->sku_induk : '-';
     }
 
     /**

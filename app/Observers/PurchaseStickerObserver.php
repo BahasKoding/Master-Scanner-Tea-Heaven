@@ -3,16 +3,24 @@
 namespace App\Observers;
 
 use App\Models\PurchaseSticker;
-use App\Models\Sticker;
+use Illuminate\Support\Facades\Log;
 
 class PurchaseStickerObserver
 {
     /**
      * Handle the PurchaseSticker "created" event.
+     * 
+     * Note: Core business logic (sticker stock updates) now handled by StickerService
+     * This observer now only handles logging and non-critical side effects
      */
     public function created(PurchaseSticker $purchaseSticker): void
     {
-        $this->updateStickerStock($purchaseSticker);
+        Log::info("PurchaseSticker created via Observer", [
+            'purchase_sticker_id' => $purchaseSticker->id,
+            'product_id' => $purchaseSticker->product_id,
+            'ukuran_stiker' => $purchaseSticker->ukuran_stiker,
+            'stok_masuk' => $purchaseSticker->stok_masuk
+        ]);
     }
 
     /**
@@ -20,7 +28,11 @@ class PurchaseStickerObserver
      */
     public function updated(PurchaseSticker $purchaseSticker): void
     {
-        $this->updateStickerStock($purchaseSticker);
+        Log::info("PurchaseSticker updated via Observer", [
+            'purchase_sticker_id' => $purchaseSticker->id,
+            'product_id' => $purchaseSticker->product_id,
+            'changes' => $purchaseSticker->getChanges()
+        ]);
     }
 
     /**
@@ -28,50 +40,11 @@ class PurchaseStickerObserver
      */
     public function deleted(PurchaseSticker $purchaseSticker): void
     {
-        $this->updateStickerStock($purchaseSticker);
-    }
-
-    /**
-     * Update sticker stock and status based on purchase stickers
-     */
-    private function updateStickerStock(PurchaseSticker $purchaseSticker): void
-    {
-        // Find the related sticker
-        $sticker = Sticker::where('product_id', $purchaseSticker->product_id)
-            ->where('ukuran', $purchaseSticker->ukuran_stiker)
-            ->first();
-
-        if ($sticker) {
-            // Calculate new stok_masuk from all purchase stickers
-            $totalStokMasuk = PurchaseSticker::where('product_id', $purchaseSticker->product_id)
-                ->where('ukuran_stiker', $purchaseSticker->ukuran_stiker)
-                ->sum('stok_masuk');
-
-            // Update stok_masuk
-            $sticker->stok_masuk = $totalStokMasuk;
-
-            // Calculate new sisa
-            $newSisa = $sticker->stok_awal + $totalStokMasuk + $sticker->produksi - $sticker->defect;
-            $sticker->sisa = $newSisa;
-
-            // Auto-update status based on sisa
-            if ($newSisa < 30) {
-                $sticker->status = 'need_order';
-            } else {
-                $sticker->status = 'available';
-            }
-
-            $sticker->save();
-
-            // Log the update
-            if (function_exists('addActivity')) {
-                addActivity(
-                    'sticker',
-                    'auto_update',
-                    "Sticker stock auto-updated for product {$sticker->product->name_product}. New sisa: {$newSisa}",
-                    $sticker->id
-                );
-            }
-        }
+        Log::info("PurchaseSticker deleted via Observer", [
+            'purchase_sticker_id' => $purchaseSticker->id,
+            'product_id' => $purchaseSticker->product_id,
+            'ukuran_stiker' => $purchaseSticker->ukuran_stiker,
+            'stok_masuk' => $purchaseSticker->stok_masuk
+        ]);
     }
 }

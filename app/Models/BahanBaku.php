@@ -19,6 +19,23 @@ class BahanBaku extends Model
     ];
 
     /**
+     * Relationship dengan InventoryBahanBaku
+     */
+    public function inventory()
+    {
+        return $this->hasOne(InventoryBahanBaku::class, 'bahan_baku_id');
+    }
+
+    /**
+     * Relationship dengan Purchase (bahan baku purchases)
+     */
+    public function purchases()
+    {
+        return $this->hasMany(Purchase::class, 'bahan_baku_id')
+                    ->where('kategori', 'bahan_baku');
+    }
+
+    /**
      * Get category options for dropdown
      */
     public static function getCategoryOptions()
@@ -57,5 +74,21 @@ class BahanBaku extends Model
     {
         $categories = self::getCategoryOptions();
         return $categories[$this->kategori] ?? 'Unknown Category';
+    }
+
+    /**
+     * Get current inventory stock
+     */
+    public function getCurrentStock()
+    {
+        return $this->inventory ? $this->inventory->live_stok_gudang : 0;
+    }
+
+    /**
+     * Check if stock is low (<=10)
+     */
+    public function isLowStock($threshold = 10)
+    {
+        return $this->getCurrentStock() <= $threshold;
     }
 }

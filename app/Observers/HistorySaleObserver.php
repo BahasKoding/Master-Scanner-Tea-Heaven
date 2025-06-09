@@ -3,19 +3,26 @@
 namespace App\Observers;
 
 use App\Models\HistorySale;
-use App\Services\StockService;
+use Illuminate\Support\Facades\Log;
 
 class HistorySaleObserver
 {
     /**
      * Handle the HistorySale "created" event.
      * 
+     * Note: Core business logic (stock updates) now handled by SalesService
+     * This observer now only handles logging and non-critical side effects
+     * 
      * @param  \App\Models\HistorySale  $historySale
      * @return void
      */
     public function created(HistorySale $historySale)
     {
-        app(StockService::class)->updateStockFromSales($historySale);
+        Log::info("HistorySale created via Observer", [
+            'sale_id' => $historySale->id,
+            'no_resi' => $historySale->no_resi,
+            'sku_count' => is_array($historySale->no_sku) ? count($historySale->no_sku) : 0
+        ]);
     }
 
     /**
@@ -26,10 +33,11 @@ class HistorySaleObserver
      */
     public function updated(HistorySale $historySale)
     {
-        // Jika qty atau no_sku berubah, perbarui stok keluar
-        if ($historySale->isDirty('qty') || $historySale->isDirty('no_sku')) {
-            app(StockService::class)->updateStockFromSalesChange($historySale);
-        }
+        Log::info("HistorySale updated via Observer", [
+            'sale_id' => $historySale->id,
+            'no_resi' => $historySale->no_resi,
+            'changes' => $historySale->getChanges()
+        ]);
     }
 
     /**
@@ -40,7 +48,10 @@ class HistorySaleObserver
      */
     public function deleted(HistorySale $historySale)
     {
-        // Jika penjualan dihapus, kembalikan stok keluar
-        app(StockService::class)->restoreStockFromSales($historySale);
+        Log::info("HistorySale deleted via Observer", [
+            'sale_id' => $historySale->id,
+            'no_resi' => $historySale->no_resi,
+            'sku_count' => is_array($historySale->no_sku) ? count($historySale->no_sku) : 0
+        ]);
     }
 }

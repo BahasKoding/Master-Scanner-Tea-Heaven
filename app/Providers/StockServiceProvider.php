@@ -5,8 +5,10 @@ namespace App\Providers;
 use App\Jobs\VerifyStockConsistencyJob;
 use App\Models\CatatanProduksi;
 use App\Models\HistorySale;
+use App\Models\FinishedGoods;
 use App\Observers\CatatanProduksiObserver;
 use App\Observers\HistorySaleObserver;
+use App\Observers\FinishedGoodsObserver;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\ServiceProvider;
 
@@ -23,14 +25,19 @@ class StockServiceProvider extends ServiceProvider
     /**
      * Bootstrap services.
      */
-    public function boot(): void
+    // use App\Models\FinishedGoods;
+    // use App\Observers\FinishedGoodsObserver;
+
+    public function boot()
     {
         // Mendaftarkan observer
         CatatanProduksi::observe(CatatanProduksiObserver::class);
 
-        // TEMPORARILY DISABLED: History Sales integration with stock system
-        // To re-enable this integration, uncomment the line below:
-        // HistorySale::observe(HistorySaleObserver::class);
+        // Aktifkan HistorySaleObserver untuk real-time stock updates
+        HistorySale::observe(HistorySaleObserver::class);
+
+        // Aktifkan FinishedGoodsObserver untuk logging stock changes
+        FinishedGoods::observe(FinishedGoodsObserver::class);
 
         // Mendaftarkan schedule
         $this->app->booted(function () {

@@ -164,6 +164,10 @@ class DatabaseSeeder extends Seeder
             'Inventory Bahan Baku Delete',
             'Inventory Bahan Baku View',
 
+            // Reports
+            'Reports View',
+            'Reports Export',
+
         ];
 
         foreach ($permissions as $permission) {

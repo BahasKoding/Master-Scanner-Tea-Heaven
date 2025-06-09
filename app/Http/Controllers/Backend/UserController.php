@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Models\Role;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 
 class UserController extends Controller
 {
@@ -26,10 +27,7 @@ class UserController extends Controller
         $this->middleware('permission:Users Delete', ['only' => ['destroy']]);
         $this->middleware('permission:Users View', ['only' => ['show']]);
 
-        // Debug route should be accessible in non-production environments
-        if (config('app.env') !== 'production') {
-            $this->middleware('auth', ['only' => ['debug']]);
-        }
+        // Debug route removed for production
     }
 
     /**
@@ -60,7 +58,7 @@ class UserController extends Controller
         // Load users with their roles for the initial page load
         $users = User::with('roles')->get();
 
-        \Illuminate\Support\Facades\Log::info('Index method - users count: ' . $users->count());
+        Log::info('Index method - users count: ' . $users->count());
 
         return view('backend.users.index', compact('users', 'roles'))->with('item', $this->item)->with('itemActive', $this->itemActive);
     }
@@ -137,7 +135,7 @@ class UserController extends Controller
     public function update(Request $request, User $user)
     {
         try {
-            \Illuminate\Support\Facades\Log::info('Update user request', [
+            Log::info('Update user request', [
                 'user_id' => $user->id,
                 'request_data' => $request->all()
             ]);
@@ -194,10 +192,10 @@ class UserController extends Controller
 
             return response()->json(['status' => 'success', 'message' => 'User updated successfully']);
         } catch (\Illuminate\Validation\ValidationException $e) {
-            \Illuminate\Support\Facades\Log::error('Validation error: ' . json_encode($e->errors()));
+            Log::error('Validation error: ' . json_encode($e->errors()));
             return response()->json(['status' => 'error', 'errors' => $e->errors()], 422);
         } catch (\Exception $e) {
-            \Illuminate\Support\Facades\Log::error('Update error: ' . $e->getMessage());
+            Log::error('Update error: ' . $e->getMessage());
             return response()->json(['status' => 'error', 'message' => 'Failed to update user: ' . $e->getMessage()], 500);
         }
     }
@@ -297,19 +295,11 @@ class UserController extends Controller
     public function data(Request $request)
     {
         try {
-            // Log the incoming request
-            \Illuminate\Support\Facades\Log::info('UserController data request received', [
-                'request' => $request->all(),
-                'user_id' => Auth::id(),
-                'user_roles' => Auth::user()->roles->pluck('name')
-            ]);
-
             // Query dengan eager loading untuk roles
             $query = User::with('roles');
 
             // Get total count before filtering
             $totalRecords = $query->count();
-            \Illuminate\Support\Facades\Log::info('Total records before filtering: ' . $totalRecords);
 
             // Apply search filter if present
             if ($request->has('search') && !empty($request->search['value'])) {
@@ -322,7 +312,6 @@ class UserController extends Controller
 
             // Get filtered count
             $filteredRecords = $query->count();
-            \Illuminate\Support\Facades\Log::info('Records after search filtering: ' . $filteredRecords);
 
             // Apply ordering
             if ($request->has('order') && !empty($request->order)) {
@@ -345,23 +334,15 @@ class UserController extends Controller
             $currentUser = Auth::user();
             $userRoles = $currentUser->roles->pluck('name');
 
-            \Illuminate\Support\Facades\Log::info('Current user roles: ', [
-                'user_id' => $currentUser->id,
-                'roles' => $userRoles,
-            ]);
-
             if ($userRoles->contains('Super Admin')) {
                 // Super admin can see all users
-                \Illuminate\Support\Facades\Log::info('User is Super Admin, showing all users');
             } elseif ($userRoles->contains('Admin')) {
                 // Admin cannot see Super Admin users
-                \Illuminate\Support\Facades\Log::info('User is Admin, filtering out Super Admin users');
                 $query->whereDoesntHave('roles', function ($q) {
                     $q->where('name', 'Super Admin');
                 });
             } elseif ($userRoles->contains('Operator')) {
                 // Operator cannot see Super Admin or Admin users
-                \Illuminate\Support\Facades\Log::info('User is Operator, filtering out Super Admin and Admin users');
                 $query->whereDoesntHave('roles', function ($q) {
                     $q->whereIn('name', ['Super Admin', 'Admin']);
                 });
@@ -370,21 +351,10 @@ class UserController extends Controller
             // Execute the query with pagination
             $users = $query->skip($start)->take($length)->get();
 
-            // Debug the SQL query that was executed
-            \Illuminate\Support\Facades\Log::info('Query executed: ' . vsprintf(str_replace(['?'], ['\'%s\''], $query->toSql()), $query->getBindings()));
-            \Illuminate\Support\Facades\Log::info('Users found: ' . $users->count());
-
             // Format data for DataTables
             $data = [];
             foreach ($users as $user) {
                 $roleNames = $user->roles->pluck('name')->toArray();
-
-                \Illuminate\Support\Facades\Log::info('Processing user', [
-                    'id' => $user->id,
-                    'name' => $user->name,
-                    'email' => $user->email,
-                    'roles' => $roleNames
-                ]);
 
                 $data[] = [
                     'id' => $user->id,
@@ -397,15 +367,6 @@ class UserController extends Controller
                 ];
             }
 
-            // Log what we're returning (for debugging)
-            \Illuminate\Support\Facades\Log::info('DataTables response', [
-                'draw' => (int)($request->input('draw', 1)),
-                'recordsTotal' => $totalRecords,
-                'recordsFiltered' => $filteredRecords,
-                'data_count' => count($data),
-                'data' => $data // Log the actual data array
-            ]);
-
             return response()->json([
                 'draw' => (int)($request->input('draw', 1)),
                 'recordsTotal' => $totalRecords,
@@ -413,17 +374,18 @@ class UserController extends Controller
                 'data' => $data
             ]);
         } catch (\Exception $e) {
-            // Log the error
-            \Illuminate\Support\Facades\Log::error('DataTables error: ' . $e->getMessage());
-            \Illuminate\Support\Facades\Log::error('Stack trace: ' . $e->getTraceAsString());
+            Log::error('Error in UserController data method', [
+                'error' => $e->getMessage(),
+                'request' => $request->all()
+            ]);
 
             return response()->json([
                 'draw' => (int)($request->input('draw', 1)),
                 'recordsTotal' => 0,
                 'recordsFiltered' => 0,
                 'data' => [],
-                'error' => 'An error occurred while fetching data: ' . $e->getMessage()
-            ]);
+                'error' => 'An error occurred while fetching users data'
+            ], 500);
         }
     }
 

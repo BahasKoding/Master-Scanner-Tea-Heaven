@@ -12,10 +12,12 @@ use App\Http\Controllers\ProductController;
 use App\Http\Controllers\CatatanProduksiController;
 use App\Http\Controllers\FinishedGoodsController;
 use App\Http\Controllers\BahanBakuController;
+use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\StickerController;
 use App\Http\Controllers\PurchaseController;
 use App\Http\Controllers\PurchaseStickerController;
 use App\Http\Controllers\InventoryBahanBakuController;
+use App\Http\Controllers\ReportController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -40,13 +42,7 @@ Auth::routes();
 // All authenticated routes
 Route::middleware(['auth'])->group(function () {
     // Dashboard routes
-    Route::get('/dashboard', function () {
-        return view('dashboard');
-    })->name('dashboard');
-
-    Route::get('/home', function () {
-        return view('index');
-    })->name('home');
+    Route::get('/dashboard',[DashboardController::class, 'index'])->name('dashboard');
 
     /*
     |--------------------------------------------------------------------------
@@ -105,6 +101,8 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/', [HistorySaleController::class, 'index'])->name('index');
         Route::post('/store', [HistorySaleController::class, 'store'])->name('store');
         Route::post('/validate-no-resi', [HistorySaleController::class, 'validateNoResi'])->name('validate-no-resi');
+        Route::post('/validate-sku', [HistorySaleController::class, 'validateSku'])->name('validate-sku');
+        Route::get('/search-products', [HistorySaleController::class, 'searchProducts'])->name('search-products');
     });
     // Sales Management routes - untuk CRUD data penjualan
     Route::prefix('sales-management')->name('sales-management.')->group(function () {
@@ -146,8 +144,10 @@ Route::middleware(['auth'])->group(function () {
         Route::delete('/{id}/force', [HistorySaleController::class, 'forceDelete'])->name('force-delete');
     });
 
-    // Validation route
+    // Validation routes
     Route::post('/validate-no-resi', [HistorySaleController::class, 'validateNoResi'])->name('history-sales.validate-no-resi');
+    Route::post('/validate-sku', [HistorySaleController::class, 'validateSku'])->name('history-sales.validate-sku');
+    Route::get('/search-products', [HistorySaleController::class, 'searchProducts'])->name('history-sales.search-products');
 
     // Resource routes using Laravel's resource controller pattern
     Route::resource('products', ProductController::class);
@@ -182,11 +182,37 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/{bahanBakuId}/edit', [InventoryBahanBakuController::class, 'edit'])->name('edit');
         Route::put('/{bahanBakuId}', [InventoryBahanBakuController::class, 'update'])->name('update');
         Route::post('/data', [InventoryBahanBakuController::class, 'data'])->name('data');
+        Route::post('/sync-all', [InventoryBahanBakuController::class, 'syncAll'])->name('sync-all');
+        Route::get('/low-stock/{threshold?}', [InventoryBahanBakuController::class, 'getLowStock'])->name('low-stock');
     });
 
     // Sticker routes
     Route::resource('stickers', StickerController::class);
     Route::post('stickers/export', [StickerController::class, 'export'])->name('stickers.export');
+
+    /*
+    |--------------------------------------------------------------------------
+    | Reports Routes
+    |--------------------------------------------------------------------------
+    */
+
+    // Purchase Report routes
+    Route::prefix('reports/purchase')->name('reports.purchase.')->group(function () {
+        Route::get('/', [ReportController::class, 'purchaseIndex'])->name('index');
+        Route::post('/export', [ReportController::class, 'purchaseExport'])->name('export');
+    });
+
+    // Catatan Produksi Report routes
+    Route::prefix('reports/catatan-produksi')->name('reports.catatan-produksi.')->group(function () {
+        Route::get('/', [ReportController::class, 'catatanProduksiIndex'])->name('index');
+        Route::post('/export', [ReportController::class, 'catatanProduksiExport'])->name('export');
+    });
+
+    // Scanner Report routes
+    Route::prefix('reports/scanner')->name('reports.scanner.')->group(function () {
+        Route::get('/', [ReportController::class, 'scannerIndex'])->name('index');
+        Route::post('/export', [ReportController::class, 'scannerExport'])->name('export');
+    });
 
     /*
     |--------------------------------------------------------------------------

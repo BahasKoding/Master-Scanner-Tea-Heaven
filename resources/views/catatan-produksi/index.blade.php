@@ -314,6 +314,50 @@
                 min-width: auto;
             }
         }
+
+        /* Gramasi form enhancements */
+        .gramasi-helper {
+            margin-top: 0.25rem;
+        }
+
+        .convert-btn {
+            border-left: none !important;
+            border-top-left-radius: 0 !important;
+            border-bottom-left-radius: 0 !important;
+        }
+
+        .satuan-display {
+            font-weight: 500;
+            border-right: none !important;
+        }
+
+        .gramasi-input:focus+.satuan-display {
+            border-color: #86b7fe;
+            box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+        }
+
+        .total-calculation-display {
+            display: block;
+            margin-top: 0.5rem;
+            padding: 0.375rem 0.75rem;
+            background-color: #d1e7dd;
+            border: 1px solid #badbcc;
+            border-radius: 0.375rem;
+            color: #0f5132;
+        }
+
+        /* Icon styling for better UX */
+        .conversion-text {
+            font-weight: 500;
+        }
+
+        .gramasi-helper .text-info {
+            background-color: #cff4fc;
+            border: 1px solid #b6effb;
+            border-radius: 0.25rem;
+            padding: 0.25rem 0.5rem;
+            display: inline-block;
+        }
     </style>
 @endsection
 
@@ -456,6 +500,8 @@
                                 <li>Pilih produk terlebih dahulu untuk mengisi data produksi</li>
                                 <li>Quantity harus berupa angka bulat (misal: 10, 25, 100)</li>
                                 <li>Setiap bahan baku harus memiliki nilai gramasi (minimal 0.01)</li>
+                                <li>Gunakan tombol <i class="fas fa-exchange-alt text-primary"></i> untuk konversi satuan
+                                    (kg ↔ gram)</li>
                                 <li>Sistem akan otomatis menghitung total terpakai (gramasi × quantity)</li>
                             </ul>
                         </div>
@@ -518,10 +564,24 @@
                                             <label class="form-label">Gramasi <span class="text-danger">*</span></label>
                                             <div class="input-group">
                                                 <input type="number" class="form-control gramasi-input" name="gramasi[]"
-                                                    required min="0.01" step="0.01" placeholder="Gramasi">
-                                                <span class="input-group-text satuan-display">Satuan</span>
+                                                    required min="0.01" step="0.01" placeholder="0.00">
+                                                <div class="input-group-text satuan-display bg-light"
+                                                    style="min-width: 60px;">
+                                                    <span class="satuan-text">Satuan</span>
+                                                </div>
+                                                <button class="btn btn-outline-secondary btn-sm convert-btn"
+                                                    type="button" style="display: none;" title="Konversi Satuan">
+                                                    <i class="fas fa-exchange-alt"></i>
+                                                </button>
                                             </div>
-                                            <small class="text-muted">Jumlah bahan yang digunakan per produk</small>
+                                            <div class="gramasi-helper" style="display: none;">
+                                                <small class="text-info">
+                                                    <i class="fas fa-info-circle"></i>
+                                                    <span class="conversion-text"></span>
+                                                </small>
+                                            </div>
+                                            <small class="text-muted">Masukkan jumlah bahan yang digunakan per
+                                                produk</small>
                                             <!-- Hidden input for total_terpakai, automatically calculated from gramasi -->
                                             <input type="hidden" class="total-terpakai-input" name="total_terpakai[]"
                                                 required>
@@ -571,6 +631,8 @@
                                 <li>Pilih produk terlebih dahulu untuk mengisi data produksi</li>
                                 <li>Quantity harus berupa angka bulat (misal: 10, 25, 100)</li>
                                 <li>Setiap bahan baku harus memiliki nilai gramasi (minimal 0.01)</li>
+                                <li>Gunakan tombol <i class="fas fa-exchange-alt text-primary"></i> untuk konversi satuan
+                                    (kg ↔ gram)</li>
                                 <li>Sistem akan otomatis menghitung total terpakai (gramasi × quantity)</li>
                             </ul>
                         </div>
@@ -658,8 +720,8 @@
 
     <script type="text/javascript">
         $(document).ready(function() {
-            // Debug mode untuk melacak permasalahan
-            const DEBUG = true;
+            // Debug mode disabled for production
+            const DEBUG = false; // CHANGED FOR PRODUCTION
 
             function debugLog(...args) {
                 if (DEBUG) {
@@ -686,7 +748,10 @@
             $.ajaxSetup({
                 cache: false,
                 headers: {
-                    'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                    'Cache-Control': 'no-cache, no-store, must-revalidate',
+                    'Pragma': 'no-cache',
+                    'Expires': '0'
                 }
             });
 
@@ -835,6 +900,94 @@
                 }
             }
 
+            // Update satuan display with user-friendly formatting
+            function updateSatuanDisplay(container, satuan) {
+                const satuanDisplay = container.find('.satuan-text');
+                const convertBtn = container.find('.convert-btn');
+                const helperDiv = container.find('.gramasi-helper');
+                const conversionText = container.find('.conversion-text');
+
+                if (!satuan || satuan === 'Satuan') {
+                    satuanDisplay.text('Satuan');
+                    convertBtn.hide();
+                    helperDiv.hide();
+                    return;
+                }
+
+                // Format satuan display
+                const formattedSatuan = formatSatuanDisplay(satuan);
+                satuanDisplay.text(formattedSatuan);
+
+                // Show conversion helper for weight units
+                if (isWeightUnit(satuan)) {
+                    convertBtn.show();
+                    helperDiv.show();
+                    updateConversionHelper(container, satuan);
+                } else {
+                    convertBtn.hide();
+                    helperDiv.hide();
+                }
+            }
+
+            // Format satuan display for better UX
+            function formatSatuanDisplay(satuan) {
+                const satuanMap = {
+                    'gram': 'gr',
+                    'g': 'gr',
+                    'kg': 'kg',
+                    'kilogram': 'kg',
+                    'liter': 'L',
+                    'l': 'L',
+                    'ml': 'mL',
+                    'milliliter': 'mL',
+                    'pcs': 'pcs',
+                    'pieces': 'pcs',
+                    'unit': 'unit'
+                };
+
+                const lowerSatuan = satuan.toLowerCase();
+                return satuanMap[lowerSatuan] || satuan;
+            }
+
+            // Check if satuan is a weight unit
+            function isWeightUnit(satuan) {
+                const weightUnits = ['gram', 'g', 'kg', 'kilogram'];
+                return weightUnits.includes(satuan.toLowerCase());
+            }
+
+            // Update conversion helper text
+            function updateConversionHelper(container, satuan) {
+                const conversionText = container.find('.conversion-text');
+                const gramasiInput = container.find('.gramasi-input');
+                const currentValue = parseFloat(gramasiInput.val()) || 0;
+
+                // Update placeholder based on satuan
+                if (satuan.toLowerCase() === 'kg' || satuan.toLowerCase() === 'kilogram') {
+                    gramasiInput.attr('placeholder', 'Contoh: 0.5 (setengah kg)');
+                } else if (satuan.toLowerCase() === 'gram' || satuan.toLowerCase() === 'g') {
+                    gramasiInput.attr('placeholder', 'Contoh: 500 (gram)');
+                } else {
+                    gramasiInput.attr('placeholder', '0.00');
+                }
+
+                if (currentValue === 0) {
+                    if (satuan.toLowerCase() === 'kg' || satuan.toLowerCase() === 'kilogram') {
+                        conversionText.text('Contoh: 0.5 kg = 500 gram, 1.2 kg = 1200 gram');
+                    } else {
+                        conversionText.text('Contoh: 500 gram = 0.5 kg, 1200 gram = 1.2 kg');
+                    }
+                } else {
+                    // Show actual conversion for current value
+                    if (satuan.toLowerCase() === 'kg' || satuan.toLowerCase() === 'kilogram') {
+                        const inGrams = currentValue * 1000;
+                        conversionText.text(`${currentValue} kg = ${inGrams} gram`);
+                    } else {
+                        const inKg = (currentValue / 1000).toFixed(3);
+                        conversionText.text(`${currentValue} gram = ${inKg} kg`);
+                    }
+                }
+            }
+
             // Event handler untuk menangani perubahan product selection
             $(document).on('change', '.product-select', function() {
                 const selectedOption = this.options[this.selectedIndex];
@@ -917,7 +1070,7 @@
                     if (value) {
                         const selectedOption = target.options[target.selectedIndex];
                         const satuan = selectedOption ? selectedOption.dataset.satuan : 'Satuan';
-                        container.find('.satuan-display').text(satuan || 'Satuan');
+                        updateSatuanDisplay(container, satuan);
 
                         // Recalculate total for this row
                         calculateRowTotal(container);
@@ -948,13 +1101,81 @@
             $(document).on('input', '.gramasi-input', function() {
                 const value = parseFloat($(this).val());
                 const isValid = !isNaN(value) && value >= 0.01;
+                const container = $(this).closest('.array-container');
+
                 showValidationFeedback($(this), isValid, isValid ? "Gramasi valid" :
                     "Gramasi harus angka minimal 0.01");
 
+                // Update conversion helper when value changes
+                const satuanText = container.find('.satuan-text').text();
+                if (isWeightUnit(satuanText)) {
+                    updateConversionHelper(container, satuanText);
+                }
+
                 // Update total terpakai jika gramasi berubah
                 if (isValid) {
-                    calculateRowTotal($(this).closest('.array-container'));
+                    calculateRowTotal(container);
                 }
+            });
+
+            // Handle conversion button click
+            $(document).on('click', '.convert-btn', function() {
+                const container = $(this).closest('.array-container');
+                const gramasiInput = container.find('.gramasi-input');
+                const satuanText = container.find('.satuan-text').text();
+                const currentValue = parseFloat(gramasiInput.val()) || 0;
+
+                if (currentValue === 0) {
+                    Swal.fire({
+                        title: 'Masukkan Nilai',
+                        text: 'Silakan masukkan nilai gramasi terlebih dahulu untuk dikonversi',
+                        icon: 'info',
+                        confirmButtonText: 'OK'
+                    });
+                    return;
+                }
+
+                let convertedValue, newUnit, conversionText;
+
+                if (satuanText.toLowerCase() === 'kg') {
+                    // Convert kg to gram
+                    convertedValue = currentValue * 1000;
+                    newUnit = 'gr';
+                    conversionText = `${currentValue} kg = ${convertedValue} gram`;
+                } else {
+                    // Convert gram to kg
+                    convertedValue = (currentValue / 1000).toFixed(3);
+                    newUnit = 'kg';
+                    conversionText = `${currentValue} gram = ${convertedValue} kg`;
+                }
+
+                Swal.fire({
+                    title: 'Konversi Satuan',
+                    html: `
+                        <div class="text-center">
+                            <p class="mb-3">${conversionText}</p>
+                            <p class="text-muted">Apakah Anda ingin menggunakan nilai yang dikonversi?</p>
+                        </div>
+                    `,
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonText: `Ya, gunakan ${convertedValue} ${newUnit}`,
+                    cancelButtonText: 'Batal',
+                    confirmButtonColor: '#3085d6',
+                    cancelButtonColor: '#6c757d'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        gramasiInput.val(convertedValue);
+                        container.find('.satuan-text').text(newUnit);
+
+                        // Update helper and recalculate
+                        updateConversionHelper(container, newUnit);
+                        calculateRowTotal(container);
+
+                        // Show validation feedback
+                        showValidationFeedback(gramasiInput, true, "Nilai berhasil dikonversi");
+                    }
+                });
             });
 
             // Fungsi untuk generate template SKU Gramasi
@@ -977,10 +1198,22 @@
                             <div class="col-lg-5 col-md-5 col-12 mb-3">
                                 <label class="form-label">Gramasi <span class="text-danger">*</span></label>
                                 <div class="input-group">
-                                    <input type="number" class="form-control gramasi-input" name="gramasi[]" required min="0.01" step="0.01" placeholder="Gramasi">
-                                    <span class="input-group-text satuan-display">Satuan</span>
+                                    <input type="number" class="form-control gramasi-input" name="gramasi[]" required min="0.01" step="0.01" placeholder="0.00">
+                                    <div class="input-group-text satuan-display bg-light" style="min-width: 60px;">
+                                        <span class="satuan-text">Satuan</span>
+                                    </div>
+                                    <button class="btn btn-outline-secondary btn-sm convert-btn" type="button" 
+                                        style="display: none;" title="Konversi Satuan">
+                                        <i class="fas fa-exchange-alt"></i>
+                                    </button>
                                 </div>
-                                <small class="text-muted">Jumlah bahan yang digunakan per produk</small>
+                                <div class="gramasi-helper" style="display: none;">
+                                    <small class="text-info">
+                                        <i class="fas fa-info-circle"></i>
+                                        <span class="conversion-text"></span>
+                                    </small>
+                                </div>
+                                <small class="text-muted">Masukkan jumlah bahan yang digunakan per produk</small>
                                 <input type="hidden" class="total-terpakai-input" name="total_terpakai[]" required>
                             </div>
                             <div class="col-lg-2 col-md-2 col-12 mb-3">
@@ -1021,11 +1254,14 @@
                         1); // Default to 1 if calculation fails
 
                     // Show calculation result to user
-                    const satuan = $(this).find('.satuan-display').text();
+                    const satuan = $(this).find('.satuan-text').text();
                     $(this).find('.total-calculation-display').remove();
                     if (gramasi > 0 && quantity > 0) {
-                        $(this).find('.input-group').after(
-                            `<small class="text-info total-calculation-display">Total terpakai: ${totalTerpakai} ${satuan}</small>`
+                        $(this).find('.gramasi-helper').after(
+                            `<small class="text-success total-calculation-display mt-1">
+                                <i class="fas fa-calculator me-1"></i>
+                                Total terpakai: <strong>${totalTerpakai} ${satuan}</strong>
+                            </small>`
                         );
                     }
                 });
@@ -1041,11 +1277,14 @@
                 container.find('.total-terpakai-input').val(totalTerpakai < 0.01 ? 1 : totalTerpakai);
 
                 // Show calculation result to user
-                const satuan = container.find('.satuan-display').text();
+                const satuan = container.find('.satuan-text').text();
                 container.find('.total-calculation-display').remove();
                 if (gramasi > 0 && quantity > 0) {
-                    container.find('.input-group').after(
-                        `<small class="text-info total-calculation-display">Total terpakai: ${totalTerpakai} ${satuan}</small>`
+                    container.find('.gramasi-helper').after(
+                        `<small class="text-success total-calculation-display mt-1">
+                            <i class="fas fa-calculator me-1"></i>
+                            Total terpakai: <strong>${totalTerpakai} ${satuan}</strong>
+                        </small>`
                     );
                 }
             }
@@ -1282,31 +1521,48 @@
                                 '.valid-feedback, .invalid-feedback, .total-calculation-display'
                             ).remove();
 
-                            // Properly hide modal dan clean up
-                            setTimeout(function() {
-                                closeModal('addProduksiModal');
-
-                                // Explicitly ensure the backdrop is removed
-                                $('body').removeClass('modal-open');
-                                $('.modal-backdrop').remove();
-                            }, 100);
-
-                            // Reload table dan pastikan data ditampilkan
-                            reloadTable(function() {
-                                console.log(
-                                    'Tabel berhasil diperbarui dengan data baru');
-                            });
-
-                            // Tampilkan pesan sukses
+                            // Show success message immediately
                             Swal.fire({
                                 title: 'Berhasil!',
                                 text: data.message,
                                 icon: 'success',
-                                timer: 1500,
+                                timer: 2000,
                                 showConfirmButton: false,
                                 toast: true,
                                 position: 'top-end'
                             });
+
+                            // Close modal first
+                            setTimeout(function() {
+                                closeModal('addProduksiModal');
+                                $('body').removeClass('modal-open');
+                                $('.modal-backdrop').remove();
+                            }, 100);
+
+                            // Then reload table with improved method
+                            setTimeout(function() {
+                                console.log(
+                                    '🔄 Starting table reload after successful insert...'
+                                );
+
+                                // Try simple reload first
+                                reloadTable(function(json) {
+                                    console.log(
+                                        '✅ Table reload completed successfully:',
+                                        json?.recordsTotal || 0, 'records');
+                                });
+
+                                // If simple reload doesn't work, try force reload after delay
+                                setTimeout(function() {
+                                    console.log('🔄 Force reload as backup...');
+                                    forceReloadTable(function(json) {
+                                        console.log(
+                                            '✅ Force reload completed:',
+                                            json?.recordsTotal || 0,
+                                            'records');
+                                    });
+                                }, 1000);
+                            }, 200);
                         }
                     },
                     error: function(xhr) {
@@ -1349,7 +1605,7 @@
                                             'total_terpakai.')) {
                                         const index = field.split('.')[1];
                                         const containers = form.find(
-                                        '.array-container');
+                                            '.array-container');
                                         if (containers.length > index) {
                                             const container = $(containers[index]);
                                             if (field.startsWith('sku_induk.')) {
@@ -1630,30 +1886,45 @@
                                 '.valid-feedback, .invalid-feedback, .total-calculation-display'
                             ).remove();
 
-                            // Properly hide modal
-                            setTimeout(function() {
-                                closeModal('editProduksiModal');
-
-                                // Explicitly ensure the backdrop is removed
-                                $('body').removeClass('modal-open');
-                                $('.modal-backdrop').remove();
-                            }, 100);
-
-                            // Reload table dan pastikan data ditampilkan
-                            reloadTable(function() {
-                                console.log('Tabel berhasil diperbarui setelah edit');
-                            });
-
-                            // Show success message
+                            // Show success message immediately
                             Swal.fire({
                                 title: 'Berhasil!',
                                 text: data.message,
                                 icon: 'success',
-                                timer: 1500,
+                                timer: 2000,
                                 showConfirmButton: false,
                                 toast: true,
                                 position: 'top-end'
                             });
+
+                            // Close modal first
+                            setTimeout(function() {
+                                closeModal('editProduksiModal');
+                                $('body').removeClass('modal-open');
+                                $('.modal-backdrop').remove();
+                            }, 100);
+
+                            // Then reload table
+                            setTimeout(function() {
+                                console.log(
+                                    '🔄 Starting table reload after successful edit...'
+                                );
+
+                                reloadTable(function(json) {
+                                    console.log(
+                                        '✅ Edit table reload completed:',
+                                        json?.recordsTotal || 0, 'records');
+                                });
+
+                                setTimeout(function() {
+                                    forceReloadTable(function(json) {
+                                        console.log(
+                                            '✅ Edit force reload completed:',
+                                            json?.recordsTotal || 0,
+                                            'records');
+                                    });
+                                }, 1000);
+                            }, 200);
                         }
                     },
                     error: function(xhr) {
@@ -1695,7 +1966,7 @@
                                             'total_terpakai.')) {
                                         const index = field.split('.')[1];
                                         const containers = form.find(
-                                        '.array-container');
+                                            '.array-container');
                                         if (containers.length > index) {
                                             const container = $(containers[index]);
                                             if (field.startsWith('sku_induk.')) {
@@ -1823,8 +2094,10 @@
                                     container.find('.gramasi-input').val(bahan.gramasi);
                                     container.find('.total-terpakai-input').val(bahan
                                         .total_terpakai);
-                                    container.find('.satuan-display').text(bahan
-                                        .satuan || 'Satuan');
+
+                                    // Update satuan with new display
+                                    updateSatuanDisplay(container, bahan.satuan ||
+                                        'Satuan');
 
                                     $('#edit-sku-gramasi-container').append(container);
                                 });
@@ -1882,22 +2155,44 @@
                             },
                             success: function(data) {
                                 if (data.success) {
-                                    // Reload tabel dengan callback
-                                    reloadTable(function() {
-                                        console.log(
-                                            'Tabel berhasil diperbarui setelah hapus'
-                                        );
-                                    });
-
+                                    // Show success message immediately
                                     Swal.fire({
                                         title: 'Terhapus!',
                                         text: data.message,
                                         icon: 'success',
-                                        timer: 1500,
+                                        timer: 2000,
                                         showConfirmButton: false,
                                         toast: true,
                                         position: 'top-end'
                                     });
+
+                                    // Reload table after delete
+                                    setTimeout(function() {
+                                        console.log(
+                                            '🔄 Starting table reload after successful delete...'
+                                        );
+
+                                        reloadTable(function(json) {
+                                            console.log(
+                                                '✅ Delete table reload completed:',
+                                                json
+                                                ?.recordsTotal || 0,
+                                                'records');
+                                        });
+
+                                        setTimeout(function() {
+                                            forceReloadTable(function(
+                                                json) {
+                                                console.log(
+                                                    '✅ Delete force reload completed:',
+                                                    json
+                                                    ?.recordsTotal ||
+                                                    0,
+                                                    'records'
+                                                );
+                                            });
+                                        }, 1000);
+                                    }, 200);
                                 }
                             },
                             error: function(xhr) {
@@ -2007,36 +2302,27 @@
                         d.bahan_baku = $('#filter-bahan-baku').val();
                         d.start_date = $('#start-date').val();
                         d.end_date = $('#end-date').val();
-                        // Tambahkan timestamp untuk menghindari cache
-                        d._ts = new Date().getTime();
+
+                        console.log('📤 DataTable requesting data with filters:', {
+                            sku: d.sku,
+                            name_product: d.name_product,
+                            packaging: d.packaging,
+                            label: d.label,
+                            bahan_baku: d.bahan_baku
+                        });
+
                         return d;
+                    },
+                    error: function(xhr, error, thrown) {
+                        debugLog('Error loading data:', error, thrown, xhr.responseText);
+                        console.error('❌ DataTable AJAX Error:', {
+                            status: xhr.status,
+                            statusText: xhr.statusText,
+                            responseText: xhr.responseText,
+                            error: error,
+                            thrown: thrown
+                        });
                     }
-                },
-                fnServerData: function(sSource, aoData, fnCallback, oSettings) {
-                    debugLog('Fetching data from server with params:', aoData);
-
-                    // Tambahkan timestamp ke aoData untuk menghindari cache
-                    aoData.push({
-                        "name": "_ts",
-                        "value": new Date().getTime()
-                    });
-
-                    oSettings.jqXHR = $.ajax({
-                        "dataType": 'json',
-                        "type": oSettings.sServerMethod,
-                        "url": sSource,
-                        "data": aoData,
-                        "success": function(data) {
-                            debugLog('Server response received:', data);
-                            fnCallback(data);
-                        },
-                        "error": function(xhr, error, thrown) {
-                            debugLog('Error loading data:', error, thrown);
-                            fnCallback({
-                                data: []
-                            });
-                        }
-                    });
                 },
                 columns: [{
                         data: 'DT_RowIndex',
@@ -2125,28 +2411,28 @@
                         previous: 'Sebelumnya'
                     }
                 },
-                drawCallback: function() {
-                    debugLog('DataTable selesai di-render');
+                drawCallback: function(settings) {
+                    const api = this.api();
+                    const data = api.rows().data();
+                    debugLog('DataTable selesai di-render dengan', data.length, 'baris data');
+                    console.log('Current table data:', data.toArray());
                 },
                 initComplete: function() {
                     debugLog('DataTable selesai diinisialisasi');
+                },
+                preDrawCallback: function() {
+                    debugLog('DataTable mulai menggambar ulang...');
                 }
             });
 
-            // Fungsi untuk reload tabel dengan anti-cache
+            // Fungsi untuk reload tabel - Simplified
             function reloadTable(callback) {
                 debugLog('Memuat ulang tabel...');
 
-                // Hancurkan tabel terlebih dahulu untuk memastikan data benar-benar dimuat ulang
-                try {
-                    table.clear().draw();
-                } catch (e) {
-                    debugLog('Error saat clear table:', e);
-                }
-
-                // Reload dengan parameter _ts baru untuk menghindari cache
                 table.ajax.reload(function(json) {
                     debugLog('Tabel berhasil dimuat ulang dengan', json?.recordsTotal || 0, 'data');
+                    console.log('✅ Table reload successful, data count:', json?.recordsTotal || 0);
+
                     if (typeof callback === 'function') {
                         callback(json);
                     }
@@ -2271,7 +2557,9 @@
                 $(modal).find('.valid-feedback, .invalid-feedback, .total-calculation-display').remove();
 
                 // Reset satuan displays
-                $(modal).find('.satuan-display').text('Satuan');
+                $(modal).find('.satuan-text').text('Satuan');
+                $(modal).find('.convert-btn').hide();
+                $(modal).find('.gramasi-helper').hide();
 
                 // Clean up product Choices.js instances
                 if (modalId === 'addProduksiModal') {

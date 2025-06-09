@@ -16,8 +16,8 @@ class Kernel extends HttpKernel
     protected $middleware = [
         // \App\Http\Middleware\TrustHosts::class,
         \App\Http\Middleware\TrustProxies::class,
-        \App\Http\Middleware\LogRequests::class,
-        \App\Http\Middleware\LogRequests::class,
+        // \App\Http\Middleware\LogRequests::class, // REMOVED FOR PRODUCTION
+        // \App\Http\Middleware\LogRequests::class, // REMOVED DUPLICATE
 
         \Illuminate\Http\Middleware\HandleCors::class,
         \App\Http\Middleware\PreventRequestsDuringMaintenance::class,

@@ -85,20 +85,40 @@ class Product extends Model
     }
 
     /**
-     * Get all history sales that include this product.
+     * Get all history sales that include this product (based on JSON SKU data)
      */
-    public function historySales()
+    public function getHistorySales()
     {
-        return $this->belongsToMany(HistorySale::class, 'history_sale_details', 'product_id', 'history_sale_id')
-            ->withPivot('quantity')
-            ->withTimestamps();
+        return HistorySale::whereRaw("JSON_CONTAINS(no_sku, ?)", [json_encode($this->sku)])
+            ->get();
     }
 
     /**
-     * Get all history sale details for this product.
+     * Get sales history with quantities for this product
      */
-    public function historySaleDetails()
+    public function getSalesHistory()
     {
-        return $this->hasMany(HistorySaleDetail::class, 'product_id');
+        $historySales = HistorySale::all();
+        $salesHistory = collect();
+
+        foreach ($historySales as $sale) {
+            $skuArray = is_string($sale->no_sku) ? json_decode($sale->no_sku, true) : $sale->no_sku;
+            $qtyArray = is_string($sale->qty) ? json_decode($sale->qty, true) : $sale->qty;
+
+            if (is_array($skuArray) && is_array($qtyArray)) {
+                foreach ($skuArray as $index => $sku) {
+                    if (trim($sku) === $this->sku) {
+                        $salesHistory->push([
+                            'history_sale_id' => $sale->id,
+                            'no_resi' => $sale->no_resi,
+                            'quantity' => $qtyArray[$index] ?? 1,
+                            'created_at' => $sale->created_at,
+                        ]);
+                    }
+                }
+            }
+        }
+
+        return $salesHistory;
     }
 }

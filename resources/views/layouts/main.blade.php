@@ -30,6 +30,8 @@
         @media (max-width: 992px) {
             .pc-sidebar {
                 z-index: 1030;
+                overflow-y: auto;
+                -webkit-overflow-scrolling: touch;
             }
 
             body.mob-sidebar-active .pc-sidebar {
@@ -48,6 +50,32 @@
             /* Improve buttons for touch */
             .btn {
                 padding: 0.4rem 0.75rem;
+                min-height: 44px;
+                /* iOS touch target minimum */
+            }
+
+            /* Improve menu links for touch */
+            .pc-sidebar .pc-link {
+                padding: 12px 20px;
+                min-height: 44px;
+                display: flex;
+                align-items: center;
+                text-decoration: none;
+                color: inherit;
+                transition: all 0.2s ease;
+            }
+
+            .pc-sidebar .pc-link:hover,
+            .pc-sidebar .pc-link:focus {
+                background-color: rgba(0, 0, 0, 0.05);
+                text-decoration: none;
+                color: inherit;
+            }
+
+            /* Improve submenu items */
+            .pc-sidebar .pc-submenu .pc-link {
+                padding: 10px 20px 10px 40px;
+                font-size: 14px;
             }
 
             /* Improve topbar on mobile */
@@ -72,6 +100,18 @@
             body.mob-sidebar-active .mob-sidebar-overlay {
                 opacity: 1;
                 visibility: visible;
+            }
+
+            /* Ensure navbar content is scrollable */
+            .pc-sidebar .navbar-content {
+                flex: 1;
+                overflow-y: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+
+            /* Fix for submenu toggle on mobile */
+            .pc-sidebar .pc-item.pc-hasmenu.pc-trigger>.pc-submenu {
+                display: block !important;
             }
         }
 
@@ -191,13 +231,28 @@
                 }
             });
 
-            // Auto-close submenu when clicking outside on mobile
+            // Auto-close sidebar when clicking outside on mobile
             document.addEventListener('click', function(e) {
                 if (window.innerWidth <= 992) {
+                    // Close sidebar if clicked outside, but not if clicking on menu items
                     if (!e.target.closest('.pc-sidebar') && !e.target.closest('#mobile-collapse')) {
                         document.body.classList.remove('mob-sidebar-active');
                     }
                 }
+            });
+
+            // Close mobile sidebar when clicking on direct menu links (not submenu toggles)
+            const directMenuLinks = document.querySelectorAll(
+                '.pc-sidebar .pc-link:not([href="#!"]):not([href="#"])');
+            directMenuLinks.forEach(function(link) {
+                link.addEventListener('click', function(e) {
+                    if (window.innerWidth <= 992) {
+                        // Allow navigation but close sidebar after a short delay
+                        setTimeout(function() {
+                            document.body.classList.remove('mob-sidebar-active');
+                        }, 100);
+                    }
+                });
             });
 
             // Improve submenu toggle for touch devices
@@ -205,20 +260,25 @@
             submenuItems.forEach(function(item) {
                 item.addEventListener('click', function(e) {
                     if (window.innerWidth <= 992) {
-                        e.preventDefault();
-                        const parentItem = this.parentElement;
-                        const siblingItems = parentItem.parentElement.querySelectorAll(
-                            '.pc-item.pc-hasmenu');
+                        // Only prevent default if this is a submenu toggle (href="#!")
+                        const href = this.getAttribute('href');
+                        if (href === '#!' || href === '#') {
+                            e.preventDefault();
+                            const parentItem = this.parentElement;
+                            const siblingItems = parentItem.parentElement.querySelectorAll(
+                                '.pc-item.pc-hasmenu');
 
-                        // Close other submenus
-                        siblingItems.forEach(function(sibling) {
-                            if (sibling !== parentItem) {
-                                sibling.classList.remove('pc-trigger');
-                            }
-                        });
+                            // Close other submenus
+                            siblingItems.forEach(function(sibling) {
+                                if (sibling !== parentItem) {
+                                    sibling.classList.remove('pc-trigger');
+                                }
+                            });
 
-                        // Toggle current submenu
-                        parentItem.classList.toggle('pc-trigger');
+                            // Toggle current submenu
+                            parentItem.classList.toggle('pc-trigger');
+                        }
+                        // If it's a real link, let it navigate normally
                     }
                 });
             });

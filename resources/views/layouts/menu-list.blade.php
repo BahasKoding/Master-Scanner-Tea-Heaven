@@ -32,7 +32,7 @@
 
 <!-- Transaction Tables -->
 <li class="pc-item pc-caption">
-    <label>📊 Transaction Tables</label>
+    <label> Transaction Tables</label>
 </li>
 <li class="pc-item pc-hasmenu">
     <a href="#!" class="pc-link">
@@ -43,7 +43,7 @@
     <ul class="pc-submenu">
         <!-- Purchase & Procurement -->
         <li class="pc-item"><a class="pc-link" href="{{ route('purchase.index') }}">
-                <span class="pc-mtext">Purchase Bahan Baku</span>
+                <span class="pc-mtext">Purchase Items</span>
             </a></li>
         <li class="pc-item"><a class="pc-link" href="{{ route('purchase-sticker.index') }}">
                 <span class="pc-mtext">Purchase Stiker</span>
@@ -112,6 +112,29 @@
             </a></li>
         <li class="pc-item"><a class="pc-link" href="{{ route('sales-report.index') }}">
                 <span class="pc-mtext">Sales Report</span>
+            </a></li>
+    </ul>
+</li>
+
+<!-- Reports & Analytics -->
+<li class="pc-item pc-caption">
+    <label> Reports & Analytics</label>
+</li>
+<li class="pc-item pc-hasmenu">
+    <a href="#!" class="pc-link">
+        <span class="pc-micon"><i class="ph-duotone ph-chart-bar"></i></span>
+        <span class="pc-mtext">Reports</span>
+        <span class="pc-arrow"><i data-feather="chevron-right"></i></span>
+    </a>
+    <ul class="pc-submenu">
+        <li class="pc-item"><a class="pc-link" href="{{ route('reports.purchase.index') }}">
+                <span class="pc-mtext">Laporan Purchase</span>
+            </a></li>
+        <li class="pc-item"><a class="pc-link" href="{{ route('reports.catatan-produksi.index') }}">
+                <span class="pc-mtext">Laporan Catatan Produksi</span>
+            </a></li>
+        <li class="pc-item"><a class="pc-link" href="{{ route('reports.scanner.index') }}">
+                <span class="pc-mtext">Laporan Scanner</span>
             </a></li>
     </ul>
 </li>

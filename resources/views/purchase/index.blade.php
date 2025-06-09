@@ -1,7 +1,7 @@
 @extends('layouts.main')
 
-@section('title', 'Purchase Bahan Baku')
-@section('breadcrumb-item', 'Purchase Bahan Baku')
+@section('title', 'Purchase Items')
+@section('breadcrumb-item', 'Purchase Items')
 
 @section('css')
     <!-- CSRF Token -->
@@ -11,6 +11,8 @@
     <!-- data tables css -->
     <link rel="stylesheet" href="{{ URL::asset('build/css/plugins/datatables/dataTables.bootstrap5.min.css') }}">
     <link rel="stylesheet" href="{{ URL::asset('build/css/plugins/datatables/buttons.bootstrap5.min.css') }}">
+    <!-- Choices css -->
+    <link rel="stylesheet" href="{{ URL::asset('build/css/plugins/choices.min.css') }}">
     <!-- [Page specific CSS] end -->
     <style>
         .form-section {
@@ -109,6 +111,62 @@
                 font-size: 0.8rem;
             }
         }
+
+        /* Choices.js custom styling */
+        .choices {
+            margin-bottom: 0;
+        }
+
+        .choices__inner {
+            min-height: 38px;
+            padding: 4px 8px;
+            background-color: #fff;
+            border: 1px solid #ced4da;
+            border-radius: 0.375rem;
+        }
+
+        .choices__list--dropdown .choices__item {
+            padding: 8px 12px;
+        }
+
+        .choices__item--choice {
+            word-break: break-word;
+        }
+
+        .choices[data-type*="select-one"] .choices__inner {
+            cursor: pointer;
+        }
+
+        .choices__list--dropdown .choices__item--highlighted {
+            background-color: #0d6efd;
+            color: #fff;
+        }
+
+        .is-open .choices__inner {
+            border-radius: 0.375rem 0.375rem 0 0;
+        }
+
+
+
+        /* Reset button styling */
+        .btn-outline-secondary:hover {
+            background-color: #6c757d;
+            border-color: #6c757d;
+            color: #fff;
+        }
+
+        /* Disabled select styling */
+        select:disabled {
+            background-color: #f8f9fa;
+            color: #6c757d;
+            cursor: not-allowed;
+        }
+
+        .choices.is-disabled .choices__inner {
+            background-color: #f8f9fa;
+            color: #6c757d;
+            cursor: not-allowed;
+        }
     </style>
 @endsection
 
@@ -120,7 +178,7 @@
             <div class="card">
                 <div class="card-header">
                     <div class="d-flex justify-content-between align-items-center flex-wrap">
-                        <h5 class="mb-2 mb-sm-0">{{ $item ?? 'Purchase Bahan Baku' }}</h5>
+                        <h5 class="mb-2 mb-sm-0">{{ $item ?? 'Purchase Items' }}</h5>
                         <div class="d-flex flex-wrap">
                             <button type="button" class="btn btn-primary mb-2 mb-sm-0" onclick="showCreateModal()">
                                 <i class="fas fa-plus"></i> Tambah Purchase
@@ -144,12 +202,26 @@
                         </button>
                         <div id="filterControls" class="collapse show">
                             <div class="row">
+                                <div class="col-md-2 col-sm-12 mb-2">
+                                    <label for="filter_kategori" class="form-label filter-label">Kategori</label>
+                                    <select class="form-select form-select-sm" id="filter_kategori"
+                                        onchange="updateItemFilter()">
+                                        <option value="">-- Semua Kategori --</option>
+                                        <option value="bahan_baku">Bahan Baku</option>
+                                        <option value="finished_goods">Finished Goods</option>
+                                    </select>
+                                </div>
                                 <div class="col-md-4 col-sm-12 mb-2">
-                                    <label for="filter_bahan_baku" class="form-label filter-label">Filter Bahan Baku</label>
-                                    <select class="form-select form-select-sm" id="filter_bahan_baku">
-                                        <option value="">-- Semua Bahan Baku --</option>
+                                    <label for="filter_item" class="form-label filter-label">Filter Item</label>
+                                    <select class="form-select form-select-sm" id="filter_item">
+                                        <option value="">-- Semua Item --</option>
                                         @foreach ($bahanBakus as $bahanBaku)
-                                            <option value="{{ $bahanBaku->id }}">{{ $bahanBaku->full_name }}</option>
+                                            <option value="{{ $bahanBaku->id }}" data-kategori="bahan_baku">
+                                                {{ $bahanBaku->full_name }}</option>
+                                        @endforeach
+                                        @foreach ($products as $product)
+                                            <option value="{{ $product->id }}" data-kategori="finished_goods">
+                                                {{ $product->name_product }}</option>
                                         @endforeach
                                     </select>
                                 </div>
@@ -180,7 +252,9 @@
                             <thead>
                                 <tr>
                                     <th>No</th>
-                                    <th>Bahan Baku</th>
+                                    <th>Kategori</th>
+                                    <th>Item</th>
+                                    <th>SKU</th>
                                     <th>Satuan</th>
                                     <th>Qty Pembelian</th>
                                     <th>Tanggal Kedatangan</th>
@@ -209,7 +283,7 @@
         <div class="modal-dialog modal-xl modal-dialog-centered">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="purchaseModalLabel">Tambah Purchase Bahan Baku</h5>
+                    <h5 class="modal-title" id="purchaseModalLabel">Tambah Purchase Item</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <form id="purchaseForm">
@@ -217,21 +291,44 @@
                     <input type="hidden" id="purchase_id" name="purchase_id">
                     <div class="modal-body">
                         <div class="row">
-                            <div class="col-md-6">
+                            <div class="col-md-5">
                                 <div class="mb-3">
-                                    <label for="bahan_baku_id" class="form-label">Bahan Baku <span
+                                    <label for="kategori" class="form-label">Kategori <span
                                             class="text-danger">*</span></label>
-                                    <select class="form-select" id="bahan_baku_id" name="bahan_baku_id" required>
-                                        <option value="">-- Pilih Bahan Baku --</option>
-                                        @foreach ($bahanBakus as $bahanBaku)
-                                            <option value="{{ $bahanBaku->id }}" data-satuan="{{ $bahanBaku->satuan }}">
-                                                {{ $bahanBaku->full_name }}
-                                            </option>
-                                        @endforeach
+                                    <select class="form-select" id="kategori" name="kategori" required>
+                                        <option value="">-- Pilih Kategori --</option>
+                                        <option value="bahan_baku">Bahan Baku</option>
+                                        <option value="finished_goods">Finished Goods</option>
                                     </select>
-                                    <div class="invalid-feedback" id="error-bahan_baku_id"></div>
+                                    <div class="invalid-feedback" id="error-kategori"></div>
                                 </div>
                             </div>
+                            <div class="col-md-5">
+                                <div class="mb-3">
+                                    <label for="bahan_baku_id" class="form-label">Item <span
+                                            class="text-danger">*</span></label>
+                                    <select class="form-select item-select" id="bahan_baku_id" name="bahan_baku_id"
+                                        required disabled>
+                                        <option value="">-- Pilih Kategori Terlebih Dahulu --</option>
+                                    </select>
+                                    <div class="invalid-feedback" id="error-bahan_baku_id"></div>
+                                    <small class="text-muted">Pilih kategori terlebih dahulu untuk memilih item</small>
+                                </div>
+                            </div>
+                            <div class="col-md-2">
+                                <div class="mb-3">
+                                    <label class="form-label">&nbsp;</label>
+                                    <div class="d-grid">
+                                        <button type="button" class="btn btn-outline-secondary"
+                                            onclick="resetKategoriAndItem(true)" title="Reset Kategori dan Item">
+                                            <i class="fas fa-undo"></i> Reset
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
                             <div class="col-md-6">
                                 <div class="mb-3">
                                     <label for="qty_pembelian" class="form-label">Quantity Pembelian <span
@@ -344,8 +441,45 @@
     <script src="{{ URL::asset('build/js/plugins/buttons.print.min.js') }}"></script>
     <script src="{{ URL::asset('build/js/plugins/buttons.colVis.min.js') }}"></script>
 
+    <!-- Choices JS -->
+    <script src="{{ URL::asset('build/js/plugins/choices.min.js') }}"></script>
+
     <script type="text/javascript">
         $(document).ready(function() {
+            // Variables to hold Choices instances
+            window.itemChoices = null;
+
+            // Initialize Choices.js for item selection
+            function initItemChoices() {
+                const itemSelect = document.getElementById('bahan_baku_id');
+                if (itemSelect && !itemSelect.disabled) {
+                    // Destroy existing instance if it exists
+                    if (window.itemChoices) {
+                        try {
+                            window.itemChoices.destroy();
+                            window.itemChoices = null;
+                        } catch (e) {
+                            // Ignore destroy errors
+                        }
+                    }
+
+                    window.itemChoices = new Choices(itemSelect, {
+                        searchEnabled: true,
+                        searchPlaceholderValue: "Cari item berdasarkan SKU atau nama...",
+                        itemSelectText: '',
+                        placeholder: true,
+                        placeholderValue: "-- Pilih Item --",
+                        removeItemButton: false,
+                        classNames: {
+                            containerOuter: 'choices',
+                        }
+                    });
+                }
+            }
+
+            // Don't initialize item choices on page load since it starts disabled
+            // initItemChoices(); // This will be called when kategori is selected
+
             // Show session flash messages with SweetAlert
             @if (session('success'))
                 Swal.fire({
@@ -410,7 +544,8 @@
                     ajax: {
                         url: "{{ route('purchase.index') }}",
                         data: function(d) {
-                            d.bahan_baku_id = $('#filter_bahan_baku').val();
+                            d.kategori = $('#filter_kategori').val();
+                            d.bahan_baku_id = $('#filter_item').val();
                             d.start_date = $('#filter_start_date').val();
                             d.end_date = $('#filter_end_date').val();
                             return d;
@@ -434,8 +569,18 @@
                             searchable: false
                         },
                         {
-                            data: 'bahan_baku_name',
-                            name: 'bahan_baku_name'
+                            data: 'kategori_display',
+                            name: 'kategori_display',
+                            orderable: false,
+                            searchable: false
+                        },
+                        {
+                            data: 'item_name',
+                            name: 'item_name'
+                        },
+                        {
+                            data: 'item_sku',
+                            name: 'item_sku'
                         },
                         {
                             data: 'satuan',
@@ -494,7 +639,7 @@
                         }
                     ],
                     order: [
-                        [4, 'desc']
+                        [6, 'desc']
                     ], // Order by tanggal_kedatangan_barang desc
                     pageLength: 25,
                     responsive: true,
@@ -538,8 +683,13 @@
                 // Store table reference globally
                 window.purchaseTable = table;
 
-                // Apply bahan baku filter
-                $('#filter_bahan_baku').on('change', function() {
+                // Apply kategori filter
+                $('#filter_kategori').on('change', function() {
+                    table.draw();
+                });
+
+                // Apply item filter
+                $('#filter_item').on('change', function() {
                     table.draw();
                 });
 
@@ -554,11 +704,30 @@
                         calculateTotalStock();
                     });
 
-                // Update satuan display when bahan baku changes
-                $('#bahan_baku_id').on('change', function() {
+                // Handle item selection change - attach to document to handle dynamically recreated elements
+                $(document).on('change', '#bahan_baku_id', function() {
                     var selectedOption = $(this).find('option:selected');
-                    var satuan = selectedOption.data('satuan') || '';
-                    $('#satuan_display').text(satuan);
+
+
+
+                    // Update satuan display
+                    if (selectedOption.val()) {
+                        updateSatuanDisplay(selectedOption[0]);
+                    } else {
+                        $('#satuan_display').text('');
+                    }
+                });
+
+                // Handle choices:change event from Choices.js for item selection
+                $(document).on('choice', '#bahan_baku_id', function(event) {
+                    const selectedValue = this.value;
+                    const selectedOption = $(this).find('option:selected')[0];
+
+                    if (selectedValue && selectedOption) {
+                        updateSatuanDisplay(selectedOption);
+                    } else {
+                        $('#satuan_display').text('');
+                    }
                 });
 
                 // Form submission
@@ -572,6 +741,8 @@
                     if (purchaseId) {
                         formData.append('_method', 'PUT');
                     }
+
+
 
                     // Show loading state
                     Swal.fire({
@@ -661,19 +832,193 @@
             $('#purchaseModal, #detailModal').on('hidden.bs.modal', function() {
                 $(this).find('form')[0]?.reset();
                 $(this).find('.is-invalid').removeClass('is-invalid');
+
+                // Reset to initial state
+                resetKategoriAndItem();
+
                 // Clean up any lingering modal artifacts
                 $('.modal-backdrop').remove();
                 $('body').removeClass('modal-open');
                 $('body').css('padding-right', '');
             });
+
+            // Modal is shown - no need to initialize choices since they start disabled
+
+            // Handle kategori change
+            $(document).on('change', '#kategori', function() {
+                updateItemOptions();
+            });
         });
 
         // Global functions
         window.showCreateModal = function() {
-            resetForm();
-            $('#purchaseModalLabel').text('Tambah Purchase Bahan Baku');
-            $('#purchaseModal').modal('show');
+            try {
+                // Initialize itemChoices if not exists
+                if (!window.itemChoices) {
+                    window.itemChoices = null;
+                }
+
+                $('#purchaseModalLabel').text('Tambah Purchase Item');
+                $('#purchaseModal').modal('show');
+
+                // Reset form after modal is shown to avoid race conditions
+                setTimeout(() => {
+                    resetForm();
+                }, 100);
+            } catch (e) {
+                console.error('Error opening create modal:', e);
+                Swal.fire({
+                    title: 'Error',
+                    text: 'Gagal membuka form tambah purchase',
+                    icon: 'error'
+                });
+            }
         };
+
+        // Reset kategori and item function - silent version (no notification)
+        window.resetKategoriAndItem = function(showNotification = false) {
+            // Reset kategori
+            $('#kategori').val('');
+
+            // Destroy choices instance if exists
+            if (window.itemChoices) {
+                try {
+                    window.itemChoices.destroy();
+                    window.itemChoices = null;
+                } catch (e) {
+                    // Ignore destroy errors
+                }
+            }
+
+            // Reset item select to disabled state
+            const selectElement = document.getElementById('bahan_baku_id');
+            if (selectElement) {
+                selectElement.innerHTML = '<option value="">-- Pilih Kategori Terlebih Dahulu --</option>';
+                selectElement.disabled = true;
+                selectElement.value = '';
+            }
+
+            // Clear satuan display
+            $('#satuan_display').text('');
+
+            // Show toast message only if requested
+            if (showNotification) {
+                Swal.fire({
+                    title: 'Reset Berhasil',
+                    text: 'Kategori dan item telah direset',
+                    icon: 'info',
+                    timer: 1500,
+                    showConfirmButton: false,
+                    toast: true,
+                    position: 'top-end'
+                });
+            }
+        };
+
+        // Update item filter based on kategori
+        window.updateItemFilter = function() {
+            var selectedKategori = $('#filter_kategori').val();
+            var itemSelect = $('#filter_item');
+
+            // Show all options first
+            itemSelect.find('option').show();
+
+            if (selectedKategori) {
+                // Hide options that don't match selected kategori
+                itemSelect.find('option[data-kategori]').each(function() {
+                    if ($(this).data('kategori') !== selectedKategori) {
+                        $(this).hide();
+                    }
+                });
+            }
+
+            // Reset selection if current selection is now hidden
+            if (itemSelect.find('option:selected').is(':hidden')) {
+                itemSelect.val('');
+            }
+        };
+
+        // Update item options in modal based on kategori
+        window.updateItemOptions = function() {
+            var selectedKategori = $('#kategori').val();
+            const selectElement = document.getElementById('bahan_baku_id');
+
+            // Destroy existing Choices instance if exists
+            if (window.itemChoices) {
+                try {
+                    window.itemChoices.destroy();
+                    window.itemChoices = null;
+                } catch (e) {
+                    // Ignore destroy errors
+                }
+            }
+
+            // Clear the select element
+            selectElement.innerHTML = '';
+
+            if (!selectedKategori) {
+                // No kategori selected - disable item select
+                selectElement.innerHTML = '<option value="">-- Pilih Kategori Terlebih Dahulu --</option>';
+                selectElement.disabled = true;
+                hideItemDetail();
+                return;
+            }
+
+            // Kategori selected - enable item select and populate options
+            selectElement.disabled = false;
+            selectElement.innerHTML = '<option value="">-- Pilih Item --</option>';
+
+            if (selectedKategori === 'bahan_baku') {
+                // Only show bahan baku options
+                @foreach ($bahanBakus as $bahanBaku)
+                    selectElement.innerHTML += `<option value="{{ $bahanBaku->id }}" 
+                        data-satuan="{{ $bahanBaku->satuan }}" 
+                        data-kategori="bahan_baku" 
+                        data-sku="{{ $bahanBaku->sku_induk }}" 
+                        data-name="{{ $bahanBaku->nama_barang }}">
+                        [{{ $bahanBaku->sku_induk }}] {{ $bahanBaku->nama_barang }}
+                    </option>`;
+                @endforeach
+            } else if (selectedKategori === 'finished_goods') {
+                // Only show finished goods options
+                @foreach ($products as $product)
+                    selectElement.innerHTML += `<option value="{{ $product->id }}" 
+                        data-satuan="{{ $product->satuan ?? 'pcs' }}" 
+                        data-kategori="finished_goods" 
+                        data-sku="{{ $product->sku }}" 
+                        data-name="{{ $product->name_product }}">
+                        [{{ $product->sku }}] {{ $product->name_product }}
+                    </option>`;
+                @endforeach
+            }
+
+            // Create new Choices instance only if item select is enabled
+            if (!selectElement.disabled) {
+                window.itemChoices = new Choices(selectElement, {
+                    searchEnabled: true,
+                    searchPlaceholderValue: "Cari item berdasarkan SKU atau nama...",
+                    itemSelectText: '',
+                    placeholder: true,
+                    placeholderValue: "-- Pilih Item --",
+                    removeItemButton: false,
+                    classNames: {
+                        containerOuter: 'choices',
+                    }
+                });
+            }
+
+            // Clear satuan display when kategori changes
+            $('#satuan_display').text('');
+        };
+
+        // Function to update satuan display when item is selected
+        function updateSatuanDisplay(option) {
+            if (option && option.dataset && option.dataset.satuan) {
+                $('#satuan_display').text(option.dataset.satuan);
+            } else {
+                $('#satuan_display').text('');
+            }
+        }
 
         window.editPurchase = function(id) {
             // Show loading state
@@ -693,7 +1038,27 @@
                 if (response.success) {
                     var data = response.data;
                     $('#purchase_id').val(data.id);
-                    $('#bahan_baku_id').val(data.bahan_baku_id).trigger('change');
+
+                    // Set kategori first to filter items
+                    $('#kategori').val(data.kategori);
+                    updateItemOptions();
+
+                    // Wait a bit for Choices to be recreated, then set item value
+                    setTimeout(() => {
+                        if (window.itemChoices) {
+                            try {
+                                window.itemChoices.setChoiceByValue(data.bahan_baku_id.toString());
+                            } catch (e) {
+                                // Fallback to regular select
+                                $('#bahan_baku_id').val(data.bahan_baku_id);
+                            }
+                        } else {
+                            $('#bahan_baku_id').val(data.bahan_baku_id);
+                        }
+
+                        // Trigger change to update satuan
+                        $('#bahan_baku_id').trigger('change');
+                    }, 200);
                     $('#qty_pembelian').val(data.qty_pembelian);
                     $('#tanggal_kedatangan_barang').val(data.tanggal_kedatangan_barang);
                     $('#qty_barang_masuk').val(data.qty_barang_masuk);
@@ -703,7 +1068,7 @@
 
                     calculateTotalStock();
 
-                    $('#purchaseModalLabel').text('Edit Purchase Bahan Baku');
+                    $('#purchaseModalLabel').text('Edit Purchase Item');
                     $('#purchaseModal').modal('show');
                 } else {
                     Swal.fire({
@@ -814,9 +1179,11 @@
         };
 
         window.clearFilters = function() {
-            $('#filter_bahan_baku').val('');
+            $('#filter_kategori').val('');
+            $('#filter_item').val('');
             $('#filter_start_date').val('');
             $('#filter_end_date').val('');
+            updateItemFilter(); // Reset item filter options
             if (window.purchaseTable) {
                 window.purchaseTable.ajax.reload();
             }
@@ -836,6 +1203,30 @@
             $('#total_stok_display').text('0');
             $('#satuan_display').text('');
             clearValidationErrors();
+
+            // Reset to initial state manually to avoid calling resetKategoriAndItem again
+            $('#kategori').val('');
+
+            // Destroy choices instance if exists
+            if (window.itemChoices) {
+                try {
+                    window.itemChoices.destroy();
+                    window.itemChoices = null;
+                } catch (e) {
+                    // Ignore destroy errors
+                }
+            }
+
+            // Reset item select to disabled state
+            const selectElement = document.getElementById('bahan_baku_id');
+            if (selectElement) {
+                selectElement.innerHTML = '<option value="">-- Pilih Kategori Terlebih Dahulu --</option>';
+                selectElement.disabled = true;
+                selectElement.value = '';
+            }
+
+            // Clear satuan display (item detail removed)
+            $('#satuan_display').text('');
         }
 
         function showValidationErrors(errors) {

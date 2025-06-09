@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\HistorySale;
+use App\Services\SalesService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
@@ -104,13 +105,17 @@ class HistorySaleController extends Controller
             $quantities = [];
             $seenSkus = [];
 
+            $invalidSkus = []; // Track invalid SKUs for better error handling
+
             foreach ($validatedData['no_sku'] as $index => $sku) {
                 if (!empty(trim($sku))) {
                     // Prevent No Resi from being used as an SKU
                     if (trim($sku) === $noResi) {
                         return response()->json([
                             'status' => 'error',
-                            'message' => 'No Resi tidak boleh sama dengan No SKU: ' . $sku
+                            'message' => 'No Resi tidak boleh sama dengan No SKU: ' . $sku,
+                            'invalid_sku' => $sku,
+                            'sku_index' => $index
                         ], 422);
                     }
 
@@ -118,7 +123,20 @@ class HistorySaleController extends Controller
                     if (in_array($sku, $seenSkus)) {
                         return response()->json([
                             'status' => 'error',
-                            'message' => 'Ditemukan SKU yang sama: ' . $sku
+                            'message' => 'Ditemukan SKU yang sama: ' . $sku,
+                            'invalid_sku' => $sku,
+                            'sku_index' => $index
+                        ], 422);
+                    }
+
+                    // VALIDASI BARU: Check if SKU exists in products table
+                    $product = \App\Models\Product::where('sku', trim($sku))->first();
+                    if (!$product) {
+                        return response()->json([
+                            'status' => 'error',
+                            'message' => 'SKU tidak ditemukan di database: ' . $sku . '. Pastikan SKU produk sudah terdaftar.',
+                            'invalid_sku' => $sku,
+                            'sku_index' => $index
                         ], 422);
                     }
 
@@ -130,8 +148,9 @@ class HistorySaleController extends Controller
                 }
             }
 
-            // Create record even if no SKUs are provided
-            $historySale = HistorySale::create([
+            // Create record using service (with DB transaction)
+            $salesService = app(SalesService::class);
+            $historySale = $salesService->createSale([
                 'no_resi' => $validatedData['no_resi'],
                 'no_sku' => $skus,
                 'qty' => $quantities,
@@ -238,7 +257,9 @@ class HistorySaleController extends Controller
                     if (trim($sku) === $noResi) {
                         return response()->json([
                             'status' => 'error',
-                            'message' => 'No Resi tidak boleh sama dengan No SKU: ' . $sku
+                            'message' => 'No Resi tidak boleh sama dengan No SKU: ' . $sku,
+                            'invalid_sku' => $sku,
+                            'sku_index' => $index
                         ], 422);
                     }
 
@@ -246,7 +267,20 @@ class HistorySaleController extends Controller
                     if (in_array($sku, $seenSkus)) {
                         return response()->json([
                             'status' => 'error',
-                            'message' => 'Ditemukan SKU yang sama: ' . $sku
+                            'message' => 'Ditemukan SKU yang sama: ' . $sku,
+                            'invalid_sku' => $sku,
+                            'sku_index' => $index
+                        ], 422);
+                    }
+
+                    // VALIDASI BARU: Check if SKU exists in products table
+                    $product = \App\Models\Product::where('sku', trim($sku))->first();
+                    if (!$product) {
+                        return response()->json([
+                            'status' => 'error',
+                            'message' => 'SKU tidak ditemukan di database: ' . $sku . '. Pastikan SKU produk sudah terdaftar.',
+                            'invalid_sku' => $sku,
+                            'sku_index' => $index
                         ], 422);
                     }
 
@@ -277,7 +311,9 @@ class HistorySaleController extends Controller
              * 4. Log all inventory changes with appropriate references
              */
 
-            $historySale->update([
+            // Update record using service (with DB transaction)
+            $salesService = app(SalesService::class);
+            $historySale = $salesService->updateSale($historySale, [
                 'no_resi' => $validatedData['no_resi'],
                 'no_sku' => $skus,
                 'qty' => $quantities,
@@ -308,18 +344,9 @@ class HistorySaleController extends Controller
             $resiNumber = $historySale->no_resi;
             $saleId = $historySale->id;
 
-            /**
-             * FUTURE INTEGRATION FEATURES
-             * =========================
-             * When implementing inventory integration, the following would be needed:
-             * 
-             * 1. Get all SKUs and quantities from the sales record
-             * 2. Restore stock levels for each product based on the quantities
-             * 3. Log the inventory adjustments with appropriate references
-             * 4. Update any related analytics or reports
-             */
-
-            $historySale->delete();
+            // Delete record using service (with DB transaction)
+            $salesService = app(SalesService::class);
+            $salesService->deleteSale($historySale);
 
             // Log activity
             addActivity('sales', 'delete', 'Pengguna menghapus sementara catatan penjualan dengan resi: ' . $resiNumber, $saleId);
@@ -329,6 +356,11 @@ class HistorySaleController extends Controller
                 'message' => 'Riwayat penjualan berhasil dihapus'
             ]);
         } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('Error in destroy method: ' . $e->getMessage(), [
+                'id' => $id,
+                'trace' => $e->getTraceAsString()
+            ]);
+
             return response()->json([
                 'status' => 'error',
                 'message' => 'Terjadi kesalahan: ' . $e->getMessage()
@@ -689,6 +721,106 @@ class HistorySaleController extends Controller
             return response()->json([
                 'valid' => false,
                 'message' => 'Error validasi: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Validate SKU for AJAX request
+     */
+    public function validateSku(Request $request)
+    {
+        try {
+            $sku = trim($request->input('sku'));
+
+            if (empty($sku)) {
+                return response()->json([
+                    'valid' => false,
+                    'message' => 'SKU tidak boleh kosong'
+                ]);
+            }
+
+            // Check if SKU exists in products table
+            $product = \App\Models\Product::where('sku', $sku)->first();
+
+            if (!$product) {
+                return response()->json([
+                    'valid' => false,
+                    'message' => 'SKU tidak ditemukan di database: ' . $sku,
+                    'suggestion' => 'Pastikan SKU produk sudah terdaftar di sistem'
+                ]);
+            }
+
+            return response()->json([
+                'valid' => true,
+                'message' => 'SKU valid',
+                'product' => [
+                    'id' => $product->id,
+                    'sku' => $product->sku,
+                    'name' => $product->name_product,
+                    'category' => $product->category_name,
+                    'packaging' => $product->packaging,
+                    'label' => $product->label_name
+                ]
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error validating SKU', [
+                'error' => $e->getMessage(),
+                'sku' => $request->input('sku')
+            ]);
+
+            return response()->json([
+                'valid' => false,
+                'message' => 'Terjadi kesalahan saat validasi SKU'
+            ], 500);
+        }
+    }
+
+    /**
+     * Search products by SKU for autocomplete
+     */
+    public function searchProducts(Request $request)
+    {
+        try {
+            $term = trim($request->input('term'));
+
+            if (strlen($term) < 2) {
+                return response()->json([
+                    'results' => [],
+                    'message' => 'Minimal 2 karakter untuk pencarian'
+                ]);
+            }
+
+            $products = \App\Models\Product::where('sku', 'LIKE', '%' . $term . '%')
+                ->orWhere('name_product', 'LIKE', '%' . $term . '%')
+                ->limit(10)
+                ->get(['id', 'sku', 'name_product', 'category_product', 'packaging', 'label']);
+
+            $results = $products->map(function ($product) {
+                return [
+                    'id' => $product->id,
+                    'sku' => $product->sku,
+                    'name' => $product->name_product,
+                    'category' => $product->category_name,
+                    'packaging' => $product->packaging,
+                    'label' => $product->label_name,
+                    'display' => $product->sku . ' - ' . $product->name_product
+                ];
+            });
+
+            return response()->json([
+                'results' => $results,
+                'count' => $results->count()
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error searching products', [
+                'error' => $e->getMessage(),
+                'term' => $request->input('term')
+            ]);
+
+            return response()->json([
+                'results' => [],
+                'message' => 'Terjadi kesalahan saat mencari produk'
             ], 500);
         }
     }

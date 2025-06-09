@@ -28,82 +28,81 @@ class HistorySale extends Model
     ];
 
     /**
-     * Get the details for this history sale.
+     * Get all products associated with this history sale based on JSON SKU data
+     * This replaces the old details() relationship since we store SKUs in JSON
      */
-    public function details()
+    public function getAssociatedProducts()
     {
-        return $this->hasMany(HistorySaleDetail::class, 'history_sale_id');
+        $skuArray = is_string($this->no_sku) ? json_decode($this->no_sku, true) : $this->no_sku;
+
+        if (!is_array($skuArray) || empty($skuArray)) {
+            return collect();
+        }
+
+        return \App\Models\Product::whereIn('sku', $skuArray)->get();
     }
 
     /**
-     * Get all products associated with this history sale through details.
-     */
-    public function products()
-    {
-        return $this->belongsToMany(Product::class, 'history_sale_details', 'history_sale_id', 'product_id')
-            ->withPivot('quantity')
-            ->withTimestamps();
-    }
-
-    /**
-     * Helper method to get the products and quantities in a format compatible with the old system
+     * Get product details in array format (backward compatibility)
      */
     public function getProductDetailsArrayAttribute()
     {
-        $details = $this->details()->with('product')->get();
+        $skuArray = is_string($this->no_sku) ? json_decode($this->no_sku, true) : $this->no_sku;
+        $qtyArray = is_string($this->qty) ? json_decode($this->qty, true) : $this->qty;
 
-        $skus = [];
-        $quantities = [];
-
-        foreach ($details as $detail) {
-            if ($detail->product) {
-                $skus[] = $detail->product->sku;
-                $quantities[] = $detail->quantity;
-            }
+        if (!is_array($skuArray) || !is_array($qtyArray)) {
+            return [
+                'no_sku' => [],
+                'qty' => []
+            ];
         }
 
         return [
-            'no_sku' => $skus,
-            'qty' => $quantities
+            'no_sku' => $skuArray,
+            'qty' => $qtyArray
         ];
     }
 
     /**
+     * Get products with their quantities for this sale
+     */
+    public function getProductsWithQuantities()
+    {
+        $skuArray = is_string($this->no_sku) ? json_decode($this->no_sku, true) : $this->no_sku;
+        $qtyArray = is_string($this->qty) ? json_decode($this->qty, true) : $this->qty;
+
+        if (!is_array($skuArray) || !is_array($qtyArray)) {
+            return collect();
+        }
+
+        $products = \App\Models\Product::whereIn('sku', $skuArray)->get()->keyBy('sku');
+        $result = collect();
+
+        foreach ($skuArray as $index => $sku) {
+            if (isset($products[$sku])) {
+                $result->push([
+                    'product' => $products[$sku],
+                    'quantity' => $qtyArray[$index] ?? 1,
+                    'sku' => $sku
+                ]);
+            }
+        }
+
+        return $result;
+    }
+
+    /**
      * Boot method to register model events
+     * 
+     * Note: Stock updates are now handled by HistorySaleObserver
+     * This method is kept for compatibility with existing code
      */
     protected static function boot()
     {
         parent::boot();
 
-        // Auto-update FinishedGoods when HistorySale is created
-        static::created(function ($historySale) {
-            try {
-                static::syncFinishedGoodsFromHistorySale($historySale);
-                \Illuminate\Support\Facades\Log::info("Auto-synced FinishedGoods after HistorySale created for resi: {$historySale->no_resi}");
-            } catch (\Exception $e) {
-                \Illuminate\Support\Facades\Log::error("Failed to sync FinishedGoods after HistorySale created: " . $e->getMessage());
-            }
-        });
-
-        // Auto-update FinishedGoods when HistorySale is updated
-        static::updated(function ($historySale) {
-            try {
-                static::syncFinishedGoodsFromHistorySale($historySale);
-                \Illuminate\Support\Facades\Log::info("Auto-synced FinishedGoods after HistorySale updated for resi: {$historySale->no_resi}");
-            } catch (\Exception $e) {
-                \Illuminate\Support\Facades\Log::error("Failed to sync FinishedGoods after HistorySale updated: " . $e->getMessage());
-            }
-        });
-
-        // Auto-update FinishedGoods when HistorySale is deleted
-        static::deleted(function ($historySale) {
-            try {
-                static::syncFinishedGoodsFromHistorySale($historySale);
-                \Illuminate\Support\Facades\Log::info("Auto-synced FinishedGoods after HistorySale deleted for resi: {$historySale->no_resi}");
-            } catch (\Exception $e) {
-                \Illuminate\Support\Facades\Log::error("Failed to sync FinishedGoods after HistorySale deleted: " . $e->getMessage());
-            }
-        });
+        // Event handlers moved to HistorySaleObserver
+        // This prevents duplicate stock updates
     }
 
     /**

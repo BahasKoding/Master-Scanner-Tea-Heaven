@@ -10,13 +10,32 @@
                     <div class="table-responsive">
                         <table class="table table-borderless table-sm">
                             <tr>
-                                <td width="45%" class="fw-bold text-muted">Bahan Baku:</td>
-                                <td class="text-break">
-                                    {{ $purchase->bahanBaku ? $purchase->bahanBaku->full_name : '-' }}</td>
+                                <td width="45%" class="fw-bold text-muted">Kategori:</td>
+                                <td>
+                                    @if ($purchase->kategori === 'finished_goods')
+                                        <span class="badge bg-info bg-opacity-75">Finished Goods</span>
+                                    @else
+                                        <span class="badge bg-primary bg-opacity-75">Bahan Baku</span>
+                                    @endif
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="fw-bold text-muted">Item:</td>
+                                <td class="text-break">{{ $purchase->item_name }}</td>
+                            </tr>
+                            <tr>
+                                <td class="fw-bold text-muted">SKU:</td>
+                                <td><code class="text-dark">{{ $purchase->item_sku }}</code></td>
                             </tr>
                             <tr>
                                 <td class="fw-bold text-muted">Satuan:</td>
-                                <td>{{ $purchase->bahanBaku ? $purchase->bahanBaku->satuan : '-' }}</td>
+                                <td>
+                                    @if ($purchase->kategori === 'finished_goods')
+                                        {{ $purchase->product ? $purchase->product->satuan : 'pcs' }}
+                                    @else
+                                        {{ $purchase->bahanBaku ? $purchase->bahanBaku->satuan : '-' }}
+                                    @endif
+                                </td>
                             </tr>
                             <tr>
                                 <td class="fw-bold text-muted">Qty Pembelian:</td>
@@ -76,8 +95,13 @@
                             <div>
                                 <span
                                     class="badge bg-primary bg-opacity-75 fs-6">{{ number_format($purchase->qty_barang_masuk) }}</span>
-                                <span
-                                    class="text-muted ms-2">{{ $purchase->bahanBaku ? $purchase->bahanBaku->satuan : '' }}</span>
+                                <span class="text-muted ms-2">
+                                    @if ($purchase->kategori === 'finished_goods')
+                                        {{ $purchase->product ? $purchase->product->satuan : 'pcs' }}
+                                    @else
+                                        {{ $purchase->bahanBaku ? $purchase->bahanBaku->satuan : '' }}
+                                    @endif
+                                </span>
                             </div>
                         </div>
                         <div class="col-md-4 col-sm-12 mb-3">
@@ -85,8 +109,13 @@
                             <div>
                                 <span
                                     class="badge bg-warning bg-opacity-75 fs-6 text-dark">{{ number_format($purchase->barang_defect_tanpa_retur) }}</span>
-                                <span
-                                    class="text-muted ms-2">{{ $purchase->bahanBaku ? $purchase->bahanBaku->satuan : '' }}</span>
+                                <span class="text-muted ms-2">
+                                    @if ($purchase->kategori === 'finished_goods')
+                                        {{ $purchase->product ? $purchase->product->satuan : 'pcs' }}
+                                    @else
+                                        {{ $purchase->bahanBaku ? $purchase->bahanBaku->satuan : '' }}
+                                    @endif
+                                </span>
                                 @if ($purchase->qty_barang_masuk > 0)
                                     <br><small class="text-muted">({{ $purchase->defect_percentage }}%)</small>
                                 @endif
@@ -97,8 +126,13 @@
                             <div>
                                 <span
                                     class="badge bg-danger bg-opacity-75 fs-6">{{ number_format($purchase->barang_diretur_ke_supplier) }}</span>
-                                <span
-                                    class="text-muted ms-2">{{ $purchase->bahanBaku ? $purchase->bahanBaku->satuan : '' }}</span>
+                                <span class="text-muted ms-2">
+                                    @if ($purchase->kategori === 'finished_goods')
+                                        {{ $purchase->product ? $purchase->product->satuan : 'pcs' }}
+                                    @else
+                                        {{ $purchase->bahanBaku ? $purchase->bahanBaku->satuan : '' }}
+                                    @endif
+                                </span>
                                 @if ($purchase->qty_pembelian > 0)
                                     <br><small class="text-muted">({{ $purchase->retur_percentage }}%)</small>
                                 @endif
@@ -112,8 +146,13 @@
                             <strong class="text-dark">Total Stok Masuk:</strong>
                             <span
                                 class="badge bg-success bg-opacity-75 fs-6 ms-2">{{ number_format($purchase->total_stok_masuk) }}</span>
-                            <span
-                                class="text-muted ms-1">{{ $purchase->bahanBaku ? $purchase->bahanBaku->satuan : '' }}</span>
+                            <span class="text-muted ms-1">
+                                @if ($purchase->kategori === 'finished_goods')
+                                    {{ $purchase->product ? $purchase->product->satuan : 'pcs' }}
+                                @else
+                                    {{ $purchase->bahanBaku ? $purchase->bahanBaku->satuan : '' }}
+                                @endif
+                            </span>
                         </div>
                         <small class="text-muted d-block mt-1">Formula: Qty Masuk - Defect + Retur</small>
                     </div>
@@ -123,37 +162,39 @@
     </div>
 
     <!-- Formula Calculation Section -->
-    @if ($purchase->bahanBaku)
-        <div class="row g-3 mt-2">
-            <div class="col-12">
-                <div class="card border-info border-opacity-50">
-                    <div class="card-header bg-light border-bottom">
-                        <h6 class="mb-0 text-dark"><i class="fas fa-calculator me-2 text-info"></i>Formula Perhitungan
-                        </h6>
-                    </div>
-                    <div class="card-body">
-                        <div class="alert alert-light border border-info border-opacity-50 mb-0">
-                            <div class="row align-items-center">
-                                <div class="col-lg-8 col-md-12 mb-2 mb-lg-0">
-                                    <strong class="text-dark">Total Stok Masuk = Qty Barang Masuk - Barang Defect +
-                                        Barang Retur</strong>
-                                </div>
-                                <div class="col-lg-4 col-md-12">
-                                    <div class="text-center p-3 bg-white rounded border border-opacity-50">
-                                        <div class="d-flex justify-content-center align-items-center flex-wrap gap-2">
-                                            <span
-                                                class="badge bg-primary bg-opacity-75">{{ number_format($purchase->qty_barang_masuk) }}</span>
-                                            <span class="text-muted">-</span>
-                                            <span
-                                                class="badge bg-warning bg-opacity-75 text-dark">{{ number_format($purchase->barang_defect_tanpa_retur) }}</span>
-                                            <span class="text-muted">+</span>
-                                            <span
-                                                class="badge bg-danger bg-opacity-75">{{ number_format($purchase->barang_diretur_ke_supplier) }}</span>
-                                            <span class="text-muted">=</span>
-                                            <strong
-                                                class="badge bg-success bg-opacity-75 fs-6">{{ number_format($purchase->total_stok_masuk) }}
-                                                {{ $purchase->bahanBaku->satuan }}</strong>
-                                        </div>
+    <div class="row g-3 mt-2">
+        <div class="col-12">
+            <div class="card border-info border-opacity-50">
+                <div class="card-header bg-light border-bottom">
+                    <h6 class="mb-0 text-dark"><i class="fas fa-calculator me-2 text-info"></i>Formula Perhitungan</h6>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-light border border-info border-opacity-50 mb-0">
+                        <div class="row align-items-center">
+                            <div class="col-lg-8 col-md-12 mb-2 mb-lg-0">
+                                <strong class="text-dark">Total Stok Masuk = Qty Barang Masuk - Barang Defect + Barang
+                                    Retur</strong>
+                            </div>
+                            <div class="col-lg-4 col-md-12">
+                                <div class="text-center p-3 bg-white rounded border border-opacity-50">
+                                    <div class="d-flex justify-content-center align-items-center flex-wrap gap-2">
+                                        <span
+                                            class="badge bg-primary bg-opacity-75">{{ number_format($purchase->qty_barang_masuk) }}</span>
+                                        <span class="text-muted">-</span>
+                                        <span
+                                            class="badge bg-warning bg-opacity-75 text-dark">{{ number_format($purchase->barang_defect_tanpa_retur) }}</span>
+                                        <span class="text-muted">+</span>
+                                        <span
+                                            class="badge bg-danger bg-opacity-75">{{ number_format($purchase->barang_diretur_ke_supplier) }}</span>
+                                        <span class="text-muted">=</span>
+                                        <strong class="badge bg-success bg-opacity-75 fs-6">
+                                            {{ number_format($purchase->total_stok_masuk) }}
+                                            @if ($purchase->kategori === 'finished_goods')
+                                                {{ $purchase->product ? $purchase->product->satuan : 'pcs' }}
+                                            @else
+                                                {{ $purchase->bahanBaku ? $purchase->bahanBaku->satuan : '' }}
+                                            @endif
+                                        </strong>
                                     </div>
                                 </div>
                             </div>
@@ -162,7 +203,7 @@
                 </div>
             </div>
         </div>
-    @endif
+    </div>
 
     <!-- System Information Section -->
     <div class="row g-3 mt-2">
@@ -271,5 +312,14 @@
     /* Alert improvements */
     .alert-light {
         background-color: #f8f9fa;
+    }
+
+    /* Code styling for SKU */
+    code {
+        color: #6f42c1;
+        background-color: #f8f9fa;
+        padding: 0.2rem 0.4rem;
+        border-radius: 0.25rem;
+        font-size: 0.875em;
     }
 </style>

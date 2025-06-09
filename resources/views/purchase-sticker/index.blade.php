@@ -411,12 +411,9 @@
 
     <script type="text/javascript">
         // Global debug function - harus di luar document ready
-        const DEBUG = true;
-
         function debugLog(...args) {
-            if (DEBUG) {
-                console.log('[DEBUG Purchase Sticker]', new Date().toISOString(), ...args);
-            }
+            // Debug logging disabled for production
+            // console.log('[DEBUG Purchase Sticker]', new Date().toISOString(), ...args);
         }
 
         // Global helper functions

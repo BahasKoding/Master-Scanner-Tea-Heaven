@@ -17,9 +17,7 @@ return new class extends Migration
             $table->integer('stok_awal')->default(0);
             $table->integer('stok_masuk')->default(0);
             $table->integer('terpakai')->default(0);
-            $table->integer('surplus_stok')->default(0);
             $table->integer('defect')->default(0);
-            $table->integer('terjual')->default(0);
             $table->integer('live_stok_gudang')->default(0);
             $table->string('satuan');
             $table->timestamps();

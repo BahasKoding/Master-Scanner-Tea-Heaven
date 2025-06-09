@@ -6,7 +6,7 @@ use App\Models\CatatanProduksi;
 use App\Models\FinishedGoods;
 use App\Models\HistorySale;
 use App\Models\Product;
-use App\Models\HistorySaleDetail;
+
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -17,6 +17,9 @@ use Illuminate\Support\Facades\Log;
 class VerifyStockConsistencyJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+
+    protected $discrepancies = [];
+    protected $correctionsMade = 0;
 
     /**
      * Create a new job instance.
@@ -116,42 +119,23 @@ class VerifyStockConsistencyJob implements ShouldQueue
      */
     private function calculateTotalSales($sku)
     {
-        // Dapatkan product_id dari SKU
-        $product = Product::where('sku', $sku)->first();
-        if (!$product) {
-            return 0;
-        }
-
-        // Metode yang lebih efisien menggunakan relasi
-        $total = HistorySaleDetail::where('product_id', $product->id)
-            ->sum('quantity');
-
-        // Jika tidak ada data di detail, coba hitung dari format lama (JSON)
-        if ($total === 0) {
-            $total = $this->calculateTotalSalesFromLegacyFormat($sku);
-        }
-
-        return $total;
-    }
-
-    /**
-     * Menghitung total penjualan berdasarkan format JSON lama
-     *
-     * @param string $sku
-     * @return int
-     */
-    private function calculateTotalSalesFromLegacyFormat($sku)
-    {
         $total = 0;
-        $historySales = HistorySale::all();
+        $historySales = HistorySale::whereNotNull('no_sku')->get();
 
         foreach ($historySales as $sale) {
-            $skuArray = $sale->no_sku;
-            $qtyArray = $sale->qty;
+            $skuArray = is_string($sale->no_sku) ? json_decode($sale->no_sku, true) : $sale->no_sku;
+            $qtyArray = is_string($sale->qty) ? json_decode($sale->qty, true) : $sale->qty;
+
+            if (!is_array($skuArray) || !is_array($qtyArray)) {
+                continue;
+            }
 
             foreach ($skuArray as $index => $saleSku) {
-                if ($saleSku == $sku && isset($qtyArray[$index])) {
-                    $total += $qtyArray[$index];
+                if (trim($saleSku) === $sku && isset($qtyArray[$index])) {
+                    $quantity = $qtyArray[$index];
+                    if (is_numeric($quantity) && $quantity > 0) {
+                        $total += (int)$quantity;
+                    }
                 }
             }
         }
