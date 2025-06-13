@@ -69,7 +69,8 @@
         <div class="container">
             <div class="row align-items-center">
                 <div class="col my-1">
-                    <p class="m-0">Made with &#9829; by Team <a href="https://themeforest.net/user/phoenixcoded" target="_blank"> Phoenixcoded</a></p>
+                    <p class="m-0">Made with &#9829; by Team <a href="https://themeforest.net/user/phoenixcoded"
+                            target="_blank"> Phoenixcoded</a></p>
                 </div>
                 <div class="col-auto my-1">
                     <ul class="list-inline footer-sos-link mb-0">
@@ -83,7 +84,6 @@
     </div>
 </footer>
 <!-- [ footer apps ] End -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/highlight.min.js"></script>
 <script src="{{ URL::asset('build/js/plugins/clipboard.min.js') }}"></script>
 <script src="{{ URL::asset('build/js/component.js') }}"></script>
 <script>

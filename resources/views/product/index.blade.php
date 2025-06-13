@@ -9,8 +9,8 @@
 
     <!-- [Page specific CSS] start -->
     <!-- data tables css -->
-    <link rel="stylesheet" href="{{ URL::asset('build/css/plugins/datatables/dataTables.bootstrap5.min.css') }}">
-    <link rel="stylesheet" href="{{ URL::asset('build/css/plugins/datatables/buttons.bootstrap5.min.css') }}">
+    <link rel="stylesheet" href="{{ URL::asset('build/css/plugins/dataTables.bootstrap5.min.css') }}">
+    <link rel="stylesheet" href="{{ URL::asset('build/css/plugins/buttons.bootstrap5.min.css') }}">
     <!-- [Page specific CSS] end -->
     <style>
         .form-section {
@@ -148,6 +148,9 @@
                         <div class="d-flex flex-wrap">
                             <button id="clear-filters" class="btn btn btn-secondary me-2 mb-2 mb-sm-0">
                                 <i class="fas fa-filter"></i> Hapus Filter
+                            </button>
+                            <button id="export-excel" class="btn btn-success me-2 mb-2 mb-sm-0">
+                                <i class="fas fa-file-excel"></i> Export Excel
                             </button>
                             <button type="button" class="btn btn-primary mb-2 mb-sm-0" data-bs-toggle="modal"
                                 data-bs-target="#addProductModal">
@@ -329,10 +332,6 @@
 @endsection
 
 @section('scripts')
-    <!-- Core JS files -->
-    <script src="{{ URL::asset('build/js/plugins/jquery-3.6.0.min.js') }}"></script>
-    <script src="{{ URL::asset('build/js/plugins/bootstrap.min.js') }}"></script>
-
     <!-- DataTables Core -->
     <script src="{{ URL::asset('build/js/plugins/dataTables.min.js') }}"></script>
     <script src="{{ URL::asset('build/js/plugins/dataTables.bootstrap5.min.js') }}"></script>
@@ -346,6 +345,12 @@
     <script src="{{ URL::asset('build/js/plugins/buttons.html5.min.js') }}"></script>
     <script src="{{ URL::asset('build/js/plugins/buttons.print.min.js') }}"></script>
     <script src="{{ URL::asset('build/js/plugins/buttons.colVis.min.js') }}"></script>
+
+    <!-- SweetAlert2 -->
+    <script src="{{ URL::asset('build/js/plugins/sweetalert2.all.min.js') }}"></script>
+
+    <!-- XLSX Library -->
+    <script src="{{ URL::asset('build/js/plugins/xlsx.full.min.js') }}"></script>
 
     <script type="text/javascript">
         $(document).ready(function() {
@@ -504,6 +509,133 @@
                 table.search('').columns().search('').draw();
             });
 
+            // Export Excel function
+            $('#export-excel').on('click', function() {
+                var button = $(this);
+                var originalText = button.html();
+
+                // Disable button and show loading
+                button.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Mengekspor...');
+
+                // Get current filter values
+                var filterData = {
+                    category_product: $('#filter-category').val(),
+                    label: $('#filter-label').val()
+                };
+
+                // Show loading message
+                Swal.fire({
+                    title: 'Mengekspor Data',
+                    text: 'Sedang memproses data produk untuk export...',
+                    allowOutsideClick: false,
+                    showConfirmButton: false,
+                    willOpen: () => {
+                        Swal.showLoading();
+                    }
+                });
+
+                $.ajax({
+                    url: "{{ route('products.export') }}",
+                    method: 'POST',
+                    data: filterData,
+                    headers: {
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                    },
+                    success: function(response) {
+                        if (response.success) {
+                            try {
+                                // Check if XLSX library is available
+                                if (typeof XLSX === 'undefined') {
+                                    throw new Error('XLSX library not loaded');
+                                }
+
+                                // Create workbook and worksheet
+                                var wb = XLSX.utils.book_new();
+                                var ws = XLSX.utils.aoa_to_sheet(response.data);
+
+                                // Set column widths for better formatting
+                                ws['!cols'] = [{
+                                        wch: 5
+                                    }, // No
+                                    {
+                                        wch: 15
+                                    }, // SKU
+                                    {
+                                        wch: 30
+                                    }, // Nama Produk
+                                    {
+                                        wch: 15
+                                    }, // Packaging
+                                    {
+                                        wch: 20
+                                    }, // Kategori
+                                    {
+                                        wch: 15
+                                    }, // Label
+                                    {
+                                        wch: 20
+                                    }, // Tanggal Dibuat
+                                    {
+                                        wch: 20
+                                    } // Terakhir Diperbarui
+                                ];
+
+                                // Add worksheet to workbook
+                                XLSX.utils.book_append_sheet(wb, ws, "Data Produk");
+
+                                // Generate Excel file and download
+                                XLSX.writeFile(wb, response.filename);
+
+                                Swal.fire({
+                                    title: 'Berhasil!',
+                                    html: `<div class="text-start">
+                                        <p><strong>File berhasil diekspor!</strong></p>
+                                        <p>📊 Total produk: <strong>${response.total_records}</strong></p>
+                                        <p>📁 Nama file: <strong>${response.filename}</strong></p>
+                                        <small class="text-muted">File akan otomatis terdownload</small>
+                                    </div>`,
+                                    icon: 'success',
+                                    timer: 3000,
+                                    showConfirmButton: false,
+                                    toast: true,
+                                    position: 'top-end'
+                                });
+
+                            } catch (error) {
+                                console.error('Error generating Excel file:', error);
+                                Swal.fire({
+                                    title: 'Error',
+                                    text: 'Gagal membuat file Excel. Silakan coba lagi.',
+                                    icon: 'error',
+                                    confirmButtonText: 'OK'
+                                });
+                            }
+                        } else {
+                            Swal.fire({
+                                title: 'Error',
+                                text: response.message || 'Gagal mengekspor data',
+                                icon: 'error',
+                                confirmButtonText: 'OK'
+                            });
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        console.error('Export error:', xhr.responseText);
+                        Swal.fire({
+                            title: 'Error',
+                            text: xhr.responseJSON?.message ||
+                                'Gagal mengekspor data. Silakan coba lagi.',
+                            icon: 'error',
+                            confirmButtonText: 'OK'
+                        });
+                    },
+                    complete: function() {
+                        // Re-enable button
+                        button.prop('disabled', false).html(originalText);
+                    }
+                });
+            });
+
             // Save and Add More Button Click
             $('#saveAndAddMore').on('click', function(e) {
                 e.preventDefault();
@@ -513,6 +645,10 @@
                 // Disable submit button to prevent double submission
                 submitButton.prop('disabled', true);
 
+                // Clear previous error messages
+                form.find('.is-invalid').removeClass('is-invalid');
+                form.find('.invalid-feedback').text('');
+
                 var formData = new FormData(form[0]);
 
                 $.ajax({
@@ -521,14 +657,18 @@
                     data: formData,
                     processData: false,
                     contentType: false,
+                    timeout: 30000,
                     success: function(data) {
                         if (data.success) {
                             // Reset form but keep the modal open
                             form[0].reset();
-                            submitButton.prop('disabled', false);
 
-                            // Reload table
-                            table.ajax.reload(null, false);
+                            // Reload table with error handling
+                            try {
+                                table.ajax.reload(null, false);
+                            } catch (error) {
+                                // Table reload error - fallback handled elsewhere
+                            }
 
                             // Show success message
                             Swal.fire({
@@ -542,19 +682,19 @@
                             });
 
                             // Focus on the first input for next entry
-                            form.find('select[name="category_product"]').focus();
+                            setTimeout(function() {
+                                form.find('select[name="category_product"]').focus();
+                            }, 100);
                         }
                     },
-                    error: function(xhr) {
-                        // Re-enable submit button on error
-                        submitButton.prop('disabled', false);
-
+                    error: function(xhr, status, error) {
                         // Clear previous error messages
                         form.find('.is-invalid').removeClass('is-invalid');
+                        form.find('.invalid-feedback').text('');
 
                         if (xhr.status === 422) {
                             // Validation errors
-                            const errors = xhr.responseJSON.errors;
+                            const errors = xhr.responseJSON?.errors || {};
 
                             // Display each error under its field
                             $.each(errors, function(field, messages) {
@@ -581,6 +721,10 @@
                                 confirmButtonColor: '#3085d6'
                             });
                         }
+                    },
+                    complete: function() {
+                        // Always re-enable submit button
+                        submitButton.prop('disabled', false);
                     }
                 });
             });
@@ -596,6 +740,7 @@
 
                 // Clear previous error messages
                 form.find('.is-invalid').removeClass('is-invalid');
+                form.find('.invalid-feedback').text('');
 
                 var formData = new FormData(this);
 
@@ -605,40 +750,55 @@
                     data: formData,
                     processData: false,
                     contentType: false,
+                    timeout: 30000, // 30 second timeout
                     success: function(data) {
                         if (data.success) {
                             // Reset form first
                             form[0].reset();
-                            submitButton.prop('disabled', false);
 
-                            // Properly hide modal
-                            $('#addProductModal').modal('hide');
+                            // Get modal instance and hide it properly
+                            const modalElement = document.getElementById('addProductModal');
+                            const modalInstance = bootstrap.Modal.getInstance(modalElement) ||
+                                new bootstrap.Modal(modalElement);
+                            modalInstance.hide();
 
-                            // Reload table
-                            table.ajax.reload(null, false);
+                            // Clean up modal backdrop immediately
+                            setTimeout(function() {
+                                $('.modal-backdrop').remove();
+                                $('body').removeClass('modal-open').css('padding-right',
+                                    '');
+                            }, 100);
+
+                            // Reload table with error handling
+                            try {
+                                table.ajax.reload(null, false);
+                            } catch (error) {
+                                // Fallback: reload the page if table reload fails
+                                setTimeout(function() {
+                                    window.location.reload();
+                                }, 1000);
+                            }
 
                             // Show success message
                             Swal.fire({
                                 title: 'Berhasil!',
                                 text: data.message,
                                 icon: 'success',
-                                timer: 1500,
+                                timer: 2000,
                                 showConfirmButton: false,
                                 toast: true,
                                 position: 'top-end'
                             });
                         }
                     },
-                    error: function(xhr) {
-                        // Re-enable submit button on error
-                        submitButton.prop('disabled', false);
-
+                    error: function(xhr, status, error) {
                         // Clear previous error messages
                         form.find('.is-invalid').removeClass('is-invalid');
+                        form.find('.invalid-feedback').text('');
 
                         if (xhr.status === 422) {
                             // Validation errors
-                            const errors = xhr.responseJSON.errors;
+                            const errors = xhr.responseJSON?.errors || {};
 
                             // Display each error under its field
                             $.each(errors, function(field, messages) {
@@ -665,6 +825,10 @@
                                 confirmButtonColor: '#3085d6'
                             });
                         }
+                    },
+                    complete: function() {
+                        // Always re-enable submit button
+                        submitButton.prop('disabled', false);
                     }
                 });
             });
@@ -692,12 +856,10 @@
                     url: "{{ url('products') }}/" + id + "/edit",
                     method: 'GET',
                     success: function(response) {
-                        console.log('Server response:', response);
                         Swal.close();
 
                         if (response.success) {
                             const data = response.data;
-                            console.log('Product data:', data);
 
                             // Set hidden ID
                             $('#edit_product_id').val(data.id);
@@ -730,11 +892,6 @@
                         }
                     },
                     error: function(xhr, status, error) {
-                        console.error('AJAX Error:', {
-                            xhr: xhr,
-                            status: status,
-                            error: error
-                        });
                         Swal.fire({
                             title: 'Error',
                             text: 'Gagal mengambil data produk. Silahkan coba lagi.',
@@ -895,12 +1052,29 @@
 
             // Clean up modal when it's hidden
             $('#editProductModal, #addProductModal').on('hidden.bs.modal', function() {
+                // Reset form and clear validation states
                 $(this).find('form')[0].reset();
                 $(this).find('.is-invalid').removeClass('is-invalid');
+                $(this).find('.invalid-feedback').text('');
+
+                // Re-enable all buttons
+                $(this).find('button').prop('disabled', false);
+
                 // Clean up any lingering modal artifacts
+                setTimeout(function() {
+                    $('.modal-backdrop').remove();
+                    $('body').removeClass('modal-open').css('padding-right', '');
+
+                    // Force remove any stuck modal classes
+                    $('body').removeClass('modal-open');
+                    $('.modal-backdrop').remove();
+                }, 100);
+            });
+
+            // Additional cleanup on page unload
+            $(window).on('beforeunload', function() {
                 $('.modal-backdrop').remove();
-                $('body').removeClass('modal-open');
-                $('body').css('padding-right', '');
+                $('body').removeClass('modal-open').css('padding-right', '');
             });
         });
     </script>

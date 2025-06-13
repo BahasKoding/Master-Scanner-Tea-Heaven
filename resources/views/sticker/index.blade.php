@@ -9,8 +9,8 @@
 
     <!-- [Page specific CSS] start -->
     <!-- data tables css -->
-    <link rel="stylesheet" href="{{ URL::asset('build/css/plugins/datatables/dataTables.bootstrap5.min.css') }}">
-    <link rel="stylesheet" href="{{ URL::asset('build/css/plugins/datatables/buttons.bootstrap5.min.css') }}">
+    <link rel="stylesheet" href="{{ URL::asset('build/css/plugins/dataTables.bootstrap5.min.css') }}">
+    <link rel="stylesheet" href="{{ URL::asset('build/css/plugins/buttons.bootstrap5.min.css') }}">
     <!-- Choices css -->
     <link rel="stylesheet" href="{{ URL::asset('build/css/plugins/choices.min.css') }}">
     <!-- [Page specific CSS] end -->
@@ -207,10 +207,17 @@
                             <button id="export-stickers" class="btn btn-success me-2 mb-2 mb-sm-0">
                                 <i class="fas fa-file-excel"></i> Export Excel
                             </button>
-                            <button type="button" class="btn btn-primary mb-2 mb-sm-0" data-bs-toggle="modal"
-                                data-bs-target="#addStickerModal">
-                                <i class="fas fa-plus"></i> Tambah Sticker
-                            </button>
+                            @if (count($products) > 0)
+                                <button type="button" class="btn btn-primary mb-2 mb-sm-0" data-bs-toggle="modal"
+                                    data-bs-target="#addStickerModal">
+                                    <i class="fas fa-plus"></i> Tambah Sticker
+                                </button>
+                            @else
+                                <button type="button" class="btn btn-secondary mb-2 mb-sm-0" disabled
+                                    title="Tidak ada produk yang tersedia untuk sticker">
+                                    <i class="fas fa-plus"></i> Tambah Sticker
+                                </button>
+                            @endif
                         </div>
                     </div>
                 </div>
@@ -226,7 +233,10 @@
                                     <label for="filter-product" class="form-label filter-label">Filter Produk</label>
                                     <select id="filter-product" class="form-select form-select-sm">
                                         <option value="">Semua Produk</option>
-                                        @foreach ($products as $product)
+                                        @php
+                                            $allEligibleProducts = \App\Models\Sticker::getEligibleProducts();
+                                        @endphp
+                                        @foreach ($allEligibleProducts as $product)
                                             <option value="{{ $product->id }}">{{ $product->name_product }}
                                                 ({{ $product->sku }})
                                             </option>
@@ -245,6 +255,16 @@
                             </div>
                         </div>
                     </div>
+
+                    @if (count($products) == 0)
+                        <!-- No Products Available Alert -->
+                        <div class="alert alert-warning" role="alert">
+                            <h6 class="alert-heading"><i class="fas fa-exclamation-triangle"></i> Tidak Ada Produk Tersedia
+                            </h6>
+                            <p class="mb-0">Semua produk yang memenuhi kriteria sudah memiliki data sticker. Anda hanya
+                                dapat mengedit data sticker yang sudah ada.</p>
+                        </div>
+                    @endif
 
                     <!-- Info Box -->
                     <div class="alert alert-info" role="alert">
@@ -295,6 +315,14 @@
                 </div>
                 <form id="addStickerForm">
                     <div class="modal-body">
+                        @if (count($products) == 0)
+                            <div class="alert alert-warning" role="alert">
+                                <h6 class="alert-heading"><i class="fas fa-exclamation-triangle"></i> Tidak Ada Produk
+                                    Tersedia</h6>
+                                <p class="mb-0">Semua produk yang memenuhi kriteria sudah memiliki data sticker. Silakan
+                                    refresh halaman jika Anda baru saja menghapus sticker.</p>
+                            </div>
+                        @endif
                         <div class="row">
                             <div class="col-md-6 mb-3">
                                 <label for="add_product_id" class="form-label">Produk <span
@@ -308,6 +336,11 @@
                                     @endforeach
                                 </select>
                                 <div class="invalid-feedback"></div>
+                                <small class="text-muted">
+                                    <i class="fas fa-info-circle"></i>
+                                    <strong>{{ count($products) }}</strong> produk tersedia
+                                    (Hanya produk yang belum memiliki sticker)
+                                </small>
                             </div>
                             <div class="col-md-6 mb-3">
                                 <label for="add_ukuran" class="form-label">Ukuran <span
@@ -333,24 +366,22 @@
                         </div>
                         <div class="row">
                             <div class="col-md-6 mb-3">
-                                <label for="add_stok_masuk" class="form-label">Stok Masuk <span
-                                        class="text-danger">*</span></label>
+                                <label for="add_stok_masuk" class="form-label">Stok Masuk</label>
                                 <input type="number" class="form-control" id="add_stok_masuk" name="stok_masuk"
                                     min="0" value="0" readonly>
                                 <small class="text-muted">Nilai otomatis dari Purchase Sticker</small>
                                 <div class="invalid-feedback"></div>
                             </div>
                             <div class="col-md-6 mb-3">
-                                <label for="add_defect" class="form-label">Defect <span
-                                        class="text-danger">*</span></label>
+                                <label for="add_defect" class="form-label">Defect</label>
                                 <input type="number" class="form-control" id="add_defect" name="defect"
-                                    min="0" required>
+                                    min="0" value="0">
                                 <div class="invalid-feedback"></div>
                             </div>
                         </div>
                         <div class="row">
                             <div class="col-md-6 mb-3">
-                                <label for="add_sisa" class="form-label">Sisa <span class="text-danger">*</span></label>
+                                <label for="add_sisa" class="form-label">Sisa</label>
                                 <input type="number" class="form-control" id="add_sisa" name="sisa" min="0"
                                     value="0" readonly>
                                 <small class="text-muted">Kalkulasi otomatis</small>
@@ -371,7 +402,11 @@
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
-                        <button type="submit" class="btn btn-primary">Simpan</button>
+                        @if (count($products) > 0)
+                            <button type="submit" class="btn btn-primary">Simpan</button>
+                        @else
+                            <button type="button" class="btn btn-secondary" disabled>Simpan</button>
+                        @endif
                     </div>
                 </form>
             </div>
@@ -380,31 +415,28 @@
 @endsection
 
 @section('scripts')
-    <!-- [Page Specific JS] start -->
-    <!-- Core JS files - jQuery HARUS dimuat pertama -->
-    <script src="{{ URL::asset('build/js/plugins/jquery-3.6.0.min.js') }}"></script>
-    <script src="{{ URL::asset('build/js/plugins/bootstrap.min.js') }}"></script>
+    <!-- DataTables Core -->
+    <script src="{{ URL::asset('build/js/plugins/dataTables.min.js') }}"></script>
+    <script src="{{ URL::asset('build/js/plugins/dataTables.bootstrap5.min.js') }}"></script>
 
-    <!-- datatable Js -->
-    <script src="{{ URL::asset('build/js/plugins/datatables/jquery.dataTables.min.js') }}"></script>
-    <script src="{{ URL::asset('build/js/plugins/datatables/dataTables.bootstrap5.min.js') }}"></script>
-    <script src="{{ URL::asset('build/js/plugins/datatables/dataTables.buttons.min.js') }}"></script>
-    <script src="{{ URL::asset('build/js/plugins/datatables/buttons.bootstrap5.min.js') }}"></script>
-    <script src="{{ URL::asset('build/js/plugins/datatables/jszip.min.js') }}"></script>
-    <script src="{{ URL::asset('build/js/plugins/datatables/pdfmake.min.js') }}"></script>
-    <script src="{{ URL::asset('build/js/plugins/datatables/vfs_fonts.js') }}"></script>
-    <script src="{{ URL::asset('build/js/plugins/datatables/buttons.html5.min.js') }}"></script>
-    <script src="{{ URL::asset('build/js/plugins/datatables/buttons.print.min.js') }}"></script>
-    <script src="{{ URL::asset('build/js/plugins/datatables/buttons.colVis.min.js') }}"></script>
+    <!-- DataTables Buttons and Extensions -->
+    <script src="{{ URL::asset('build/js/plugins/dataTables.buttons.min.js') }}"></script>
+    <script src="{{ URL::asset('build/js/plugins/buttons.bootstrap5.min.js') }}"></script>
+    <script src="{{ URL::asset('build/js/plugins/jszip.min.js') }}"></script>
+    <script src="{{ URL::asset('build/js/plugins/pdfmake.min.js') }}"></script>
+    <script src="{{ URL::asset('build/js/plugins/vfs_fonts.js') }}"></script>
+    <script src="{{ URL::asset('build/js/plugins/buttons.html5.min.js') }}"></script>
+    <script src="{{ URL::asset('build/js/plugins/buttons.print.min.js') }}"></script>
+    <script src="{{ URL::asset('build/js/plugins/buttons.colVis.min.js') }}"></script>
 
     <!-- Choices JS -->
     <script src="{{ URL::asset('build/js/plugins/choices.min.js') }}"></script>
 
     <!-- SweetAlert2 -->
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="{{ URL::asset('build/js/plugins/sweetalert2.all.min.js') }}"></script>
 
     <!-- XLSX library for Excel export -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="{{ URL::asset('build/js/plugins/xlsx.full.min.js') }}"></script>
 
     <script>
         $(document).ready(function() {
@@ -421,7 +453,20 @@
                 searchPlaceholderValue: "Cari produk",
                 itemSelectText: '',
                 placeholder: true,
-                placeholderValue: "Semua produk"
+                placeholderValue: "Semua produk",
+                allowHTML: false
+            });
+
+            // Initialize Choices for add product dropdown
+            var addProductChoices = new Choices('#add_product_id', {
+                searchEnabled: true,
+                searchPlaceholderValue: "Cari produk...",
+                itemSelectText: '',
+                placeholder: true,
+                placeholderValue: "Pilih Produk",
+                noResultsText: 'Tidak ada produk yang ditemukan',
+                noChoicesText: 'Tidak ada produk tersedia',
+                allowHTML: false
             });
 
             // Initialize DataTable
@@ -702,6 +747,12 @@
             $('#addStickerForm').on('submit', function(e) {
                 e.preventDefault();
 
+                // Check if there are products available
+                @if (count($products) == 0)
+                    showAlert('warning', 'Tidak ada produk yang tersedia untuk membuat sticker baru.');
+                    return;
+                @endif
+
                 var formData = new FormData(this);
 
                 // Debug: Check if all required fields are filled
@@ -733,6 +784,11 @@
                             $('#addStickerForm')[0].reset();
                             table.draw();
                             showAlert('success', response.message);
+
+                            // Refresh the page to update available products list
+                            setTimeout(function() {
+                                location.reload();
+                            }, 2000);
                         } else {
                             showAlert('error', response.message ||
                                 'Terjadi kesalahan yang tidak diketahui.');
@@ -828,6 +884,9 @@
                 $(this).find('form')[0].reset();
                 $(this).find('.is-invalid').removeClass('is-invalid');
                 $(this).find('.invalid-feedback').text('');
+
+                // Reset Choices.js dropdown
+                addProductChoices.setChoiceByValue('');
             });
 
             // Helper function to download Excel file

@@ -158,6 +158,11 @@
                                     <i class="fas fa-file-excel"></i>
                                     <span class="d-none d-sm-inline">Export Excel</span>
                                 </button>
+                                <button id="export-all" class="btn btn-success btn-sm"
+                                    title="Export all data in the database">
+                                    <i class="fas fa-download"></i>
+                                    <span class="d-none d-sm-inline">Export All</span>
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -189,6 +194,14 @@
                         </div>
                     </div>
                     <!-- End Filter Section -->
+
+                    <!-- Export Status Indicator -->
+                    <div class="export-status" id="exportStatus"
+                        style="display: none; align-items: center; justify-content: center; padding: 10px; background-color: #fff3cd; border: 1px solid #ffeeba; color: #856404; border-radius: 4px; margin-bottom: 15px;">
+                        <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"
+                            style="width: 1rem; height: 1rem; margin-right: 8px;"></span>
+                        <span id="exportStatusText">Preparing data for export...</span>
+                    </div>
 
                     <div class="mb-3">
                         <h6 class="text-primary" id="table-period">
@@ -443,6 +456,16 @@
     <script src="{{ URL::asset('build/js/plugins/buttons.print.min.js') }}"></script>
     <script src="{{ URL::asset('build/js/plugins/buttons.colVis.min.js') }}"></script>
 
+    <!-- SheetJS library for Excel export - menggunakan library yang sama seperti report.blade.php -->
+    <!-- CATATAN: Pastikan file xlsx.full.min.js tersedia di public/build/js/plugins/ -->
+    <!-- Download dari: https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js -->
+    <script src="{{ URL::asset('build/js/plugins/xlsx.full.min.js') }}"></script>
+
+    <!-- SweetAlert2 for confirmations - menggunakan library yang sama seperti report.blade.php -->
+    <!-- CATATAN: Pastikan file sweetalert2.min.js tersedia di public/build/js/plugins/ -->
+    <!-- Download dari: https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.js -->
+    <script src="{{ URL::asset('build/js/plugins/sweetalert2.min.js') }}"></script>
+
     <script type="text/javascript">
         $(document).ready(function() {
             // Initialize DataTable
@@ -539,10 +562,106 @@
                 table.ajax.reload();
             });
 
-            // Export Excel
+            // Export Excel (filtered data)
             $('#export-excel').on('click', function() {
-                // Implementation for custom export if needed
-                table.button('.buttons-excel').trigger();
+                const startDate = $('#start-date').val();
+                const endDate = $('#end-date').val();
+                const noResi = $('#no-resi-filter').val();
+
+                // Check if any filters are applied
+                if (!startDate && !endDate && !noResi) {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Perhatian',
+                        text: 'Silakan terapkan filter terlebih dahulu atau gunakan "Export All" untuk mengekspor semua data.',
+                        toast: true,
+                        position: 'top-end',
+                        showConfirmButton: false,
+                        timer: 3000,
+                        timerProgressBar: true
+                    });
+                    return;
+                }
+
+                // Show export status indicator
+                $('#exportStatus').show();
+                $('#exportStatusText').text('Mempersiapkan data terfilter untuk ekspor...');
+
+                // Disable buttons during export
+                const $buttons = $('#apply-filters, #clear-filters, #export-excel, #export-all');
+                $buttons.prop('disabled', true);
+
+                // Perform the AJAX request to get filtered data
+                $.ajax({
+                    url: "{{ route('reports.scanner.export') }}",
+                    type: "POST",
+                    data: {
+                        _token: "{{ csrf_token() }}",
+                        start_date: startDate,
+                        end_date: endDate,
+                        no_resi: noResi
+                    },
+                    success: function(response) {
+                        if (response.status === 'success') {
+                            // Show row count in status
+                            $('#exportStatusText').text(
+                                `Mengekspor ${response.count} baris data...`
+                            );
+
+                            // Export filtered data to Excel with a small delay to allow UI update
+                            setTimeout(() => {
+                                const dateRange = startDate && endDate ?
+                                    `_${startDate.replace(/-/g, '')}_to_${endDate.replace(/-/g, '')}` :
+                                    '_filtered';
+                                exportToExcel(response.data,
+                                    'Laporan_Scanner' + dateRange + '_' +
+                                    getCurrentDate());
+                                Swal.fire({
+                                    icon: 'success',
+                                    title: 'Berhasil',
+                                    text: `${response.count} data berhasil diekspor ke Excel`,
+                                    toast: true,
+                                    position: 'top-end',
+                                    showConfirmButton: false,
+                                    timer: 2000,
+                                    timerProgressBar: true
+                                });
+                                $('#exportStatus').hide();
+                                $buttons.prop('disabled', false);
+                            }, 500);
+                        } else {
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Perhatian',
+                                text: response.message ||
+                                    'Terjadi kesalahan saat mengekspor data',
+                                toast: true,
+                                position: 'top-end',
+                                showConfirmButton: false,
+                                timer: 3000,
+                                timerProgressBar: true
+                            });
+                            $('#exportStatus').hide();
+                            $buttons.prop('disabled', false);
+                        }
+                    },
+                    error: function(xhr) {
+                        $('#exportStatus').hide();
+                        $buttons.prop('disabled', false);
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Perhatian',
+                            text: 'Terjadi kesalahan: ' + (xhr.responseJSON &&
+                                xhr.responseJSON.message ? xhr.responseJSON
+                                .message : 'Tidak dapat menghubungi server'),
+                            toast: true,
+                            position: 'top-end',
+                            showConfirmButton: false,
+                            timer: 3000,
+                            timerProgressBar: true
+                        });
+                    }
+                });
             });
 
             // Function to update table period display
@@ -786,6 +905,190 @@
                     loadSummaryData();
                 }
             });
+
+            // Export All button with confirmation
+            $('#export-all').on('click', function() {
+                Swal.fire({
+                    title: 'Ekspor Semua Data',
+                    html: `<div class="text-left">
+                            <p>Anda akan mengekspor <strong>SEMUA DATA</strong> dari database.</p>
+                            <p>Proses ini akan:</p>
+                            <ul>
+                                <li>Menyertakan semua data scanner</li>
+                                <li>Mengabaikan filter yang sedang diterapkan</li>
+                                <li>Mungkin memerlukan waktu yang lebih lama jika data sangat banyak</li>
+                            </ul>
+                            <p>Apakah Anda ingin melanjutkan?</p>
+                           </div>`,
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonText: 'Ya, Ekspor Semua',
+                    cancelButtonText: 'Batal',
+                    confirmButtonColor: '#28a745'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        // Show export status indicator
+                        $('#exportStatus').show();
+                        $('#exportStatusText').text('Mempersiapkan semua data untuk ekspor...');
+
+                        // Disable buttons during export
+                        const $buttons = $(
+                            '#apply-filters, #clear-filters, #export-excel, #export-all');
+                        $buttons.prop('disabled', true);
+
+                        // Perform the AJAX request to get all data
+                        $.ajax({
+                            url: "{{ route('reports.scanner.export') }}",
+                            type: "POST",
+                            data: {
+                                _token: "{{ csrf_token() }}",
+                                export_all: true
+                                // No date filters for exporting all data
+                            },
+                            success: function(response) {
+                                if (response.status === 'success') {
+                                    // Show row count in status
+                                    $('#exportStatusText').text(
+                                        `Mengekspor ${response.count} baris data...`
+                                    );
+
+                                    // Export all data to Excel with a small delay to allow UI update
+                                    setTimeout(() => {
+                                        exportToExcel(response.data,
+                                            'Laporan_Scanner_Lengkap_' +
+                                            getCurrentDate());
+                                        Swal.fire({
+                                            icon: 'success',
+                                            title: 'Berhasil',
+                                            text: `${response.count} data berhasil diekspor ke Excel`,
+                                            toast: true,
+                                            position: 'top-end',
+                                            showConfirmButton: false,
+                                            timer: 2000,
+                                            timerProgressBar: true
+                                        });
+                                        $('#exportStatus').hide();
+                                        $buttons.prop('disabled', false);
+                                    }, 500);
+                                } else {
+                                    Swal.fire({
+                                        icon: 'error',
+                                        title: 'Perhatian',
+                                        text: response.message ||
+                                            'Terjadi kesalahan saat mengekspor data',
+                                        toast: true,
+                                        position: 'top-end',
+                                        showConfirmButton: false,
+                                        timer: 3000,
+                                        timerProgressBar: true
+                                    });
+                                    $('#exportStatus').hide();
+                                    $buttons.prop('disabled', false);
+                                }
+                            },
+                            error: function(xhr) {
+                                $('#exportStatus').hide();
+                                $buttons.prop('disabled', false);
+                                Swal.fire({
+                                    icon: 'error',
+                                    title: 'Perhatian',
+                                    text: 'Terjadi kesalahan: ' + (xhr
+                                        .responseJSON &&
+                                        xhr.responseJSON.message ? xhr
+                                        .responseJSON
+                                        .message :
+                                        'Tidak dapat menghubungi server'),
+                                    toast: true,
+                                    position: 'top-end',
+                                    showConfirmButton: false,
+                                    timer: 3000,
+                                    timerProgressBar: true
+                                });
+                            }
+                        });
+                    }
+                });
+            });
+
+            // Helper function to get current date for filename
+            function getCurrentDate() {
+                const now = new Date();
+                const year = now.getFullYear();
+                const month = String(now.getMonth() + 1).padStart(2, '0');
+                const day = String(now.getDate()).padStart(2, '0');
+                return `${year}${month}${day}`;
+            }
+
+            // Function to export data to Excel
+            function exportToExcel(data, fileName) {
+                // Create a new workbook
+                const wb = XLSX.utils.book_new();
+
+                // Convert the data to a worksheet
+                const ws = XLSX.utils.json_to_sheet(data);
+
+                // Set column widths for better readability
+                const colWidths = [{
+                        wch: 8
+                    }, // No
+                    {
+                        wch: 20
+                    }, // Tanggal
+                    {
+                        wch: 25
+                    }, // No Resi
+                    {
+                        wch: 60
+                    }, // Produk Terjual - wide for multiple products
+                    {
+                        wch: 25
+                    } // Quantity Terjual
+                ];
+
+                ws['!cols'] = colWidths;
+
+                // Configure cell styles to ensure text wrapping for long content
+                if (!ws['!rows']) ws['!rows'] = [];
+
+                // Process each cell to ensure proper text wrapping and formatting
+                for (let i = 0; i < data.length; i++) {
+                    const rowIndex = i + 1; // +1 to skip header
+                    const produkValue = data[i]['Produk Terjual'] || '';
+                    const qtyValue = data[i]['Quantity Terjual'] || '';
+
+                    // Estimate minimum needed height based on text length
+                    const approximateLines = Math.max(
+                        Math.ceil(produkValue.length / 40), // Estimate line breaks based on characters
+                        Math.ceil(qtyValue.length / 15),
+                        1 // Minimum 1 line
+                    );
+
+                    // Set row height for better readability
+                    ws['!rows'][rowIndex] = {
+                        hpt: Math.min(approximateLines * 18, 200) // Adjust height, cap at 200pt
+                    };
+                }
+
+                // Add autofilter to enable Excel filtering
+                const range = XLSX.utils.decode_range(ws['!ref']);
+                ws['!autofilter'] = {
+                    ref: XLSX.utils.encode_range({
+                            r: 0,
+                            c: 0
+                        }, // Start at first row, first column (header)
+                        {
+                            r: 0,
+                            c: range.e.c
+                        } // End at first row, last column
+                    )
+                };
+
+                // Add the worksheet to the workbook
+                XLSX.utils.book_append_sheet(wb, ws, 'Laporan Scanner');
+
+                // Generate Excel file and trigger download
+                XLSX.writeFile(wb, fileName + '.xlsx');
+            }
         });
     </script>
 @endsection

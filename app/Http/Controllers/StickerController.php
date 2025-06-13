@@ -41,10 +41,8 @@ class StickerController extends Controller
             'stok_awal.required' => 'Silahkan masukkan stok awal',
             'stok_awal.integer' => 'Stok awal harus berupa angka',
             'stok_awal.min' => 'Stok awal tidak boleh kurang dari 0',
-            'stok_masuk.required' => 'Silahkan masukkan stok masuk',
             'stok_masuk.integer' => 'Stok masuk harus berupa angka',
             'stok_masuk.min' => 'Stok masuk tidak boleh kurang dari 0',
-            'defect.required' => 'Silahkan masukkan jumlah defect',
             'defect.integer' => 'Jumlah defect harus berupa angka',
             'defect.min' => 'Jumlah defect tidak boleh kurang dari 0',
             'status.required' => 'Silahkan pilih status',
@@ -135,8 +133,8 @@ class StickerController extends Controller
         }
 
         try {
-            // Get eligible products (only specific labels)
-            $products = Sticker::getEligibleProducts();
+            // Get products that are eligible for stickers but don't have stickers yet
+            $products = Sticker::getAvailableProductsForStickers();
 
             // Get status options
             $statuses = Sticker::getStatusOptions();
@@ -187,10 +185,14 @@ class StickerController extends Controller
                 'ukuran' => 'required|string|max:255',
                 'jumlah' => 'required|string|max:255',
                 'stok_awal' => 'required|integer|min:0',
-                'stok_masuk' => 'required|integer|min:0',
-                'defect' => 'required|integer|min:0',
+                'stok_masuk' => 'nullable|integer|min:0',
+                'defect' => 'nullable|integer|min:0',
                 'status' => 'required|string',
             ], $this->getValidationMessages());
+
+            // Set default values for nullable fields
+            $validated['stok_masuk'] = $validated['stok_masuk'] ?? 0;
+            $validated['defect'] = $validated['defect'] ?? 0;
 
             // Set default produksi to 0, will be updated automatically
             $validated['produksi'] = 0;
@@ -215,18 +217,22 @@ class StickerController extends Controller
             Log::info('Product found', [
                 'product_id' => $product->id,
                 'product_name' => $product->name_product,
-                'product_label' => $product->label
+                'product_label' => $product->label,
+                'product_packaging' => $product->packaging
             ]);
 
-            if (!in_array($product->label, [1, 2, 5])) {
-                Log::warning('Product label not eligible', [
+            // Use centralized eligibility check
+            if (!Sticker::isProductEligible($validated['product_id'])) {
+                Log::warning('Product not eligible for stickers', [
                     'product_id' => $product->id,
                     'product_label' => $product->label,
-                    'eligible_labels' => [1, 2, 5]
+                    'product_packaging' => $product->packaging,
+                    'eligible_labels' => [1, 2, 5, 10],
+                    'eligible_packaging' => ['P1', 'T1', 'T2', '-']
                 ]);
                 return response()->json([
                     'success' => false,
-                    'message' => 'Produk yang dipilih tidak memenuhi kriteria label untuk sticker.'
+                    'message' => 'Produk yang dipilih tidak memenuhi kriteria label atau packaging untuk sticker.'
                 ], 422);
             }
 
@@ -329,18 +335,20 @@ class StickerController extends Controller
 
             // For inline editing, we only validate the fields that can be changed
             $validated = $request->validate([
-                'stok_awal' => 'required|integer|min:0',
-                'defect' => 'required|integer|min:0',
+                'stok_awal' => 'nullable|integer|min:0',
+                'defect' => 'nullable|integer|min:0',
                 'sisa' => 'nullable|integer|min:0', // This will be recalculated
                 'status' => 'nullable|string',
             ], [
-                'stok_awal.required' => 'Stok awal harus diisi',
                 'stok_awal.integer' => 'Stok awal harus berupa angka',
                 'stok_awal.min' => 'Stok awal tidak boleh kurang dari 0',
-                'defect.required' => 'Defect harus diisi',
                 'defect.integer' => 'Defect harus berupa angka',
                 'defect.min' => 'Defect tidak boleh kurang dari 0',
             ]);
+
+            // Set default values for nullable fields
+            $validated['stok_awal'] = $validated['stok_awal'] ?? $sticker->stok_awal ?? 0;
+            $validated['defect'] = $validated['defect'] ?? $sticker->defect ?? 0;
 
             // Auto-calculate sisa using dynamic values
             $stokMasuk = $sticker->stok_masuk_dynamic;

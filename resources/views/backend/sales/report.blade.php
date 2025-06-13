@@ -449,8 +449,8 @@
     <script src="{{ URL::asset('build/js/plugins/buttons.print.min.js') }}"></script>
     <script src="{{ URL::asset('build/js/plugins/buttons.colVis.min.js') }}"></script>
 
-    <!-- SheetJS library for Excel export -->
-    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <!-- XLSX library for Excel export -->
+    <script src="{{ URL::asset('build/js/plugins/xlsx.full.min.js') }}"></script>
 
     <!-- Date picker enhancement -->
     <script src="{{ URL::asset('build/js/plugins/flatpickr.min.js') }}"></script>

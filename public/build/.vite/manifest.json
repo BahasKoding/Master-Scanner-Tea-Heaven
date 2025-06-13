@@ -1,4 +1,36 @@
 {
+  "node_modules/@fortawesome/fontawesome-free/webfonts/fa-brands-400.ttf": {
+    "file": "icons/fa-brands-400.ttf",
+    "src": "node_modules/@fortawesome/fontawesome-free/webfonts/fa-brands-400.ttf"
+  },
+  "node_modules/@fortawesome/fontawesome-free/webfonts/fa-brands-400.woff2": {
+    "file": "icons/fa-brands-400.woff2",
+    "src": "node_modules/@fortawesome/fontawesome-free/webfonts/fa-brands-400.woff2"
+  },
+  "node_modules/@fortawesome/fontawesome-free/webfonts/fa-regular-400.ttf": {
+    "file": "icons/fa-regular-400.ttf",
+    "src": "node_modules/@fortawesome/fontawesome-free/webfonts/fa-regular-400.ttf"
+  },
+  "node_modules/@fortawesome/fontawesome-free/webfonts/fa-regular-400.woff2": {
+    "file": "icons/fa-regular-400.woff2",
+    "src": "node_modules/@fortawesome/fontawesome-free/webfonts/fa-regular-400.woff2"
+  },
+  "node_modules/@fortawesome/fontawesome-free/webfonts/fa-solid-900.ttf": {
+    "file": "icons/fa-solid-900.ttf",
+    "src": "node_modules/@fortawesome/fontawesome-free/webfonts/fa-solid-900.ttf"
+  },
+  "node_modules/@fortawesome/fontawesome-free/webfonts/fa-solid-900.woff2": {
+    "file": "icons/fa-solid-900.woff2",
+    "src": "node_modules/@fortawesome/fontawesome-free/webfonts/fa-solid-900.woff2"
+  },
+  "node_modules/@fortawesome/fontawesome-free/webfonts/fa-v4compatibility.ttf": {
+    "file": "icons/fa-v4compatibility.ttf",
+    "src": "node_modules/@fortawesome/fontawesome-free/webfonts/fa-v4compatibility.ttf"
+  },
+  "node_modules/@fortawesome/fontawesome-free/webfonts/fa-v4compatibility.woff2": {
+    "file": "icons/fa-v4compatibility.woff2",
+    "src": "node_modules/@fortawesome/fontawesome-free/webfonts/fa-v4compatibility.woff2"
+  },
   "resources/fonts/phosphor/duotone/Phosphor-Duotone.svg": {
     "file": "icons/Phosphor-Duotone.svg",
     "src": "resources/fonts/phosphor/duotone/Phosphor-Duotone.svg"
@@ -18,6 +50,24 @@
   "resources/images/landing/widget-bg.png": {
     "file": "icons/widget-bg.png",
     "src": "resources/images/landing/widget-bg.png"
+  },
+  "resources/js/vendor.js": {
+    "file": "js/vendor.js",
+    "src": "resources/js/vendor.js",
+    "isEntry": true,
+    "css": [
+      "css/vendor.css"
+    ],
+    "assets": [
+      "icons/fa-brands-400.woff2",
+      "icons/fa-brands-400.ttf",
+      "icons/fa-regular-400.woff2",
+      "icons/fa-regular-400.ttf",
+      "icons/fa-solid-900.woff2",
+      "icons/fa-solid-900.ttf",
+      "icons/fa-v4compatibility.woff2",
+      "icons/fa-v4compatibility.ttf"
+    ]
   },
   "resources/scss/landing.scss": {
     "file": "css/landing.css",

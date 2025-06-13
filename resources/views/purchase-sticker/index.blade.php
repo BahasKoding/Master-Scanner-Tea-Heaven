@@ -216,8 +216,6 @@
                                         (PCS)</th>
                                     <th title="Jumlah stiker yang direncanakan untuk order pelanggan">Jumlah Order</th>
                                     <th title="Jumlah stiker yang sudah diterima dari supplier">Stok Masuk</th>
-                                    <th title="Total akhir order setelah penyesuaian">
-                                        Total Order</th>
                                     <th>Aksi</th>
                                 </tr>
                             </thead>
@@ -259,6 +257,12 @@
                                         @endforeach
                                     </select>
                                     <div class="invalid-feedback" id="error-product_id"></div>
+                                    <small class="text-muted">
+                                        <i class="fas fa-info-circle"></i>
+                                        <strong>{{ count($products) }}</strong> produk tersedia
+                                        (Hanya produk yang sudah memiliki data sticker)
+                                    </small>
+
                                 </div>
                             </div>
                             <div class="col-md-6">
@@ -268,7 +272,10 @@
                                     <input type="text" class="form-control" id="ukuran_stiker" name="ukuran_stiker"
                                         placeholder="Akan terisi otomatis saat produk dipilih" readonly required>
                                     <div class="invalid-feedback" id="error-ukuran_stiker"></div>
-                                    <small class="text-muted">Ukuran akan terisi otomatis berdasarkan data produk</small>
+                                    <small class="text-muted">
+                                        <strong>Tambah Baru:</strong> Terisi otomatis dari data sticker produk<br>
+                                        <strong>Edit:</strong> Menggunakan data existing (tidak diubah otomatis)
+                                    </small>
                                 </div>
                             </div>
                         </div>
@@ -281,8 +288,10 @@
                                     <input type="number" class="form-control" id="jumlah_stiker" name="jumlah_stiker"
                                         min="1" required>
                                     <div class="invalid-feedback" id="error-jumlah_stiker"></div>
-                                    <small class="text-muted">Informasi jumlah stiker per lembar A3 (hanya
-                                        referensi)</small>
+                                    <small class="text-muted">
+                                        <strong>Auto-fill:</strong> Terisi otomatis dari data sticker, tetapi bisa diedit
+                                        manual
+                                    </small>
                                 </div>
                             </div>
                             <div class="col-md-6">
@@ -315,7 +324,7 @@
                         <hr>
                         <h6>Detail Penerimaan Stiker</h6>
                         <div class="row">
-                            <div class="col-md-6">
+                            <div class="col-md-12">
                                 <div class="mb-3">
                                     <label for="stok_masuk" class="form-label">Stok Masuk</label>
                                     <input type="number" class="form-control" id="stok_masuk" name="stok_masuk"
@@ -324,37 +333,58 @@
                                     <small class="text-muted">Jumlah stiker yang sudah diterima/masuk ke gudang</small>
                                 </div>
                             </div>
-                            <div class="col-md-6">
-                                <div class="mb-3">
-                                    <label for="total_order" class="form-label">Total Order Final</label>
-                                    <input type="number" class="form-control" id="total_order" name="total_order"
-                                        min="0" value="0">
-                                    <div class="invalid-feedback" id="error-total_order"></div>
-                                    <small class="text-muted">Total akhir order setelah penyesuaian</small>
-                                </div>
-                            </div>
                         </div>
 
                         <div class="alert alert-info">
                             <strong>Penjelasan Field:</strong>
                             <ul class="mb-2">
-                                <li><strong>Jumlah Stiker / A3:</strong> Informasi referensi berapa stiker per lembar A3
-                                </li>
+                                <li><strong>Ukuran Stiker:</strong> Auto-fill dari data sticker (tidak dapat diedit)</li>
+                                <li><strong>Jumlah Stiker / A3:</strong> Auto-fill dari data sticker, tetapi dapat diedit
+                                    manual jika diperlukan</li>
                                 <li><strong>Jumlah Order:</strong> Jumlah stiker yang direncanakan untuk order pelanggan
                                     (DATA DINAMIS)</li>
                                 <li><strong>Stok Masuk:</strong> Jumlah stiker yang sudah diterima dari supplier (DATA
                                     DINAMIS)</li>
-                                <li><strong>Total Order Final:</strong> Total akhir order setelah ada penyesuaian (DATA
-                                    DINAMIS)</li>
                             </ul>
                             <div class="row">
                                 <div class="col-md-6">
-                                    <small class="text-muted"><strong>Info:</strong> Yang penting adalah data dinamis
-                                        (Order, Stok Masuk, Total Order)</small>
+                                    <small class="text-muted"><strong>Auto-Fill:</strong> Ukuran Stiker (readonly), Jumlah
+                                        Stiker/A3 (editable)</small>
                                 </div>
                                 <div class="col-md-6">
-                                    <small class="text-muted"><strong>Auto:</strong> Ukuran Stiker otomatis dari data
-                                        produk</small>
+                                    <small class="text-muted"><strong>Manual Input:</strong> Jumlah Order, Stok
+                                        Masuk</small>
+                                </div>
+                            </div>
+                            <hr class="my-2">
+                            <div class="row">
+                                <div class="col-md-12">
+                                    <small class="text-primary">
+                                        <i class="fas fa-database"></i>
+                                        <strong>Data Produk:</strong> {{ count($products) }} produk dengan data sticker
+                                        @php
+                                            $labelCounts = $products->groupBy('label')->map->count();
+                                            $packagingCounts = $products->groupBy('packaging')->map->count();
+                                        @endphp
+                                        <br>
+                                        <strong>Per Label:</strong>
+                                        @foreach ($labelCounts as $label => $count)
+                                            Label {{ $label }}: {{ $count }}
+                                            produk{{ !$loop->last ? ', ' : '' }}
+                                        @endforeach
+                                        <br>
+                                        <strong>Per Packaging:</strong>
+                                        @foreach ($packagingCounts as $packaging => $count)
+                                            {{ $packaging ?: 'Kosong' }}: {{ $count }}
+                                            produk{{ !$loop->last ? ', ' : '' }}
+                                        @endforeach
+                                        <br>
+                                        <small class="text-info">
+                                            <i class="fas fa-lightbulb"></i>
+                                            <strong>Catatan:</strong> Purchase Sticker hanya dapat dibuat untuk produk yang
+                                            sudah memiliki data di menu Sticker.
+                                        </small>
+                                    </small>
                                 </div>
                             </div>
                         </div>
@@ -386,7 +416,7 @@
 
 @section('scripts')
     <!-- SweetAlert2 -->
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="{{ URL::asset('build/js/plugins/sweetalert2.all.min.js') }}"></script>
 
     <!-- Core JS files -->
     <script src="{{ URL::asset('build/js/plugins/jquery-3.6.0.min.js') }}"></script>
@@ -497,6 +527,7 @@
                     placeholder: true,
                     placeholderValue: "-- Pilih Produk --",
                     removeItemButton: true,
+                    allowHTML: false,
                     classNames: {
                         containerOuter: 'choices form-select product-select-container',
                     }
@@ -520,12 +551,14 @@
         }
 
         // Function to handle product selection (compatible with both native select and Choices.js)
-        function handleProductSelection(productId) {
-            debugLog('Handling product selection:', productId);
+        function handleProductSelection(productId, preserveExistingData = false) {
+            debugLog('Handling product selection:', productId, 'preserveExistingData:', preserveExistingData);
 
             if (productId) {
-                // Show loading state
-                $('#ukuran_stiker').val('Memuat...');
+                // Show loading state only if we're not preserving existing data
+                if (!preserveExistingData) {
+                    $('#ukuran_stiker').val('Memuat...');
+                }
                 $('#sticker-info').hide();
 
                 debugLog('Making AJAX request to get sticker data for product:', productId);
@@ -533,14 +566,21 @@
                 $.ajax({
                     url: `/purchase-sticker/get-sticker-data/${productId}`,
                     type: 'GET',
+                    timeout: 10000, // 10 second timeout
+                    beforeSend: function() {
+                        debugLog('AJAX request started for product:', productId);
+                    },
                     success: function(response) {
                         debugLog('Sticker data response received:', response);
 
                         if (response.success) {
-                            // Fill in the sticker data
-                            $('#ukuran_stiker').val(response.data.ukuran_stiker);
+                            // Only fill in the sticker data if we're not preserving existing data
+                            if (!preserveExistingData) {
+                                $('#ukuran_stiker').val(response.data.ukuran_stiker);
+                                $('#jumlah_stiker').val(response.data.jumlah_per_a3);
+                            }
 
-                            // Show sticker info
+                            // Always show sticker info for reference
                             $('#sticker-details').html(
                                 `Ukuran: <strong>${response.data.ukuran_stiker}</strong> | ` +
                                 `Jumlah per A3: <strong>${response.data.jumlah_per_a3}</strong> sticker`
@@ -548,39 +588,77 @@
                             $('#sticker-info').fadeIn();
 
                             debugLog('Sticker data loaded successfully:', response.data);
+
+                            if (preserveExistingData) {
+                                debugLog('Existing data preserved, not overwriting ukuran_stiker field');
+                            }
                         } else {
-                            $('#ukuran_stiker').val('');
+                            if (!preserveExistingData) {
+                                $('#ukuran_stiker').val('');
+                            }
                             $('#sticker-info').hide();
 
-                            debugLog('Sticker data not found:', response.message);
+                            debugLog('Sticker data not found or error:', response.message);
 
+                            // Show more informative error message
                             Swal.fire({
                                 title: 'Perhatian',
-                                text: response.message ||
-                                    'Data sticker untuk produk ini tidak ditemukan',
+                                html: `<div class="text-start">
+                                    <p><strong>Pesan:</strong> ${response.message}</p>
+                                    <p><strong>Produk ID:</strong> ${productId}</p>
+                                    <hr>
+                                    <small class="text-muted">
+                                        <strong>Kemungkinan penyebab:</strong><br>
+                                        • Data sticker untuk produk ini belum dibuat<br>
+                                        • Silakan buat data sticker terlebih dahulu di menu Sticker<br>
+                                        • Pastikan produk memiliki ukuran dan jumlah sticker yang valid
+                                    </small>
+                                </div>`,
                                 icon: 'warning',
-                                timer: 3000,
-                                showConfirmButton: false,
-                                toast: true,
-                                position: 'top-end'
+                                confirmButtonText: 'Mengerti',
+                                confirmButtonColor: '#3085d6'
                             });
                         }
                     },
-                    error: function(xhr) {
-                        $('#ukuran_stiker').val('');
+                    error: function(xhr, status, error) {
+                        if (!preserveExistingData) {
+                            $('#ukuran_stiker').val('');
+                        }
                         $('#sticker-info').hide();
 
-                        debugLog('Error getting sticker data:', xhr);
-                        console.error('Error getting sticker data:', xhr);
+                        debugLog('AJAX Error details:', {
+                            xhr: xhr,
+                            status: status,
+                            error: error,
+                            responseText: xhr.responseText,
+                            statusCode: xhr.status
+                        });
+
+                        let errorMessage = 'Gagal mengambil data sticker. Silakan coba lagi.';
+
+                        if (xhr.status === 404) {
+                            errorMessage = 'Endpoint tidak ditemukan. Silakan hubungi administrator.';
+                        } else if (xhr.status === 500) {
+                            errorMessage =
+                                'Terjadi kesalahan server. Silakan coba lagi atau hubungi administrator.';
+                        } else if (status === 'timeout') {
+                            errorMessage = 'Permintaan timeout. Silakan coba lagi.';
+                        }
 
                         Swal.fire({
                             title: 'Error',
-                            text: 'Gagal mengambil data sticker. Silakan coba lagi.',
+                            html: `<div class="text-start">
+                                <p><strong>Pesan:</strong> ${errorMessage}</p>
+                                <p><strong>Status:</strong> ${xhr.status} ${status}</p>
+                                <p><strong>Produk ID:</strong> ${productId}</p>
+                                <hr>
+                                <small class="text-muted">
+                                    Jika masalah berlanjut, silakan hubungi administrator dengan informasi di atas.
+                                </small>
+                            </div>`,
                             icon: 'error',
-                            timer: 3000,
-                            showConfirmButton: false,
-                            toast: true,
-                            position: 'top-end'
+                            confirmButtonText: 'OK',
+                            confirmButtonColor: '#3085d6'
                         });
                     }
                 });
@@ -755,10 +833,6 @@
                             name: 'stok_masuk'
                         },
                         {
-                            data: 'total_order',
-                            name: 'total_order'
-                        },
-                        {
                             data: 'action',
                             name: 'action',
                             orderable: false,
@@ -862,6 +936,7 @@
                                 if (response.success) {
                                     // Fill in the sticker data
                                     $('#ukuran_stiker').val(response.data.ukuran_stiker);
+                                    $('#jumlah_stiker').val(response.data.jumlah_per_a3);
 
                                     // Show sticker info
                                     $('#sticker-details').html(
@@ -937,8 +1012,7 @@
                         ukuran_stiker: formData.get('ukuran_stiker'),
                         jumlah_stiker: formData.get('jumlah_stiker'),
                         jumlah_order: formData.get('jumlah_order'),
-                        stok_masuk: formData.get('stok_masuk'),
-                        total_order: formData.get('total_order')
+                        stok_masuk: formData.get('stok_masuk')
                     });
 
                     Swal.fire({
@@ -1164,20 +1238,19 @@
                                     $('#jumlah_stiker').val(data.jumlah_stiker);
                                     $('#jumlah_order').val(data.jumlah_order);
                                     $('#stok_masuk').val(data.stok_masuk);
-                                    $('#total_order').val(data.total_order);
 
                                     debugLog('All form fields set:', {
                                         product_id: data.product_id,
                                         ukuran_stiker: data.ukuran_stiker,
                                         jumlah_stiker: data.jumlah_stiker,
                                         jumlah_order: data.jumlah_order,
-                                        stok_masuk: data.stok_masuk,
-                                        total_order: data.total_order
+                                        stok_masuk: data.stok_masuk
                                     });
 
-                                    // Force trigger product selection to load sticker data
+                                    // Force trigger product selection to load sticker data for reference only
+                                    // Use preserveExistingData=true to avoid overwriting the existing ukuran_stiker
                                     if (data.product_id) {
-                                        handleProductSelection(data.product_id);
+                                        handleProductSelection(data.product_id, true);
                                     }
                                 }, 100);
 

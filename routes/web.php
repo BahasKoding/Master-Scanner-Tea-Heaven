@@ -42,7 +42,7 @@ Auth::routes();
 // All authenticated routes
 Route::middleware(['auth'])->group(function () {
     // Dashboard routes
-    Route::get('/dashboard',[DashboardController::class, 'index'])->name('dashboard');
+    Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
     /*
     |--------------------------------------------------------------------------
@@ -151,6 +151,7 @@ Route::middleware(['auth'])->group(function () {
 
     // Resource routes using Laravel's resource controller pattern
     Route::resource('products', ProductController::class);
+    Route::post('products/export', [ProductController::class, 'exportExcel'])->name('products.export');
     Route::resource('catatan-produksi', CatatanProduksiController::class);
     Route::get('get-bahan-baku-list', [CatatanProduksiController::class, 'getBahanBakuList'])->name('catatan-produksi.bahan-baku-list');
     Route::get('get-filtered-products-list', [CatatanProduksiController::class, 'getFilteredProductsList'])->name('catatan-produksi.filtered-products-list');

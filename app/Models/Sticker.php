@@ -127,14 +127,55 @@ class Sticker extends Model
 
     /**
      * Get products that are eligible for stickers
-     * Based on labels: EXTRA SMALL PACK, TIN CANISTER SERIES, JAPANESE TEABAGS
+     * Based on labels: EXTRA SMALL PACK (1), TIN CANISTER SERIES (5), JAPANESE TEABAGS (10)
+     * And specific packaging requirements
      */
     public static function getEligibleProducts()
     {
-        return Product::whereIn('label', [1, 5, 10]) // 1=EXTRA SMALL PACK, 5=TIN CANISTER SERIES, 10=JAPANESE TEABAGS
+        return Product::whereIn('label', [1, 2, 5, 10]) // Include label 2 for consistency
             ->whereIn('packaging', ['P1', 'T1', 'T2', '-'])
             ->orderBy('name_product')
             ->get();
+    }
+
+    /**
+     * Get products that are eligible for stickers but don't have stickers yet
+     * This is used for the add sticker form to prevent duplicate stickers
+     */
+    public static function getAvailableProductsForStickers()
+    {
+        return Product::whereIn('label', [1, 2, 5, 10]) // Include label 2 for consistency
+            ->whereIn('packaging', ['P1', 'T1', 'T2', '-'])
+            ->whereDoesntHave('stickers') // Only products without existing stickers
+            ->orderBy('name_product')
+            ->get();
+    }
+
+    /**
+     * Check if a product is eligible for stickers
+     * This method provides a centralized way to check eligibility
+     */
+    public static function isProductEligible($productId)
+    {
+        $product = Product::find($productId);
+
+        if (!$product) {
+            return false;
+        }
+
+        // Check label eligibility
+        $eligibleLabels = [1, 2, 5, 10];
+        if (!in_array($product->label, $eligibleLabels)) {
+            return false;
+        }
+
+        // Check packaging eligibility
+        $eligiblePackaging = ['P1', 'T1', 'T2', '-'];
+        if (!in_array($product->packaging, $eligiblePackaging)) {
+            return false;
+        }
+
+        return true;
     }
 
     /**
@@ -158,15 +199,16 @@ class Sticker extends Model
      */
     public static function ensureStickerExists($productId)
     {
-        $product = Product::find($productId);
-
-        if (!$product || !in_array($product->label, [1, 5, 10])) {
+        // Use centralized eligibility check
+        if (!static::isProductEligible($productId)) {
             return null; // Product is not eligible for stickers
         }
 
         $sticker = static::where('product_id', $productId)->first();
 
         if (!$sticker) {
+            $product = Product::find($productId);
+
             // Determine sticker specifications based on packaging
             $ukuranMapping = static::getUkuranSticker();
             $jumlahMapping = static::getJumlahPerA3();

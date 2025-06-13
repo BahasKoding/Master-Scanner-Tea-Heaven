@@ -17,9 +17,12 @@
     <link href="{{ URL::asset('build/css/plugins/animate.min.css') }}" rel="stylesheet" type="text/css">
     <link href="{{ URL::asset('build/css/plugins/swiper-bundle.css') }}" rel="stylesheet">
     <!-- [Page specific CSS] end -->
-    <!-- [Google Font : Public Sans] icon -->
-    <link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&display=swap"
-        rel="stylesheet">
+    <!-- System Fonts Alternative -->
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif !important;
+        }
+    </style>
 
     <!-- [Tabler Icons] https://tablericons.com -->
     <link rel="stylesheet" href="{{ URL::asset('build/fonts/tabler-icons.min.css') }}">

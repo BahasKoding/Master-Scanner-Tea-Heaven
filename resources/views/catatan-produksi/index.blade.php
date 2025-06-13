@@ -9,10 +9,8 @@
 
     <!-- [Page specific CSS] start -->
     <!-- data tables css -->
-    <link rel="stylesheet" href="{{ URL::asset('build/css/plugins/datatables/dataTables.bootstrap5.min.css') }}">
-    <link rel="stylesheet" href="{{ URL::asset('build/css/plugins/datatables/buttons.bootstrap5.min.css') }}">
-    <!-- Choices css -->
-    <link rel="stylesheet" href="{{ URL::asset('build/css/plugins/choices.min.css') }}">
+    <link rel="stylesheet" href="{{ URL::asset('build/css/plugins/dataTables.bootstrap5.min.css') }}">
+    <link rel="stylesheet" href="{{ URL::asset('build/css/plugins/buttons.bootstrap5.min.css') }}">
     <!-- [Page specific CSS] end -->
     <style>
         .form-section {
@@ -324,6 +322,13 @@
             border-left: none !important;
             border-top-left-radius: 0 !important;
             border-bottom-left-radius: 0 !important;
+            min-width: 45px !important;
+        }
+
+        .convert-btn:hover {
+            background-color: #0d6efd !important;
+            border-color: #0d6efd !important;
+            color: white !important;
         }
 
         .satuan-display {
@@ -567,17 +572,18 @@
                                                     required min="0.01" step="0.01" placeholder="0.00">
                                                 <div class="input-group-text satuan-display bg-light"
                                                     style="min-width: 60px;">
-                                                    <span class="satuan-text">Satuan</span>
+                                                    <span class="satuan-text">gr</span>
                                                 </div>
                                                 <button class="btn btn-outline-secondary btn-sm convert-btn"
-                                                    type="button" style="display: none;" title="Konversi Satuan">
+                                                    type="button" title="Konversi Satuan (kg ↔ gram)">
                                                     <i class="fas fa-exchange-alt"></i>
                                                 </button>
                                             </div>
-                                            <div class="gramasi-helper" style="display: none;">
+                                            <div class="gramasi-helper">
                                                 <small class="text-info">
                                                     <i class="fas fa-info-circle"></i>
-                                                    <span class="conversion-text"></span>
+                                                    <span class="conversion-text">Contoh: 500 gram = 0.5 kg, 1200 gram =
+                                                        1.2 kg</span>
                                                 </small>
                                             </div>
                                             <small class="text-muted">Masukkan jumlah bahan yang digunakan per
@@ -725,26 +731,18 @@
 
             function debugLog(...args) {
                 if (DEBUG) {
-                    console.log('[DEBUG]', new Date().toISOString(), ...args);
+                    // Debug logging disabled
                 }
             }
 
             // Function to show detailed debug alert
             function showDebugAlert(title, data) {
                 if (DEBUG) {
-                    console.group(`🔍 [DEBUG ALERT] ${title}`);
-                    console.log('📊 Data:', data);
-                    console.log('🕐 Timestamp:', new Date().toISOString());
-                    console.groupEnd();
-
-                    // Tampilkan di console table untuk data yang mudah dibaca
-                    if (typeof data === 'object' && data !== null) {
-                        console.table(data);
-                    }
+                    // Debug alerts disabled
                 }
             }
 
-            // Tambahkan timestamp ke setiap request AJAX untuk menghindari caching
+            // Setup AJAX untuk menghindari caching dan force fresh data
             $.ajaxSetup({
                 cache: false,
                 headers: {
@@ -752,6 +750,14 @@
                     'Cache-Control': 'no-cache, no-store, must-revalidate',
                     'Pragma': 'no-cache',
                     'Expires': '0'
+                },
+                beforeSend: function(xhr, settings) {
+                    // Add timestamp to all AJAX requests to prevent caching
+                    if (settings.url.indexOf('?') === -1) {
+                        settings.url += '?_t=' + Date.now();
+                    } else {
+                        settings.url += '&_t=' + Date.now();
+                    }
                 }
             });
 
@@ -781,6 +787,7 @@
                         placeholder: true,
                         placeholderValue: "Pilih Produk",
                         removeItemButton: true,
+                        allowHTML: false,
                         classNames: {
                             containerOuter: 'choices form-select product-select-container',
                         }
@@ -808,6 +815,7 @@
                         placeholder: true,
                         placeholderValue: "Pilih Produk",
                         removeItemButton: true,
+                        allowHTML: false,
                         classNames: {
                             containerOuter: 'choices form-select product-select-container',
                         }
@@ -857,6 +865,7 @@
                     placeholder: true,
                     placeholderValue: "Pilih Bahan Baku",
                     removeItemButton: true,
+                    allowHTML: false,
                     classNames: {
                         containerOuter: 'choices form-select bahan-baku-select-container',
                     }
@@ -919,7 +928,8 @@
                 satuanDisplay.text(formattedSatuan);
 
                 // Show conversion helper for weight units
-                if (isWeightUnit(satuan)) {
+                const isWeight = isWeightUnit(satuan);
+                if (isWeight) {
                     convertBtn.show();
                     helperDiv.show();
                     updateConversionHelper(container, satuan);
@@ -951,8 +961,10 @@
 
             // Check if satuan is a weight unit
             function isWeightUnit(satuan) {
-                const weightUnits = ['gram', 'g', 'kg', 'kilogram'];
-                return weightUnits.includes(satuan.toLowerCase());
+                const weightUnits = ['gram', 'g', 'kg', 'kilogram', 'gr'];
+                const isWeight = weightUnits.includes(satuan.toLowerCase());
+
+                return isWeight;
             }
 
             // Update conversion helper text
@@ -1019,62 +1031,51 @@
                     }
                 }
 
-                console.log('Product selection changed:', {
-                    selectedIndex: this.selectedIndex,
-                    value: this.value,
-                    packaging: packaging,
-                    sku: sku,
-                    option: selectedOption,
-                    optionText: selectedOption ? selectedOption.text : 'N/A',
-                    dataPackaging: selectedOption ? selectedOption.getAttribute('data-packaging') :
-                        'N/A',
-                    dataSku: selectedOption ? selectedOption.getAttribute('data-sku') : 'N/A'
-                });
-
                 if (packaging && packaging.trim() !== '') {
                     form.find('[name="packaging"]').val(packaging.trim());
-                    console.log('Packaging auto-filled:', packaging);
                     showValidationFeedback(form.find('[name="packaging"]'), true,
                         "Packaging terisi otomatis");
                 } else {
                     form.find('[name="packaging"]').val('');
-                    console.log('No packaging data found for selected product');
                 }
 
                 // Trigger validation feedback for product selection
                 showValidationFeedback($(this), this.value !== "", "Produk dipilih dengan benar");
             });
 
-            // Event delegation untuk semua perubahan dalam form
-            $(document).on('change', function(e) {
-                const target = e.target;
+            // Event delegation untuk bahan baku selection change - improved
+            $(document).on('change', '.bahan-baku-select', function() {
+                const value = $(this).val();
+                const container = $(this).closest('.array-container');
 
-                // Handle product choice change for packaging auto-fill (fallback)
-                if (target.classList.contains('product-select')) {
-                    const selectedOption = target.options[target.selectedIndex];
-                    const packaging = selectedOption ? selectedOption.dataset.packaging : '';
-                    if (packaging) {
-                        $(target).closest('form').find('[name="packaging"]').val(packaging);
-                    }
-                }
+                // Validate
+                showValidationFeedback($(this), value !== "", "Bahan baku dipilih dengan benar");
 
-                // Handle bahan baku choice change
-                if (target.classList.contains('bahan-baku-select')) {
-                    const value = target.value;
-                    const container = $(target).closest('.array-container');
+                // Update satuan
+                if (value) {
+                    const selectedOption = this.options[this.selectedIndex];
+                    const satuan = selectedOption ? selectedOption.dataset.satuan : null;
 
-                    // Validate
-                    showValidationFeedback($(target), value !== "", "Bahan baku dipilih dengan benar");
-
-                    // Update satuan
-                    if (value) {
-                        const selectedOption = target.options[target.selectedIndex];
-                        const satuan = selectedOption ? selectedOption.dataset.satuan : 'Satuan';
+                    if (satuan) {
                         updateSatuanDisplay(container, satuan);
-
-                        // Recalculate total for this row
-                        calculateRowTotal(container);
+                    } else {
+                        updateSatuanDisplay(container, 'gram'); // Default to gram if no satuan
                     }
+
+                    // Recalculate total for this row
+                    calculateRowTotal(container);
+                } else {
+                    // Reset satuan if no bahan baku selected
+                    updateSatuanDisplay(container, 'gram'); // Default to gram instead of 'Satuan'
+                }
+            });
+
+            // Event delegation untuk product change
+            $(document).on('change', '.product-select', function() {
+                const selectedOption = this.options[this.selectedIndex];
+                const packaging = selectedOption ? selectedOption.dataset.packaging : '';
+                if (packaging) {
+                    $(this).closest('form').find('[name="packaging"]').val(packaging);
                 }
             });
 
@@ -1200,17 +1201,17 @@
                                 <div class="input-group">
                                     <input type="number" class="form-control gramasi-input" name="gramasi[]" required min="0.01" step="0.01" placeholder="0.00">
                                     <div class="input-group-text satuan-display bg-light" style="min-width: 60px;">
-                                        <span class="satuan-text">Satuan</span>
+                                        <span class="satuan-text">gr</span>
                                     </div>
                                     <button class="btn btn-outline-secondary btn-sm convert-btn" type="button" 
-                                        style="display: none;" title="Konversi Satuan">
+                                        title="Konversi Satuan (kg ↔ gram)">
                                         <i class="fas fa-exchange-alt"></i>
                                     </button>
                                 </div>
-                                <div class="gramasi-helper" style="display: none;">
+                                <div class="gramasi-helper">
                                     <small class="text-info">
                                         <i class="fas fa-info-circle"></i>
-                                        <span class="conversion-text"></span>
+                                        <span class="conversion-text">Contoh: 500 gram = 0.5 kg, 1200 gram = 1.2 kg</span>
                                     </small>
                                 </div>
                                 <small class="text-muted">Masukkan jumlah bahan yang digunakan per produk</small>
@@ -1228,6 +1229,17 @@
                 `;
             }
 
+            // Show convert button and helper for all containers on modal shown
+            $('#addProduksiModal, #editProduksiModal').on('shown.bs.modal', function() {
+                setTimeout(() => {
+                    // Show convert button and helper for all containers
+                    $(this).find('.convert-btn').show();
+                    $(this).find('.gramasi-helper').show();
+                    $(this).find('.conversion-text').text(
+                        'Icon konversi tersedia untuk satuan berat (kg/gram)');
+                }, 200);
+            });
+
             // Add More SKU Button Click untuk form Add
             $('#add-more-sku').on('click', function() {
                 const newContainer = $(getSkuGramasiTemplate(false));
@@ -1238,6 +1250,10 @@
                 if (newSelect) {
                     setTimeout(() => {
                         initBahanBakuChoices(newSelect);
+
+                        // Ensure convert button and helper are visible for new containers
+                        updateSatuanDisplay(newContainer, 'gram');
+
                     }, 50);
                 }
             });
@@ -1469,11 +1485,24 @@
                         Swal.close();
 
                         if (data.success) {
-                            // Reset form
+                            // Reset form first
                             form[0].reset();
 
                             // Remove all containers kecuali yang pertama
                             form.find('.array-container:not(:first)').remove();
+
+                            // Get modal instance and hide it properly
+                            const modalElement = document.getElementById('addProduksiModal');
+                            const modalInstance = bootstrap.Modal.getInstance(modalElement) ||
+                                new bootstrap.Modal(modalElement);
+                            modalInstance.hide();
+
+                            // Clean up modal backdrop immediately
+                            setTimeout(function() {
+                                $('.modal-backdrop').remove();
+                                $('body').removeClass('modal-open').css('padding-right',
+                                    '');
+                            }, 100);
 
                             // Reset Choices.js selectors
                             if (addProductChoices) {
@@ -1521,7 +1550,29 @@
                                 '.valid-feedback, .invalid-feedback, .total-calculation-display'
                             ).remove();
 
-                            // Show success message immediately
+                            // Reload table with error handling and reset to first page to show new data
+                            try {
+                                table.ajax.reload(function() {
+                                    // After reload, go to first page to see the newest data
+                                    table.page('first').draw('page');
+
+                                    // Scroll to top of table to make sure user sees the data
+                                    setTimeout(function() {
+                                        $('html, body').animate({
+                                            scrollTop: $(
+                                                    '#produksi-table')
+                                                .offset().top - 100
+                                        }, 500);
+                                    }, 200);
+                                }, true); // true = reset paging to first page
+                            } catch (error) {
+                                // Fallback: reload the page if table reload fails
+                                setTimeout(function() {
+                                    window.location.reload();
+                                }, 1000);
+                            }
+
+                            // Show success message
                             Swal.fire({
                                 title: 'Berhasil!',
                                 text: data.message,
@@ -1531,38 +1582,6 @@
                                 toast: true,
                                 position: 'top-end'
                             });
-
-                            // Close modal first
-                            setTimeout(function() {
-                                closeModal('addProduksiModal');
-                                $('body').removeClass('modal-open');
-                                $('.modal-backdrop').remove();
-                            }, 100);
-
-                            // Then reload table with improved method
-                            setTimeout(function() {
-                                console.log(
-                                    '🔄 Starting table reload after successful insert...'
-                                );
-
-                                // Try simple reload first
-                                reloadTable(function(json) {
-                                    console.log(
-                                        '✅ Table reload completed successfully:',
-                                        json?.recordsTotal || 0, 'records');
-                                });
-
-                                // If simple reload doesn't work, try force reload after delay
-                                setTimeout(function() {
-                                    console.log('🔄 Force reload as backup...');
-                                    forceReloadTable(function(json) {
-                                        console.log(
-                                            '✅ Force reload completed:',
-                                            json?.recordsTotal || 0,
-                                            'records');
-                                    });
-                                }, 1000);
-                            }, 200);
                         }
                     },
                     error: function(xhr) {
@@ -1842,6 +1861,7 @@
                         if (data.success) {
                             // Reset form and close modal
                             form[0].reset();
+                            $('#editProduksiModal').modal('hide');
 
                             // Reset Choices.js selectors
                             if (editProductChoices) {
@@ -1886,45 +1906,27 @@
                                 '.valid-feedback, .invalid-feedback, .total-calculation-display'
                             ).remove();
 
-                            // Show success message immediately
+                            // Reload table and scroll to show updated data
+                            table.ajax.reload(function() {
+                                // Scroll to table to make sure user sees the updated data
+                                setTimeout(function() {
+                                    $('html, body').animate({
+                                        scrollTop: $('#produksi-table')
+                                            .offset().top - 100
+                                    }, 500);
+                                }, 200);
+                            }, false);
+
+                            // Show success message
                             Swal.fire({
                                 title: 'Berhasil!',
                                 text: data.message,
                                 icon: 'success',
-                                timer: 2000,
+                                timer: 1500,
                                 showConfirmButton: false,
                                 toast: true,
                                 position: 'top-end'
                             });
-
-                            // Close modal first
-                            setTimeout(function() {
-                                closeModal('editProduksiModal');
-                                $('body').removeClass('modal-open');
-                                $('.modal-backdrop').remove();
-                            }, 100);
-
-                            // Then reload table
-                            setTimeout(function() {
-                                console.log(
-                                    '🔄 Starting table reload after successful edit...'
-                                );
-
-                                reloadTable(function(json) {
-                                    console.log(
-                                        '✅ Edit table reload completed:',
-                                        json?.recordsTotal || 0, 'records');
-                                });
-
-                                setTimeout(function() {
-                                    forceReloadTable(function(json) {
-                                        console.log(
-                                            '✅ Edit force reload completed:',
-                                            json?.recordsTotal || 0,
-                                            'records');
-                                    });
-                                }, 1000);
-                            }, 200);
                         }
                     },
                     error: function(xhr) {
@@ -2046,7 +2048,7 @@
                 }
             });
 
-            // Edit Button Click
+            // Complete rewrite of edit button click handler with proper product value setting
             $(document).on('click', '.edit-btn', function() {
                 var id = $(this).data('id');
 
@@ -2073,16 +2075,20 @@
                         if (data.success) {
                             const catatan = data.data;
 
+                            // Reset form first
+                            $('#editProduksiForm')[0].reset();
+                            $('#edit-sku-gramasi-container').empty();
+
                             // Set basic data
                             $('#edit_produksi_id').val(catatan.id);
-                            $('#edit_product_id').val(catatan.product_id);
                             $('#edit_packaging').val(catatan.packaging);
                             $('#edit_quantity').val(catatan.quantity);
 
-                            // Clear existing bahan baku containers
-                            $('#edit-sku-gramasi-container').empty();
+                            // Store product_id for setting after modal is shown
+                            $('#editProduksiModal').data('product-id', catatan.product_id);
+                            debugLog('Stored product_id for edit modal:', catatan.product_id);
 
-                            // Populate bahan baku data
+                            // Populate bahan baku data first
                             if (catatan.bahan_baku_details && catatan.bahan_baku_details
                                 .length > 0) {
                                 catatan.bahan_baku_details.forEach((bahan, index) => {
@@ -2095,29 +2101,16 @@
                                     container.find('.total-terpakai-input').val(bahan
                                         .total_terpakai);
 
-                                    // Update satuan with new display
+                                    // Update satuan display
                                     updateSatuanDisplay(container, bahan.satuan ||
-                                        'Satuan');
+                                        'gram');
 
                                     $('#edit-sku-gramasi-container').append(container);
                                 });
                             }
 
-                            // Show the modal
+                            // Show the modal - product will be set after modal is shown
                             $('#editProduksiModal').modal('show');
-
-                            // Trigger product change to auto-fill packaging if needed
-                            const productSelect = document.getElementById('edit_product_id');
-                            if (productSelect) {
-                                const selectedOption = productSelect.options[productSelect
-                                    .selectedIndex];
-                                const packaging = selectedOption ? selectedOption.dataset
-                                    .packaging : '';
-                                if (packaging && packaging.trim() !== '') {
-                                    $('#edit_packaging').val(packaging);
-                                    console.log('Edit: Packaging auto-filled:', packaging);
-                                }
-                            }
                         }
                     },
                     error: function(xhr) {
@@ -2155,44 +2148,30 @@
                             },
                             success: function(data) {
                                 if (data.success) {
-                                    // Show success message immediately
+                                    // Reload table and scroll to show remaining data
+                                    table.ajax.reload(function() {
+                                        // Scroll to table to make sure user sees the remaining data
+                                        setTimeout(function() {
+                                            $('html, body').animate({
+                                                scrollTop: $(
+                                                        '#produksi-table'
+                                                    )
+                                                    .offset()
+                                                    .top - 100
+                                            }, 500);
+                                        }, 200);
+                                    });
+
+                                    // Show success message
                                     Swal.fire({
                                         title: 'Terhapus!',
                                         text: data.message,
                                         icon: 'success',
-                                        timer: 2000,
+                                        timer: 1500,
                                         showConfirmButton: false,
                                         toast: true,
                                         position: 'top-end'
                                     });
-
-                                    // Reload table after delete
-                                    setTimeout(function() {
-                                        console.log(
-                                            '🔄 Starting table reload after successful delete...'
-                                        );
-
-                                        reloadTable(function(json) {
-                                            console.log(
-                                                '✅ Delete table reload completed:',
-                                                json
-                                                ?.recordsTotal || 0,
-                                                'records');
-                                        });
-
-                                        setTimeout(function() {
-                                            forceReloadTable(function(
-                                                json) {
-                                                console.log(
-                                                    '✅ Delete force reload completed:',
-                                                    json
-                                                    ?.recordsTotal ||
-                                                    0,
-                                                    'records'
-                                                );
-                                            });
-                                        }, 1000);
-                                    }, 200);
                                 }
                             },
                             error: function(xhr) {
@@ -2210,14 +2189,30 @@
                 });
             });
 
-            // Clean up modal when it's hidden
-            $('.modal').on('hidden.bs.modal', function() {
+            // Clean up modal when it's hidden (same as product)
+            $('#editProduksiModal, #addProduksiModal').on('hidden.bs.modal', function() {
                 debugLog('Modal hidden - cleaning up');
-                cleanupModalForm(this.id);
 
-                // Pastikan backdrop dihapus dengan benar
-                $('body').removeClass('modal-open');
-                $('.modal-backdrop').remove();
+                // Reset form and clear validation states
+                $(this).find('form')[0].reset();
+                $(this).find('.is-invalid').removeClass('is-invalid');
+                $(this).find('.invalid-feedback').text('');
+
+                // Re-enable all buttons
+                $(this).find('button').prop('disabled', false);
+
+                // Clean up any lingering modal artifacts
+                setTimeout(function() {
+                    $('.modal-backdrop').remove();
+                    $('body').removeClass('modal-open').css('padding-right', '');
+
+                    // Force remove any stuck modal classes
+                    $('body').removeClass('modal-open');
+                    $('.modal-backdrop').remove();
+                }, 100);
+
+                // Also call our cleanup function
+                cleanupModalForm(this.id);
             });
 
             // Initialize Choices.js when modal is shown
@@ -2247,13 +2242,55 @@
                 }, 100);
             });
 
-            $('#editProduksiModal').on('shown.bs.modal', function() {
-                debugLog('Edit modal shown - reinitializing Choices.js');
-                // Reinitialize product choices to ensure they work properly
+            $('#editProduksiModal').on('show.bs.modal', function() {
+                debugLog('Edit modal showing - preparing Choices.js');
+                // Initialize product choices BEFORE modal is shown
                 setTimeout(() => {
                     initEditProductChoices();
+                }, 50);
+            });
 
-                    // Reinitialize bahan baku choices for existing containers
+            $('#editProduksiModal').on('shown.bs.modal', function() {
+                debugLog('Edit modal shown - setting product and finalizing Choices.js');
+
+                const modal = $(this);
+                const productId = modal.data('product-id');
+
+                // Set product value first
+                if (productId) {
+                    // Set HTML select value directly
+                    $('#edit_product_id').val(productId);
+
+                    // Update Choices.js if initialized
+                    if (editProductChoices) {
+                        try {
+                            editProductChoices.setChoiceByValue(productId.toString());
+                            debugLog('Product choice set successfully:', productId);
+                        } catch (e) {
+                            debugLog('Failed to set product choice, trying alternative method:', e);
+                            // Destroy and recreate if setting fails
+                            try {
+                                editProductChoices.destroy();
+                            } catch (destroyError) {
+                                debugLog('Error destroying product choices:', destroyError);
+                            }
+                            initEditProductChoices();
+                            setTimeout(() => {
+                                if (editProductChoices) {
+                                    editProductChoices.setChoiceByValue(productId.toString());
+                                }
+                            }, 200);
+                        }
+                    }
+
+                    // Trigger change event for packaging auto-fill
+                    setTimeout(() => {
+                        $('#edit_product_id').trigger('change');
+                    }, 300);
+                }
+
+                // Initialize bahan baku choices for existing containers
+                setTimeout(() => {
                     document.querySelectorAll('#editProduksiForm .bahan-baku-select').forEach(
                         element => {
                             // Destroy existing instance first
@@ -2270,7 +2307,7 @@
                             // Initialize new instance
                             initBahanBakuChoices(element);
                         });
-                }, 100);
+                }, 400);
             });
 
             // Edit Button Click
@@ -2283,6 +2320,10 @@
                 if (newSelect) {
                     setTimeout(() => {
                         initBahanBakuChoices(newSelect);
+
+                        // Ensure convert button and helper are visible for new containers
+                        updateSatuanDisplay(newContainer, 'gram');
+
                     }, 50);
                 }
             });
@@ -2303,25 +2344,10 @@
                         d.start_date = $('#start-date').val();
                         d.end_date = $('#end-date').val();
 
-                        console.log('📤 DataTable requesting data with filters:', {
-                            sku: d.sku,
-                            name_product: d.name_product,
-                            packaging: d.packaging,
-                            label: d.label,
-                            bahan_baku: d.bahan_baku
-                        });
-
                         return d;
                     },
                     error: function(xhr, error, thrown) {
                         debugLog('Error loading data:', error, thrown, xhr.responseText);
-                        console.error('❌ DataTable AJAX Error:', {
-                            status: xhr.status,
-                            statusText: xhr.statusText,
-                            responseText: xhr.responseText,
-                            error: error,
-                            thrown: thrown
-                        });
                     }
                 },
                 columns: [{
@@ -2373,10 +2399,16 @@
                                 </button>
                             `;
                         }
+                    },
+                    {
+                        data: 'created_at',
+                        name: 'created_at',
+                        visible: false, // Hidden column for sorting
+                        searchable: false
                     }
                 ],
                 order: [
-                    [1, 'asc']
+                    [9, 'desc'] // Order by created_at (newest first) so new data appears at top
                 ],
                 pageLength: 25,
                 dom: 'Bfrtip',
@@ -2415,7 +2447,6 @@
                     const api = this.api();
                     const data = api.rows().data();
                     debugLog('DataTable selesai di-render dengan', data.length, 'baris data');
-                    console.log('Current table data:', data.toArray());
                 },
                 initComplete: function() {
                     debugLog('DataTable selesai diinisialisasi');
@@ -2431,7 +2462,6 @@
 
                 table.ajax.reload(function(json) {
                     debugLog('Tabel berhasil dimuat ulang dengan', json?.recordsTotal || 0, 'data');
-                    console.log('✅ Table reload successful, data count:', json?.recordsTotal || 0);
 
                     if (typeof callback === 'function') {
                         callback(json);
@@ -2439,11 +2469,123 @@
                 }, false);
             }
 
+            // Fungsi untuk force reload tabel yang sangat agresif sebagai backup
+            function emergencyReloadTable(callback) {
+                debugLog('Emergency reload tabel...');
+
+                // Destroy and recreate the entire DataTable if needed
+                try {
+                    // Clear all data first
+                    table.clear().draw();
+
+                    // Force ajax reload with aggressive cache busting
+                    const ajaxUrl = table.ajax.url();
+                    const cacheBuster = '?_emergency=' + Date.now() + '&_force=true';
+
+                    table.ajax.url(ajaxUrl + cacheBuster).load(function(json) {
+                        debugLog('Emergency reload selesai dengan', json?.recordsTotal || 0, 'data');
+
+                        // Restore original URL
+                        table.ajax.url(ajaxUrl);
+
+                        if (typeof callback === 'function') {
+                            callback(json);
+                        }
+                    });
+                } catch (error) {
+                    debugLog('Emergency reload error:', error);
+                    // Fallback to page reload if all else fails
+                    if (callback) callback();
+                }
+            }
+
+            // Fungsi untuk force reload tabel dengan cache busting dan loading indicator
+            function forceReloadTable(callback) {
+                debugLog('Force reload tabel...');
+
+                // Show loading indicator
+                showTableLoading();
+
+                // Add cache busting parameter to force fresh data
+                const originalAjaxData = table.settings()[0].ajax.data;
+
+                // Temporarily modify ajax data to include cache buster
+                table.settings()[0].ajax.data = function(d) {
+                    // Call original data function
+                    const result = originalAjaxData.call(this, d);
+
+                    // Add cache buster to force fresh request
+                    result._t = Date.now();
+                    result._refresh = 'force';
+
+                    return result;
+                };
+
+                // Use requestAnimationFrame for smooth DOM operations
+                requestAnimationFrame(function() {
+                    // Force reload with cache busting
+                    table.ajax.reload(function(json) {
+                        debugLog('Force reload selesai dengan', json?.recordsTotal || 0, 'data');
+
+                        // Hide loading indicator
+                        hideTableLoading();
+
+                        // Show refresh success notification
+                        showRefreshNotification(json?.recordsTotal || 0);
+
+                        // Restore original ajax data function
+                        table.settings()[0].ajax.data = originalAjaxData;
+
+                        if (typeof callback === 'function') {
+                            callback(json);
+                        }
+                    }, true); // true = reset paging to first page
+                });
+            }
+
+            // Show loading indicator on table
+            function showTableLoading() {
+                $('#produksi-table_processing').show();
+                $('.dataTables_empty').hide();
+            }
+
+            // Hide loading indicator
+            function hideTableLoading() {
+                $('#produksi-table_processing').hide();
+            }
+
+            // Show refresh success notification
+            function showRefreshNotification(recordCount) {
+                // Create or update notification badge
+                let badge = $('#table-refresh-badge');
+                if (badge.length === 0) {
+                    badge = $(
+                        '<div id="table-refresh-badge" class="alert alert-success alert-dismissible fade show position-fixed" style="top: 100px; right: 20px; z-index: 9999; min-width: 300px;"></div>'
+                    );
+                    $('body').append(badge);
+                }
+
+                badge.html(`
+                    <div class="d-flex align-items-center">
+                        <i class="fas fa-check-circle me-2 text-success"></i>
+                        <span><strong>Data Diperbarui!</strong> Menampilkan ${recordCount} catatan produksi</span>
+                        <button type="button" class="btn-close ms-auto" data-bs-dismiss="alert"></button>
+                    </div>
+                `).removeClass('fade').addClass('show');
+
+                // Auto hide after 3 seconds
+                setTimeout(function() {
+                    badge.fadeOut(500, function() {
+                        badge.remove();
+                    });
+                }, 3000);
+            }
+
             // Apply filters when text inputs change with debounce (300ms delay)
             $('#filter-sku, #filter-nama, #filter-packaging, #filter-label, #filter-bahan-baku').on('keyup change',
                 debounce(
                     function() {
-                        table.ajax.reload();
+                        forceReloadTable();
                     }, 300));
 
             // Apply date filter when button is clicked
@@ -2451,8 +2593,8 @@
                 // Update table title with date range
                 updateTablePeriod();
 
-                // Reload table
-                table.ajax.reload();
+                // Force reload table
+                forceReloadTable();
             });
 
             // Function to update table period display
@@ -2509,8 +2651,8 @@
                 // Update table period display
                 updateTablePeriod();
 
-                // Reload table
-                table.ajax.reload();
+                // Force reload table
+                forceReloadTable();
             });
 
             // Initialize table period display on page load
@@ -2594,33 +2736,56 @@
                 }, 100);
             }
 
-            // Fungsi untuk properly menutup modal
+            // Fungsi untuk properly menutup modal dengan focus management
             function closeModal(modalId) {
                 debugLog('Menutup modal:', modalId);
+
+                const modalElement = document.getElementById(modalId);
+
+                // Clear focus from modal elements before closing
+                if (modalElement) {
+                    const focusedElement = modalElement.querySelector(':focus');
+                    if (focusedElement) {
+                        focusedElement.blur();
+                    }
+                }
 
                 // Clean up form first
                 cleanupModalForm(modalId);
 
-                // Tutup modal dengan Bootstrap API
-                const modalElement = document.getElementById(modalId);
-                const modalInstance = bootstrap.Modal.getInstance(modalElement);
+                // Use requestAnimationFrame for smooth modal closing
+                requestAnimationFrame(function() {
+                    // Tutup modal dengan Bootstrap API
+                    const modalInstance = bootstrap.Modal.getInstance(modalElement);
 
-                if (modalInstance) {
-                    modalInstance.hide();
-                } else {
-                    // Fallback
-                    $('#' + modalId).modal('hide');
-                }
+                    if (modalInstance) {
+                        modalInstance.hide();
+                    } else {
+                        // Fallback
+                        $('#' + modalId).modal('hide');
+                    }
 
-                // Pastikan backdrop dihapus
-                $('body').removeClass('modal-open');
-                $('.modal-backdrop').remove();
+                    // Delay backdrop cleanup to avoid reflow
+                    setTimeout(function() {
+                        $('body').removeClass('modal-open');
+                        $('.modal-backdrop').remove();
+
+                        // Return focus to body to prevent accessibility issues
+                        document.body.focus();
+                    }, 150);
+                });
             }
 
             // Tambahkan event listener untuk tombol "Tutup" di modal
             $('.modal .btn-secondary[data-bs-dismiss="modal"]').on('click', function() {
                 const modalId = $(this).closest('.modal').attr('id');
                 cleanupModalForm(modalId);
+            });
+
+            // Additional cleanup on page unload (same as product)
+            $(window).on('beforeunload', function() {
+                $('.modal-backdrop').remove();
+                $('body').removeClass('modal-open').css('padding-right', '');
             });
 
             // Responsive adjustments for mobile

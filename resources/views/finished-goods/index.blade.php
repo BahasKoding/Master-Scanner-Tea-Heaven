@@ -310,7 +310,8 @@
                 searchPlaceholderValue: "Cari produk",
                 itemSelectText: '',
                 placeholder: true,
-                placeholderValue: "Semua produk"
+                placeholderValue: "Semua produk",
+                allowHTML: false
             });
 
             // Initialize DataTable
@@ -582,13 +583,13 @@
                 });
             });
         });
-        
+
         // Load the enhanced auto-refresh script
-        $.getScript('{{ asset("js/finished-goods/auto-refresh.js") }}', function() {
+        $.getScript('{{ asset('js/finished-goods/auto-refresh.js') }}', function() {
             console.log('Auto-refresh script loaded successfully');
         }).fail(function(jqxhr, settings, exception) {
             console.error('Error loading auto-refresh script:', exception);
-            
+
             // Fallback to basic auto-refresh if script fails to load
             setInterval(function() {
                 if (table) {

@@ -421,7 +421,7 @@
 
 @section('scripts')
     <!-- SweetAlert2 -->
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="{{ URL::asset('build/js/plugins/sweetalert2.all.min.js') }}"></script>
 
     <!-- Core JS files -->
     <script src="{{ URL::asset('build/js/plugins/jquery-3.6.0.min.js') }}"></script>
@@ -470,6 +470,7 @@
                         placeholder: true,
                         placeholderValue: "-- Pilih Item --",
                         removeItemButton: false,
+                        allowHTML: false,
                         classNames: {
                             containerOuter: 'choices',
                         }
@@ -1001,6 +1002,7 @@
                     placeholder: true,
                     placeholderValue: "-- Pilih Item --",
                     removeItemButton: false,
+                    allowHTML: false,
                     classNames: {
                         containerOuter: 'choices',
                     }

@@ -291,4 +291,95 @@ class ProductController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Export all products to Excel
+     */
+    public function exportExcel(Request $request)
+    {
+        try {
+            // Get all products with category information
+            $query = Product::select([
+                'products.id',
+                'products.category_product',
+                'products.sku',
+                'products.packaging',
+                'products.name_product',
+                'products.label',
+                'products.created_at',
+                'products.updated_at'
+            ]);
+
+            // Apply filters if provided
+            if ($request->has('category_product') && !empty($request->category_product)) {
+                $query->where('products.category_product', $request->category_product);
+            }
+
+            if ($request->has('label') && !empty($request->label)) {
+                $query->where('products.label', $request->label);
+            }
+
+            $products = $query->orderBy('name_product', 'asc')->get();
+
+            // Get category and label options for mapping
+            $categories = Product::getCategoryOptions();
+            $labels = Product::getLabelOptions();
+
+            // Prepare data for export
+            $exportData = [];
+            $exportData[] = [
+                'No',
+                'SKU',
+                'Nama Produk',
+                'Packaging',
+                'Kategori',
+                'Label',
+                'Tanggal Dibuat',
+                'Terakhir Diperbarui'
+            ];
+
+            $no = 1;
+            foreach ($products as $product) {
+                $categoryName = $categories[$product->category_product] ?? 'Unknown Category';
+                $labelName = isset($product->label) ? ($labels[$product->label] ?? '-') : '-';
+
+                $exportData[] = [
+                    $no++,
+                    $product->sku,
+                    $product->name_product,
+                    $product->packaging,
+                    $categoryName,
+                    $labelName,
+                    $product->created_at ? $product->created_at->format('d/m/Y H:i:s') : '-',
+                    $product->updated_at ? $product->updated_at->format('d/m/Y H:i:s') : '-'
+                ];
+            }
+
+            // Generate filename with timestamp
+            $timestamp = now()->format('Y-m-d_H-i-s');
+            $filename = "Data_Produk_{$timestamp}.xlsx";
+
+            // Log activity
+            addActivity('product', 'export', 'Pengguna mengekspor data produk ke Excel (' . count($products) . ' produk)', null);
+
+            // Return JSON response with data for client-side Excel generation
+            return response()->json([
+                'success' => true,
+                'data' => $exportData,
+                'filename' => $filename,
+                'total_records' => count($products) - 1, // Exclude header row
+                'message' => 'Data berhasil disiapkan untuk export'
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Failed to export products', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal mengekspor data produk. Silakan coba lagi.'
+            ], 500);
+        }
+    }
 }

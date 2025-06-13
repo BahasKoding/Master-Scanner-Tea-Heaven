@@ -249,7 +249,8 @@
                 searchPlaceholderValue: "Cari kategori",
                 itemSelectText: '',
                 placeholder: true,
-                placeholderValue: "Pilih kategori"
+                placeholderValue: "Pilih kategori",
+                allowHTML: false
             });
 
             var addSatuanChoices = new Choices('#add-satuan', {
@@ -257,7 +258,8 @@
                 searchPlaceholderValue: "Cari satuan",
                 itemSelectText: '',
                 placeholder: true,
-                placeholderValue: "Pilih satuan"
+                placeholderValue: "Pilih satuan",
+                allowHTML: false
             });
 
             // Initialize Choices.js for edit form
@@ -266,7 +268,8 @@
                 searchPlaceholderValue: "Cari kategori",
                 itemSelectText: '',
                 placeholder: true,
-                placeholderValue: "Pilih kategori"
+                placeholderValue: "Pilih kategori",
+                allowHTML: false
             });
 
             var editSatuanChoices = new Choices('#edit_satuan', {
@@ -274,7 +277,8 @@
                 searchPlaceholderValue: "Cari satuan",
                 itemSelectText: '',
                 placeholder: true,
-                placeholderValue: "Pilih satuan"
+                placeholderValue: "Pilih satuan",
+                allowHTML: false
             });
 
             // Initialize DataTable

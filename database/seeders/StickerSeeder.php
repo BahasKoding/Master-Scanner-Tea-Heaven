@@ -14,8 +14,8 @@ class StickerSeeder extends Seeder
      */
     public function run(): void
     {
-        // Truncate table to ensure clean data
-        DB::table('stickers')->truncate();
+        // Don't truncate to avoid foreign key issues, use updateOrCreate instead
+        // DB::table('stickers')->truncate();
 
         // Debug timezone information
         $this->command->info('Current PHP timezone: ' . date_default_timezone_get());
@@ -26,15 +26,33 @@ class StickerSeeder extends Seeder
         // Data stickers - generated from sticker.md data
         $stickers = $this->generateStickerData();
 
-        // Insert data in chunks for better performance
-        if (!empty($stickers)) {
-            $chunks = array_chunk($stickers, 100);
-            foreach ($chunks as $chunk) {
-                DB::table('stickers')->insert($chunk);
+        // Use updateOrCreate to avoid duplicates and foreign key issues
+        $createdCount = 0;
+        $updatedCount = 0;
+        $skippedCount = 0;
+
+        foreach ($stickers as $stickerData) {
+            if ($stickerData['product_id']) {
+                $result = DB::table('stickers')->updateOrInsert(
+                    ['product_id' => $stickerData['product_id']], // Find by product_id
+                    $stickerData // Update/Insert with this data
+                );
+
+                if ($result) {
+                    // Check if it was an insert (new record) or update
+                    $existing = DB::table('stickers')->where('product_id', $stickerData['product_id'])->first();
+                    if ($existing->created_at === $existing->updated_at) {
+                        $createdCount++;
+                    } else {
+                        $updatedCount++;
+                    }
+                }
+            } else {
+                $skippedCount++;
             }
         }
 
-        $this->command->info('Sticker seeder completed. Total records: ' . count($stickers));
+        $this->command->info("Sticker seeder completed. Created: {$createdCount}, Updated: {$updatedCount}, Skipped: {$skippedCount}");
     }
 
     /**
@@ -169,21 +187,19 @@ class StickerSeeder extends Seeder
 
         foreach ($extraSmallSkus as $sku) {
             $productId = $this->getProductIdBySku($sku);
-            if ($productId) {
-                $stickerData[] = [
-                    'product_id' => $productId,
-                    'ukuran' => '5 X 17',
-                    'jumlah' => '14',
+            $stickerData[] = [
+                'product_id' => $productId, // Will be null if product not found
+                'ukuran' => '5 X 17',
+                'jumlah' => '14',
                 'stok_awal' => 0,
-                    'stok_masuk' => 0,
-                    'produksi' => 0,
-                    'defect' => 0,
-                    'sisa' => 0,
-                    'status' => 'active',
-                    'created_at' => $currentTimestamp,
-                    'updated_at' => $currentTimestamp
-                ];
-            }
+                'stok_masuk' => 0,
+                'produksi' => 0,
+                'defect' => 0,
+                'sisa' => 0,
+                'status' => 'active',
+                'created_at' => $currentTimestamp,
+                'updated_at' => $currentTimestamp
+            ];
         }
 
         // TIN CANISTER SERIES - T1 packaging - 11.5 X 5.7 size - 17 per A3
@@ -228,21 +244,19 @@ class StickerSeeder extends Seeder
 
         foreach ($tinCanisterT1Skus as $sku) {
             $productId = $this->getProductIdBySku($sku);
-            if ($productId) {
-                $stickerData[] = [
-                    'product_id' => $productId,
-                    'ukuran' => '11.5 X 5.7',
-                    'jumlah' => '17',
-                    'stok_awal' => 0,
-                    'stok_masuk' => 0,
-                    'produksi' => 0,
-                    'defect' => 0,
-                    'sisa' => 0,
-                    'status' => 'active',
-                    'created_at' => $currentTimestamp,
-                    'updated_at' => $currentTimestamp
-                ];
-            }
+            $stickerData[] = [
+                'product_id' => $productId, // Will be null if product not found
+                'ukuran' => '11.5 X 5.7',
+                'jumlah' => '17',
+                'stok_awal' => 0,
+                'stok_masuk' => 0,
+                'produksi' => 0,
+                'defect' => 0,
+                'sisa' => 0,
+                'status' => 'active',
+                'created_at' => $currentTimestamp,
+                'updated_at' => $currentTimestamp
+            ];
         }
 
         // TIN CANISTER SERIES - T2 packaging - 13 X 5 size - 16 per A3
@@ -260,21 +274,19 @@ class StickerSeeder extends Seeder
 
         foreach ($tinCanisterT2Skus as $sku) {
             $productId = $this->getProductIdBySku($sku);
-            if ($productId) {
-                $stickerData[] = [
-                    'product_id' => $productId,
-                    'ukuran' => '13 X 5',
-                    'jumlah' => '16',
-                    'stok_awal' => 0,
-                    'stok_masuk' => 0,
-                    'produksi' => 0,
-                    'defect' => 0,
-                    'sisa' => 0,
-                    'status' => 'active',
-                    'created_at' => $currentTimestamp,
-                    'updated_at' => $currentTimestamp
-                ];
-            }
+            $stickerData[] = [
+                'product_id' => $productId, // Will be null if product not found
+                'ukuran' => '13 X 5',
+                'jumlah' => '16',
+                'stok_awal' => 0,
+                'stok_masuk' => 0,
+                'produksi' => 0,
+                'defect' => 0,
+                'sisa' => 0,
+                'status' => 'active',
+                'created_at' => $currentTimestamp,
+                'updated_at' => $currentTimestamp
+            ];
         }
 
         // CEREMONIAL MATCHA - No packaging - 10 X 3 size - 42 per A3
@@ -282,21 +294,19 @@ class StickerSeeder extends Seeder
 
         foreach ($ceremorialMatchaSkus as $sku) {
             $productId = $this->getProductIdBySku($sku);
-            if ($productId) {
-                $stickerData[] = [
-                    'product_id' => $productId,
-                    'ukuran' => '10 X 3',
-                    'jumlah' => '42',
-                    'stok_awal' => 0,
-                    'stok_masuk' => 0,
-                    'produksi' => 0,
-                    'defect' => 0,
-                    'sisa' => 0,
-                    'status' => 'active',
-                    'created_at' => $currentTimestamp,
-                    'updated_at' => $currentTimestamp
-                ];
-            }
+            $stickerData[] = [
+                'product_id' => $productId, // Will be null if product not found
+                'ukuran' => '10 X 3',
+                'jumlah' => '42',
+                'stok_awal' => 0,
+                'stok_masuk' => 0,
+                'produksi' => 0,
+                'defect' => 0,
+                'sisa' => 0,
+                'status' => 'active',
+                'created_at' => $currentTimestamp,
+                'updated_at' => $currentTimestamp
+            ];
         }
 
         // JAPANESE TEABAGS - No packaging - 10 X 3 size - 42 per A3
@@ -304,21 +314,19 @@ class StickerSeeder extends Seeder
 
         foreach ($japaneseTeabagSkus as $sku) {
             $productId = $this->getProductIdBySku($sku);
-            if ($productId) {
-                $stickerData[] = [
-                    'product_id' => $productId,
-                    'ukuran' => '10 X 3',
-                    'jumlah' => '42',
-                    'stok_awal' => 0,
-                    'stok_masuk' => 0,
-                    'produksi' => 0,
-                    'defect' => 0,
-                    'sisa' => 0,
-                    'status' => 'active',
-                    'created_at' => $currentTimestamp,
-                    'updated_at' => $currentTimestamp
-                ];
-            }
+            $stickerData[] = [
+                'product_id' => $productId, // Will be null if product not found
+                'ukuran' => '10 X 3',
+                'jumlah' => '42',
+                'stok_awal' => 0,
+                'stok_masuk' => 0,
+                'produksi' => 0,
+                'defect' => 0,
+                'sisa' => 0,
+                'status' => 'active',
+                'created_at' => $currentTimestamp,
+                'updated_at' => $currentTimestamp
+            ];
         }
 
         return $stickerData;

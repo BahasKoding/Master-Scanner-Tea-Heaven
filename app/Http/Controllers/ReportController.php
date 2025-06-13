@@ -433,8 +433,95 @@ class ReportController extends Controller
      */
     public function scannerExport(Request $request)
     {
-        // Implementation for export functionality
-        // This can be implemented later based on requirements
-        return response()->json(['message' => 'Export functionality will be implemented']);
+        try {
+            $query = HistorySale::select([
+                'history_sales.id',
+                'history_sales.no_resi',
+                'history_sales.no_sku',
+                'history_sales.qty',
+                'history_sales.created_at',
+                'history_sales.updated_at'
+            ]);
+
+            // Apply filters only if not exporting all data
+            if (!$request->has('export_all')) {
+                if ($request->filled('start_date') && $request->filled('end_date')) {
+                    $startDate = Carbon::parse($request->start_date)->startOfDay();
+                    $endDate = Carbon::parse($request->end_date)->endOfDay();
+                    $query->whereBetween('history_sales.created_at', [$startDate, $endDate]);
+                }
+
+                if ($request->filled('no_resi')) {
+                    $query->where('no_resi', 'like', '%' . $request->no_resi . '%');
+                }
+            }
+
+            $historySales = $query->orderBy('created_at', 'desc')->get();
+
+            // Process data for export - group by no_resi like the sales report
+            $exportData = [];
+            $groupedData = [];
+
+            // Group by no_resi first
+            foreach ($historySales as $sale) {
+                $noResi = $sale->no_resi;
+
+                if (!isset($groupedData[$noResi])) {
+                    $groupedData[$noResi] = [
+                        'no_resi' => $noResi,
+                        'created_at' => $sale->created_at,
+                        'updated_at' => $sale->updated_at,
+                        'skus' => [],
+                        'quantities' => []
+                    ];
+                }
+
+                // Decode SKUs and quantities
+                $skus = is_array($sale->no_sku) ? $sale->no_sku : json_decode($sale->no_sku, true);
+                $quantities = is_array($sale->qty) ? $sale->qty : json_decode($sale->qty, true);
+
+                if (is_array($skus)) {
+                    foreach ($skus as $index => $sku) {
+                        $qty = isset($quantities[$index]) ? $quantities[$index] : 0;
+
+                        // Get product details
+                        $product = Product::where('sku', $sku)->first();
+                        $productName = $product ? $product->name_product : 'Unknown Product';
+
+                        $groupedData[$noResi]['skus'][] = $sku . ' - ' . $productName;
+                        $groupedData[$noResi]['quantities'][] = $qty;
+                    }
+                }
+            }
+
+            // Convert grouped data to export format
+            $counter = 1;
+            foreach ($groupedData as $data) {
+                $exportData[] = [
+                    'No' => $counter++,
+                    'Tanggal' => $data['created_at'] ? $data['created_at']->format('d/m/Y H:i') : '-',
+                    'No Resi' => $data['no_resi'],
+                    'Produk Terjual' => implode(', ', $data['skus']),
+                    'Quantity Terjual' => implode(', ', $data['quantities'])
+                ];
+            }
+
+            return response()->json([
+                'status' => 'success',
+                'data' => $exportData,
+                'count' => count($exportData),
+                'message' => 'Data berhasil disiapkan untuk export'
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error exporting scanner data', [
+                'error' => $e->getMessage(),
+                'request' => $request->all()
+            ]);
+
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Terjadi kesalahan saat mengekspor data: ' . $e->getMessage()
+            ], 500);
+        }
     }
 }

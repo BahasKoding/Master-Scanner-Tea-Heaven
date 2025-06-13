@@ -15,12 +15,15 @@
     <!-- [Favicon] icon -->
     <link rel="icon" href="{{ asset('images/favicon.png') }}" type="image/x-icon">
 
-    <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&display=swap"
-        rel="stylesheet">
+    <!-- System Fonts Alternative -->
+    <style>
+        :root {
+            --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        }
+    </style>
 
     <!-- Font Awesome -->
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="{{ URL::asset('build/fonts/fontawesome.css') }}" rel="stylesheet">
 
     @yield('css')
 
@@ -34,7 +37,7 @@
         }
 
         body {
-            font-family: 'Public Sans', sans-serif;
+            font-family: var(--font-family), sans-serif;
             background-color: #f8f9fa;
         }
 

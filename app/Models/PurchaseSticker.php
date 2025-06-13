@@ -15,7 +15,6 @@ class PurchaseSticker extends Model
         'jumlah_stiker',
         'jumlah_order',
         'stok_masuk',
-        'total_order',
     ];
 
     protected $casts = [
@@ -32,17 +31,6 @@ class PurchaseSticker extends Model
     }
 
     /**
-     * Get the percentage of stok masuk vs total order
-     */
-    public function getStokMasukPercentageAttribute()
-    {
-        if ($this->total_order == 0) {
-            return 0;
-        }
-        return round(($this->stok_masuk / $this->total_order) * 100, 2);
-    }
-
-    /**
      * Get the percentage of jumlah order vs jumlah stiker
      */
     public function getOrderPercentageAttribute()
@@ -51,15 +39,6 @@ class PurchaseSticker extends Model
             return 0;
         }
         return round(($this->jumlah_order / $this->jumlah_stiker) * 100, 2);
-    }
-
-    /**
-     * Accessor for calculating total_order automatically
-     * Formula: jumlah_order (if not manually set)
-     */
-    public function getTotalOrderCalculatedAttribute()
-    {
-        return $this->total_order ?: $this->jumlah_order;
     }
 
     /**

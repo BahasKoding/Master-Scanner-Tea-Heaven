@@ -180,15 +180,30 @@ class PurchaseStickerController extends Controller
 
     /**
      * Get sticker data by product_id for auto-filling form
+     * Only returns existing sticker data - does not auto-create
      */
     public function getStickerData($productId)
     {
         try {
+            Log::info('Getting sticker data for product', ['product_id' => $productId]);
+
+            // Try to find existing sticker data
             $sticker = Sticker::where('product_id', $productId)->first();
 
             if (!$sticker) {
-                return response()->json(['success' => false, 'message' => 'Data sticker untuk produk ini tidak ditemukan']);
+                Log::warning('No sticker data found for product', ['product_id' => $productId]);
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Data sticker untuk produk ini belum dibuat. Silakan buat data sticker terlebih dahulu di menu Sticker.'
+                ]);
             }
+
+            Log::info('Sticker data found', [
+                'product_id' => $productId,
+                'sticker_id' => $sticker->id,
+                'ukuran' => $sticker->ukuran,
+                'jumlah' => $sticker->jumlah
+            ]);
 
             return response()->json([
                 'success' => true,
@@ -198,8 +213,16 @@ class PurchaseStickerController extends Controller
                 ]
             ]);
         } catch (\Exception $e) {
-            Log::error('Failed to get sticker data', ['product_id' => $productId, 'error' => $e->getMessage()]);
-            return response()->json(['success' => false, 'message' => 'Terjadi kesalahan saat mengambil data sticker'], 500);
+            Log::error('Failed to get sticker data', [
+                'product_id' => $productId,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Terjadi kesalahan saat mengambil data sticker: ' . $e->getMessage()
+            ], 500);
         }
     }
 
@@ -211,12 +234,21 @@ class PurchaseStickerController extends Controller
     private function validateRequest(Request $request): array
     {
         $rules = [
-            'product_id' => 'required|exists:products,id',
+            'product_id' => [
+                'required',
+                'exists:products,id',
+                function ($attribute, $value, $fail) {
+                    // Check if product has sticker data
+                    $hasSticker = Sticker::where('product_id', $value)->exists();
+                    if (!$hasSticker) {
+                        $fail('Produk yang dipilih belum memiliki data sticker. Silakan buat data sticker terlebih dahulu.');
+                    }
+                }
+            ],
             'ukuran_stiker' => 'required|string|max:255',
             'jumlah_stiker' => 'required|integer|min:1',
             'jumlah_order' => 'required|integer|min:0',
             'stok_masuk' => 'nullable|integer|min:0',
-            'total_order' => 'nullable|integer|min:0',
         ];
 
         $messages = [
@@ -233,25 +265,23 @@ class PurchaseStickerController extends Controller
             'jumlah_order.min' => 'Jumlah order tidak boleh negatif',
             'stok_masuk.integer' => 'Stok masuk harus berupa angka',
             'stok_masuk.min' => 'Stok masuk tidak boleh negatif',
-            'total_order.integer' => 'Total order harus berupa angka',
-            'total_order.min' => 'Total order tidak boleh negatif',
         ];
 
         $validated = $request->validate($rules, $messages);
 
         // Set default values
         $validated['stok_masuk'] = $validated['stok_masuk'] ?? 0;
-        $validated['total_order'] = $validated['total_order'] ?? $validated['jumlah_order'];
 
         return $validated;
     }
 
     /**
-     * Get eligible products for stickers
+     * Get eligible products for stickers - only products that already have sticker data
      */
     private function getEligibleProducts()
     {
-        return Product::whereIn('label', [1, 5, 10])->orderBy('name_product')->get();
+        // Only return products that already have sticker data
+        return Product::whereHas('stickers')->orderBy('name_product')->get();
     }
 
     /**
@@ -267,7 +297,6 @@ class PurchaseStickerController extends Controller
                 'purchase_stickers.jumlah_stiker',
                 'purchase_stickers.jumlah_order',
                 'purchase_stickers.stok_masuk',
-                'purchase_stickers.total_order',
                 'purchase_stickers.created_at',
                 'purchase_stickers.updated_at'
             ]);
@@ -289,7 +318,6 @@ class PurchaseStickerController extends Controller
                 ->editColumn('jumlah_stiker', fn($row) => number_format($row->jumlah_stiker))
                 ->editColumn('jumlah_order', fn($row) => number_format($row->jumlah_order))
                 ->editColumn('stok_masuk', fn($row) => number_format($row->stok_masuk))
-                ->editColumn('total_order', fn($row) => number_format($row->total_order))
                 ->editColumn('ukuran_stiker', fn($row) => $row->ukuran_stiker ?: '-')
                 ->filterColumn('product_name', function ($query, $keyword) {
                     $query->whereHas('product', function ($q) use ($keyword) {

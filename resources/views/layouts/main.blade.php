@@ -18,11 +18,8 @@
     <!-- CSRF Token -->
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
-    <!-- Simplebar CSS -->
-    <link rel="stylesheet" href="{{ URL::asset('build/css/plugins/simplebar.css') }}">
-
     <!-- Tea Heaven custom theme -->
-    <link rel="stylesheet" href="{{ URL::asset('build/css/tea-heaven-theme.css') }}">
+    {{-- <link rel="stylesheet" href="{{ URL::asset('build/css/tea-heaven-theme.css') }}"> --}}
 
     <!-- Responsive overrides -->
     <style>
@@ -181,7 +178,7 @@
     @include('layouts.customizer')
 
     <!-- Core JS libraries in correct order -->
-    <script src="{{ URL::asset('build/js/plugins/jquery.min.js') }}"></script>
+    <script src="{{ URL::asset('build/js/plugins/jquery-3.6.0.min.js') }}"></script>
     <script src="{{ URL::asset('build/js/plugins/popper.min.js') }}"></script>
     <script src="{{ URL::asset('build/js/plugins/bootstrap.min.js') }}"></script>
     <script src="{{ URL::asset('build/js/plugins/simplebar.min.js') }}"></script>

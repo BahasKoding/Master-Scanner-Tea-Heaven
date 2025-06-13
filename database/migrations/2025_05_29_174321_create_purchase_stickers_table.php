@@ -18,7 +18,6 @@ return new class extends Migration
             $table->integer('jumlah_stiker');
             $table->integer('jumlah_order');
             $table->integer('stok_masuk');
-            $table->integer('total_order');
             $table->timestamps();
         });
     }

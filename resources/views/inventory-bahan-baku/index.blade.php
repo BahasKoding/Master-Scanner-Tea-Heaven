@@ -264,7 +264,7 @@
     <script src="{{ URL::asset('build/js/plugins/choices.min.js') }}"></script>
 
     <!-- SweetAlert2 -->
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="{{ URL::asset('build/js/plugins/sweetalert2.all.min.js') }}"></script>
 
     <script type="text/javascript">
         $(document).ready(function() {

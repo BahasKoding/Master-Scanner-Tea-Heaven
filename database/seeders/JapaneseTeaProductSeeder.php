@@ -17,8 +17,8 @@ class JapaneseTeaProductSeeder extends Seeder
         // Find the Japanese Tea category
         $japaneseTeaCategory = 4;
 
-        // Clear existing products in this category to avoid duplicates
-        Product::where('category_product', $japaneseTeaCategory)->delete();
+        // Don't delete existing products to avoid foreign key constraint issues
+        // Product::where('category_product', $japaneseTeaCategory)->delete();
 
         $japaneseTeaProducts = [
             // P1 packaging products
@@ -64,26 +64,28 @@ class JapaneseTeaProductSeeder extends Seeder
             // ['sku' => 'OC500F', 'packaging' => 'F3', 'name_product' => 'JAPANESE OCHA'],
         ];
 
-        // Create products in batch
-        $productsToInsert = [];
+        // Create products using updateOrCreate to avoid duplicates
+        $createdCount = 0;
+        $updatedCount = 0;
 
         foreach ($japaneseTeaProducts as $product) {
-            $productsToInsert[] = [
-                'category_product' => $japaneseTeaCategory,
-                'sku' => $product['sku'],
-                'packaging' => $product['packaging'],
-                'name_product' => $product['name_product'],
-                'label' => $product['label'] ?? null,
-                'created_at' => now(),
-                'updated_at' => now(),
-            ];
+            $result = Product::updateOrCreate(
+                ['sku' => $product['sku']], // Find by SKU
+                [
+                    'category_product' => $japaneseTeaCategory,
+                    'packaging' => $product['packaging'],
+                    'name_product' => $product['name_product'],
+                    'label' => $product['label'] ?? null,
+                ]
+            );
+
+            if ($result->wasRecentlyCreated) {
+                $createdCount++;
+            } else {
+                $updatedCount++;
+            }
         }
 
-        // Insert in chunks to avoid memory issues
-        foreach (array_chunk($productsToInsert, 100) as $chunk) {
-            DB::table('products')->insert($chunk);
-        }
-
-        $this->command->info(count($japaneseTeaProducts) . ' JAPANESE TEA products seeded successfully.');
+        $this->command->info("JAPANESE TEA products seeded successfully. Created: {$createdCount}, Updated: {$updatedCount}");
     }
 }

@@ -85,6 +85,22 @@ class Product extends Model
     }
 
     /**
+     * Get the stickers records for this product.
+     */
+    public function stickers()
+    {
+        return $this->hasMany(Sticker::class, 'product_id');
+    }
+
+    /**
+     * Get the main sticker record for this product (usually there's only one per product).
+     */
+    public function sticker()
+    {
+        return $this->hasOne(Sticker::class, 'product_id');
+    }
+
+    /**
      * Get all history sales that include this product (based on JSON SKU data)
      */
     public function getHistorySales()
