@@ -233,9 +233,6 @@
                                     <label for="filter-product" class="form-label filter-label">Filter Produk</label>
                                     <select id="filter-product" class="form-select form-select-sm">
                                         <option value="">Semua Produk</option>
-                                        @php
-                                            $allEligibleProducts = \App\Models\Sticker::getEligibleProducts();
-                                        @endphp
                                         @foreach ($allEligibleProducts as $product)
                                             <option value="{{ $product->id }}">{{ $product->name_product }}
                                                 ({{ $product->sku }})
@@ -729,7 +726,6 @@
                         }
                     },
                     error: function(xhr) {
-                        console.error('Export error:', xhr);
                         var errorMessage = xhr.responseJSON && xhr.responseJSON.message ?
                             xhr.responseJSON.message :
                             'Terjadi kesalahan saat mengekspor data.';
@@ -767,7 +763,6 @@
                 });
 
                 if (missingFields.length > 0) {
-                    console.error('Missing required fields:', missingFields);
                     showAlert('error', 'Field yang wajib diisi: ' + missingFields.join(', '));
                     return;
                 }

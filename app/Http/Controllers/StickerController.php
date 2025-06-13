@@ -136,6 +136,9 @@ class StickerController extends Controller
             // Get products that are eligible for stickers but don't have stickers yet
             $products = Sticker::getAvailableProductsForStickers();
 
+            // Get all eligible products for filter dropdown
+            $allEligibleProducts = Sticker::getEligibleProducts();
+
             // Get status options
             $statuses = Sticker::getStatusOptions();
 
@@ -147,7 +150,7 @@ class StickerController extends Controller
             // Log activity
             addActivity('sticker', 'view', 'Pengguna melihat daftar sticker', null);
 
-            return view('sticker.index', compact('items', 'products', 'statuses'));
+            return view('sticker.index', compact('items', 'products', 'allEligibleProducts', 'statuses'));
         } catch (\Exception $e) {
             // Log the error
             Log::error('Failed to load data for Sticker index', [
@@ -159,6 +162,7 @@ class StickerController extends Controller
             return view('sticker.index', [
                 'items' => ['Daftar Sticker' => route('stickers.index')],
                 'products' => [],
+                'allEligibleProducts' => [],
                 'statuses' => [],
                 'error_message' => 'Gagal memuat data. Silakan coba refresh halaman.'
             ]);

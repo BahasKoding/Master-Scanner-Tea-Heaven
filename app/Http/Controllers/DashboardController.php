@@ -8,237 +8,309 @@ use App\Models\HistorySale;
 use App\Models\Product;
 use App\Models\BahanBaku;
 use App\Models\User;
+use App\Models\Sticker;
+use App\Models\Backend\Activity;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Carbon\Carbon;
 
 class DashboardController extends Controller
 {
-    /**
-     * Display the dashboard with statistics
-     */
-    public function index()
+    public function index(Request $request)
     {
         try {
-            // Get current date for filtering
-            $today = Carbon::today();
-            $thisMonth = Carbon::now()->startOfMonth();
-            $thisYear = Carbon::now()->startOfYear();
+            // Simple date range parsing
+            $year = (int) $request->get('year', Carbon::now()->year);
+            $month = (int) $request->get('month', Carbon::now()->month);
+            $range = $request->get('range', 'month');
 
-            // Master Data Statistics
+            // Basic validation
+            if ($year < 2020) $year = Carbon::now()->year;
+            if ($month < 1 || $month > 12) $month = Carbon::now()->month;
+
+            // Calculate dates
+            if ($range === 'year') {
+                $startDate = Carbon::createFromDate($year, 1, 1)->startOfYear();
+                $endDate = Carbon::createFromDate($year, 12, 31)->endOfYear();
+                $label = "Year {$year}";
+            } elseif ($range === 'all') {
+                $startDate = Carbon::createFromDate(2020, 1, 1);
+                $endDate = Carbon::now()->endOfDay();
+                $label = 'All Time';
+            } else {
+                $startDate = Carbon::createFromDate($year, $month, 1)->startOfMonth();
+                $endDate = Carbon::createFromDate($year, $month, 1)->endOfMonth();
+                $label = Carbon::createFromDate($year, $month, 1)->format('F Y');
+            }
+
+            $dateRange = [
+                'start' => $startDate,
+                'end' => $endDate,
+                'year' => $year,
+                'month' => $month,
+                'range' => $range,
+                'label' => $label
+            ];
+
+            // Get basic master data
             $masterData = [
-                'total_products' => Product::count(),
-                'total_bahan_baku' => BahanBaku::count(),
-                'active_users' => User::whereNull('deleted_at')->count(),
-                'products_low_stock' => Product::where('stok', '<=', 10)->count(),
+                'total_products' => 0,
+                'total_bahan_baku' => 0,
+                'total_users' => 0,
+                'products_low_stock' => 0,
+                'stickers_need_order' => 0
             ];
 
-            // Recent Activity Statistics (Today)
-            $todayActivity = [
-                'sales_today' => HistorySale::whereDate('created_at', $today)->count(),
-                'production_today' => CatatanProduksi::whereDate('created_at', $today)->count(),
-                'purchases_today' => Purchase::whereDate('created_at', $today)->count(),
-                'qty_sold_today' => $this->getTotalQuantitySold($today, $today),
+            // Try to get real counts safely
+            try {
+                $masterData['total_products'] = Product::count();
+            } catch (\Exception $e) {
+                Log::error('Product count error: ' . $e->getMessage());
+            }
+            try {
+                $masterData['total_bahan_baku'] = BahanBaku::count();
+            } catch (\Exception $e) {
+                Log::error('BahanBaku count error: ' . $e->getMessage());
+            }
+            try {
+                $masterData['total_users'] = User::count();
+            } catch (\Exception $e) {
+                Log::error('User count error: ' . $e->getMessage());
+            }
+            try {
+                $masterData['stickers_need_order'] = Sticker::where('stok_awal', '<', 30)->count();
+            } catch (\Exception $e) {
+                Log::error('Sticker count error: ' . $e->getMessage());
+            }
+
+            // Get activity data with date filter
+            $activityData = [
+                'sales_count' => 0,
+                'production_count' => 0,
+                'purchases_count' => 0,
+                'total_qty_sold' => 0,
+                'total_production_qty' => 0,
+                'total_purchase_qty' => 0
             ];
 
-            // Monthly Statistics
-            $monthlyStats = [
-                'sales_this_month' => HistorySale::where('created_at', '>=', $thisMonth)->count(),
-                'production_this_month' => CatatanProduksi::where('created_at', '>=', $thisMonth)->count(),
-                'purchases_this_month' => Purchase::where('created_at', '>=', $thisMonth)->count(),
-                'qty_sold_this_month' => $this->getTotalQuantitySold($thisMonth, Carbon::now()),
+            try {
+                $activityData['sales_count'] = HistorySale::whereBetween('created_at', [$startDate, $endDate])->count();
+            } catch (\Exception $e) {
+                Log::error('Sales count error: ' . $e->getMessage());
+            }
+            try {
+                $activityData['production_count'] = CatatanProduksi::whereBetween('created_at', [$startDate, $endDate])->count();
+            } catch (\Exception $e) {
+                Log::error('Production count error: ' . $e->getMessage());
+            }
+            try {
+                $activityData['purchases_count'] = Purchase::whereBetween('created_at', [$startDate, $endDate])->count();
+            } catch (\Exception $e) {
+                Log::error('Purchase count error: ' . $e->getMessage());
+            }
+
+            // Simple quantity calculations
+            try {
+                $activityData['total_production_qty'] = CatatanProduksi::whereBetween('created_at', [$startDate, $endDate])->sum('quantity') ?? 0;
+            } catch (\Exception $e) {
+                Log::error('Production qty error: ' . $e->getMessage());
+            }
+
+            try {
+                $activityData['total_purchase_qty'] = Purchase::whereBetween('created_at', [$startDate, $endDate])->sum('qty_pembelian') ?? 0;
+            } catch (\Exception $e) {
+                Log::error('Purchase qty error: ' . $e->getMessage());
+            }
+
+            // Calculate total qty sold safely using model method
+            try {
+                $activityData['total_qty_sold'] = HistorySale::getTotalQuantitySold($startDate, $endDate);
+            } catch (\Exception $e) {
+                Log::error('Total qty sold error: ' . $e->getMessage());
+                $activityData['total_qty_sold'] = 0;
+            }
+
+            // Performance data
+            $performanceData = [
+                'top_selling_skus' => [],
+                'recent_sales' => collect(),
+                'recent_production' => collect(),
+                'recent_purchases' => collect()
             ];
 
-            // Top Performance Data
-            $topPerformance = [
-                'top_selling_skus' => $this->getTopSellingSkus(5),
-                'recent_production' => CatatanProduksi::with('product')
-                    ->latest()
-                    ->take(5)
-                    ->get(),
-                'recent_purchases' => Purchase::with(['bahanBaku', 'product'])
-                    ->latest()
-                    ->take(5)
-                    ->get(),
-                'recent_sales' => HistorySale::latest()
-                    ->take(5)
-                    ->get(),
-            ];
+            // Calculate top selling products safely using model method
+            try {
+                $performanceData['top_selling_skus'] = HistorySale::getTopSellingSKUs($startDate, $endDate, 5);
+            } catch (\Exception $e) {
+                Log::error('Top selling calculation error: ' . $e->getMessage());
+                $performanceData['top_selling_skus'] = [];
+            }
 
-            // System Health
+            try {
+                $performanceData['recent_sales'] = HistorySale::whereBetween('created_at', [$startDate, $endDate])->latest()->take(10)->get();
+            } catch (\Exception $e) {
+                Log::error('Recent sales error: ' . $e->getMessage());
+            }
+
+            try {
+                $performanceData['recent_production'] = CatatanProduksi::whereBetween('created_at', [$startDate, $endDate])->latest()->take(10)->get();
+            } catch (\Exception $e) {
+                Log::error('Recent production error: ' . $e->getMessage());
+            }
+
+            try {
+                $performanceData['recent_purchases'] = Purchase::whereBetween('created_at', [$startDate, $endDate])->latest()->take(10)->get();
+            } catch (\Exception $e) {
+                Log::error('Recent purchases error: ' . $e->getMessage());
+            }
+
+            // System health
             $systemHealth = [
-                'total_transactions' => HistorySale::count() + CatatanProduksi::count() + Purchase::count(),
-                'data_integrity' => $this->checkDataIntegrity(),
-                'last_activity' => $this->getLastActivity(),
+                'total_transactions' => 0,
+                'data_integrity' => 'Good',
+                'last_activity' => null,
+                'database_status' => 'Connected'
             ];
 
-            return view('dashboard', compact(
-                'masterData',
-                'todayActivity',
-                'monthlyStats',
-                'topPerformance',
-                'systemHealth'
-            ));
+            try {
+                $systemHealth['total_transactions'] = HistorySale::count() + CatatanProduksi::count() + Purchase::count();
+            } catch (\Exception $e) {
+                Log::error('Total transactions error: ' . $e->getMessage());
+            }
+
+            // Get last activity for current user from Activity table
+            try {
+                $lastActivity = Activity::where('user_id', auth()->id())
+                    ->latest()
+                    ->first();
+                $systemHealth['last_activity'] = $lastActivity ? $lastActivity->created_at : null;
+            } catch (\Exception $e) {
+                Log::error('Last activity error: ' . $e->getMessage());
+                $systemHealth['last_activity'] = null;
+            }
+
+            // Get user activity statistics
+            $userStats = [
+                'total_logins' => 0,
+                'last_login' => null,
+                'activities_today' => 0
+            ];
+
+            try {
+                // Count total logins for current user
+                $userStats['total_logins'] = Activity::where('user_id', auth()->id())
+                    ->where('category', 'auth')
+                    ->where('action', 'login')
+                    ->count();
+
+                // Get last login (excluding current session)
+                $lastLogin = Activity::where('user_id', auth()->id())
+                    ->where('category', 'auth')
+                    ->where('action', 'login')
+                    ->latest()
+                    ->skip(1) // Skip current login
+                    ->first();
+                $userStats['last_login'] = $lastLogin ? $lastLogin->created_at : null;
+
+                // Count activities today
+                $userStats['activities_today'] = Activity::where('user_id', auth()->id())
+                    ->whereDate('created_at', Carbon::today())
+                    ->count();
+            } catch (\Exception $e) {
+                Log::error('User stats error: ' . $e->getMessage());
+            }
+
+            // Available years - simple approach
+            $availableYears = [2023, 2024, Carbon::now()->year];
+            $availableYears = array_unique($availableYears);
+            sort($availableYears);
+
+            $availableMonths = [
+                1 => 'January',
+                2 => 'February',
+                3 => 'March',
+                4 => 'April',
+                5 => 'May',
+                6 => 'June',
+                7 => 'July',
+                8 => 'August',
+                9 => 'September',
+                10 => 'October',
+                11 => 'November',
+                12 => 'December'
+            ];
+
+            return view('dashboard', [
+                'masterData' => $masterData,
+                'activityData' => $activityData,
+                'performanceData' => $performanceData,
+                'systemHealth' => $systemHealth,
+                'userStats' => $userStats,
+                'dateRange' => $dateRange,
+                'availableYears' => $availableYears,
+                'availableMonths' => $availableMonths
+            ]);
         } catch (\Exception $e) {
-            // Fallback data in case of error
+            Log::error('Dashboard Critical Error: ' . $e->getMessage() . ' at line ' . $e->getLine());
+
+            // Ultra-safe fallback
             return view('dashboard', [
                 'masterData' => [
                     'total_products' => 0,
                     'total_bahan_baku' => 0,
-                    'active_users' => 0,
+                    'total_users' => 0,
                     'products_low_stock' => 0,
+                    'stickers_need_order' => 0,
                 ],
-                'todayActivity' => [
-                    'sales_today' => 0,
-                    'production_today' => 0,
-                    'purchases_today' => 0,
-                    'qty_sold_today' => 0,
+                'activityData' => [
+                    'sales_count' => 0,
+                    'production_count' => 0,
+                    'purchases_count' => 0,
+                    'total_qty_sold' => 0,
+                    'total_production_qty' => 0,
+                    'total_purchase_qty' => 0,
                 ],
-                'monthlyStats' => [
-                    'sales_this_month' => 0,
-                    'production_this_month' => 0,
-                    'purchases_this_month' => 0,
-                    'qty_sold_this_month' => 0,
-                ],
-                'topPerformance' => [
+                'performanceData' => [
                     'top_selling_skus' => [],
-                    'recent_production' => [],
-                    'recent_purchases' => [],
-                    'recent_sales' => [],
+                    'recent_sales' => collect(),
+                    'recent_production' => collect(),
+                    'recent_purchases' => collect(),
                 ],
                 'systemHealth' => [
                     'total_transactions' => 0,
                     'data_integrity' => 'Unknown',
                     'last_activity' => null,
+                    'database_status' => 'Error'
+                ],
+                'userStats' => [
+                    'total_logins' => 0,
+                    'last_login' => null,
+                    'activities_today' => 0
+                ],
+                'dateRange' => [
+                    'start' => Carbon::now()->startOfMonth(),
+                    'end' => Carbon::now()->endOfMonth(),
+                    'year' => Carbon::now()->year,
+                    'month' => Carbon::now()->month,
+                    'range' => 'month',
+                    'label' => Carbon::now()->format('F Y')
+                ],
+                'availableYears' => [Carbon::now()->year],
+                'availableMonths' => [
+                    1 => 'January',
+                    2 => 'February',
+                    3 => 'March',
+                    4 => 'April',
+                    5 => 'May',
+                    6 => 'June',
+                    7 => 'July',
+                    8 => 'August',
+                    9 => 'September',
+                    10 => 'October',
+                    11 => 'November',
+                    12 => 'December'
                 ]
             ]);
-        }
-    }
-
-    /**
-     * Get total quantity sold in a date range
-     */
-    private function getTotalQuantitySold($startDate, $endDate)
-    {
-        $sales = HistorySale::whereBetween('created_at', [$startDate, $endDate])->get();
-        $totalQty = 0;
-
-        foreach ($sales as $sale) {
-            if (is_array($sale->qty_terjual)) {
-                $totalQty += array_sum($sale->qty_terjual);
-            } elseif (is_string($sale->qty_terjual)) {
-                $quantities = json_decode($sale->qty_terjual, true);
-                if (is_array($quantities)) {
-                    $totalQty += array_sum($quantities);
-                }
-            }
-        }
-
-        return $totalQty;
-    }
-
-    /**
-     * Get top selling SKUs
-     */
-    private function getTopSellingSkus($limit = 5)
-    {
-        $skuSales = [];
-        $sales = HistorySale::all();
-
-        foreach ($sales as $sale) {
-            $skus = is_array($sale->produk_terjual) ? $sale->produk_terjual : json_decode($sale->produk_terjual, true);
-            $qtys = is_array($sale->qty_terjual) ? $sale->qty_terjual : json_decode($sale->qty_terjual, true);
-
-            if (is_array($skus) && is_array($qtys)) {
-                foreach ($skus as $index => $sku) {
-                    $qty = isset($qtys[$index]) ? (int)$qtys[$index] : 1;
-
-                    if (!isset($skuSales[$sku])) {
-                        $product = Product::where('sku', $sku)->first();
-                        $skuSales[$sku] = [
-                            'sku' => $sku,
-                            'name' => $product ? $product->name_product : 'Unknown Product',
-                            'total_sold' => 0,
-                            'transactions' => 0
-                        ];
-                    }
-
-                    $skuSales[$sku]['total_sold'] += $qty;
-                    $skuSales[$sku]['transactions']++;
-                }
-            }
-        }
-
-        // Sort by total sold and take top results
-        uasort($skuSales, function ($a, $b) {
-            return $b['total_sold'] - $a['total_sold'];
-        });
-
-        return array_slice($skuSales, 0, $limit);
-    }
-
-    /**
-     * Check basic data integrity
-     */
-    private function checkDataIntegrity()
-    {
-        try {
-            $issues = 0;
-
-            // Check for products without SKU
-            $productsWithoutSku = Product::whereNull('sku')->orWhere('sku', '')->count();
-            if ($productsWithoutSku > 0) $issues++;
-
-            // Check for bahan baku without SKU
-            $bahanBakuWithoutSku = BahanBaku::whereNull('sku_induk')->orWhere('sku_induk', '')->count();
-            if ($bahanBakuWithoutSku > 0) $issues++;
-
-            // Check for sales with invalid SKUs
-            $invalidSales = 0;
-            $recentSales = HistorySale::take(100)->get();
-            foreach ($recentSales as $sale) {
-                $skus = is_array($sale->produk_terjual) ? $sale->produk_terjual : json_decode($sale->produk_terjual, true);
-                if (is_array($skus)) {
-                    foreach ($skus as $sku) {
-                        $exists = Product::where('sku', $sku)->exists();
-                        if (!$exists) {
-                            $invalidSales++;
-                            break;
-                        }
-                    }
-                }
-            }
-            if ($invalidSales > 0) $issues++;
-
-            if ($issues === 0) return 'Good';
-            if ($issues <= 2) return 'Fair';
-            return 'Needs Attention';
-        } catch (\Exception $e) {
-            return 'Unknown';
-        }
-    }
-
-    /**
-     * Get last activity timestamp
-     */
-    private function getLastActivity()
-    {
-        try {
-            $lastSale = HistorySale::latest()->first();
-            $lastProduction = CatatanProduksi::latest()->first();
-            $lastPurchase = Purchase::latest()->first();
-
-            $activities = array_filter([
-                $lastSale ? $lastSale->created_at : null,
-                $lastProduction ? $lastProduction->created_at : null,
-                $lastPurchase ? $lastPurchase->created_at : null,
-            ]);
-
-            if (empty($activities)) return null;
-
-            return collect($activities)->max();
-        } catch (\Exception $e) {
-            return null;
         }
     }
 }

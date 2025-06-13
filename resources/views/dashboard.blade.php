@@ -6,21 +6,68 @@
 
 @section('content')
     <!-- [ Main Content ] start -->
+
+    <!-- Welcome Section -->
     <div class="row mb-4">
         <div class="col-12">
             <div class="card border">
                 <div class="card-body p-3">
-                    <div class="d-flex align-items-center">
-                        <div class="avatar bg-primary text-white me-3">
-                            <i class="ti ti-user"></i>
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div class="d-flex align-items-center">
+                            <div class="avatar bg-primary text-white me-3">
+                                <i class="ti ti-user"></i>
+                            </div>
+                            <div>
+                                <h5 class="mb-1">Selamat Datang, {{ Auth::user()->name }}!</h5>
+                                <small class="text-muted">
+                                    Role: <span class="badge bg-primary">{{ Auth::user()->getRoleNames()->first() }}</span>
+                                    | Login Terakhir:
+                                    {{ $userStats['last_login'] ? $userStats['last_login']->format('d/m/Y H:i') : 'Belum pernah login sebelumnya' }}
+                                    <br>
+                                    <i class="ti ti-activity"></i> {{ $userStats['total_logins'] }} kali login
+                                    | <i class="ti ti-calendar-event"></i> {{ $userStats['activities_today'] }} aktivitas
+                                    hari ini
+                                </small>
+                            </div>
                         </div>
-                        <div>
-                            <h5 class="mb-1">Selamat Datang, {{ Auth::user()->name }}!</h5>
-                            <small class="text-muted">
-                                Role: <span class="badge bg-primary">{{ Auth::user()->getRoleNames()->first() }}</span>
-                                | Last Login:
-                                {{ Auth::user()->last_login_at ? Auth::user()->last_login_at->format('d/m/Y H:i') : '-' }}
-                            </small>
+
+                        <!-- Date Range Filter -->
+                        <div class="d-flex align-items-center gap-2">
+                            <form method="GET" action="{{ route('dashboard') }}" class="d-flex align-items-center gap-2">
+                                <select name="range" class="form-select form-select-sm" style="width: auto;"
+                                    onchange="toggleDateInputs(this.value)">
+                                    <option value="month" {{ $dateRange['range'] == 'month' ? 'selected' : '' }}>Bulanan
+                                    </option>
+                                    <option value="year" {{ $dateRange['range'] == 'year' ? 'selected' : '' }}>Tahunan
+                                    </option>
+                                    <option value="all" {{ $dateRange['range'] == 'all' ? 'selected' : '' }}>Semua Waktu
+                                    </option>
+                                </select>
+
+                                <div id="monthInput" style="{{ $dateRange['range'] != 'month' ? 'display: none;' : '' }}">
+                                    <select name="month" class="form-select form-select-sm" style="width: auto;">
+                                        @foreach ($availableMonths as $num => $name)
+                                            <option value="{{ $num }}"
+                                                {{ $dateRange['month'] == $num ? 'selected' : '' }}>{{ $name }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                </div>
+
+                                <div id="yearInput" style="{{ $dateRange['range'] == 'all' ? 'display: none;' : '' }}">
+                                    <select name="year" class="form-select form-select-sm" style="width: auto;">
+                                        @foreach ($availableYears as $year)
+                                            <option value="{{ $year }}"
+                                                {{ $dateRange['year'] == $year ? 'selected' : '' }}>{{ $year }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                </div>
+
+                                <button type="submit" class="btn btn-primary btn-sm">
+                                    <i class="ti ti-filter"></i> Filter
+                                </button>
+                            </form>
                         </div>
                     </div>
                 </div>
@@ -28,22 +75,36 @@
         </div>
     </div>
 
-    <!-- Statistics Overview -->
+    <!-- Current Filter Display -->
+    <div class="row mb-3">
+        <div class="col-12">
+            <div class="alert alert-info py-2 mb-0">
+                <i class="ti ti-calendar"></i>
+                <strong>Menampilkan data untuk:</strong> {{ $dateRange['label'] }}
+                <span class="ms-2 text-muted">
+                    ({{ $dateRange['start']->format('d M Y') }} - {{ $dateRange['end']->format('d M Y') }})
+                </span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Master Data Overview -->
     <div class="row mb-4">
         <div class="col-12">
-            <h6 class="mb-3">System Overview</h6>
+            <h6 class="mb-3">Ringkasan Sistem</h6>
         </div>
 
-        <!-- Master Data Stats -->
         <div class="col-lg-3 col-md-6 mb-3">
             <div class="card border">
                 <div class="card-body p-3">
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
-                            <p class="text-muted mb-1 small">Products</p>
+                            <p class="text-muted mb-1 small">Produk</p>
                             <h4 class="mb-0">{{ number_format($masterData['total_products']) }}</h4>
                             @if ($masterData['products_low_stock'] > 0)
-                                <small class="text-warning">{{ $masterData['products_low_stock'] }} low stock</small>
+                                <small class="text-warning">{{ $masterData['products_low_stock'] }} stok menipis</small>
+                            @else
+                                <small class="text-muted">Stok aman semua</small>
                             @endif
                         </div>
                         <div class="text-primary">
@@ -61,7 +122,7 @@
                         <div>
                             <p class="text-muted mb-1 small">Bahan Baku</p>
                             <h4 class="mb-0">{{ number_format($masterData['total_bahan_baku']) }}</h4>
-                            <small class="text-muted">Raw materials</small>
+                            <small class="text-muted">Bahan mentah</small>
                         </div>
                         <div class="text-success">
                             <i class="ti ti-package fs-3"></i>
@@ -76,9 +137,9 @@
                 <div class="card-body p-3">
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
-                            <p class="text-muted mb-1 small">Active Users</p>
-                            <h4 class="mb-0">{{ number_format($masterData['active_users']) }}</h4>
-                            <small class="text-muted">System users</small>
+                            <p class="text-muted mb-1 small">Total User</p>
+                            <h4 class="mb-0">{{ number_format($masterData['total_users']) }}</h4>
+                            <small class="text-muted">Pengguna sistem</small>
                         </div>
                         <div class="text-info">
                             <i class="ti ti-users fs-3"></i>
@@ -93,12 +154,19 @@
                 <div class="card-body p-3">
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
-                            <p class="text-muted mb-1 small">Total Transactions</p>
-                            <h4 class="mb-0">{{ number_format($systemHealth['total_transactions']) }}</h4>
-                            <small class="text-muted">All time</small>
+                            <p class="text-muted mb-1 small">Stiker Perlu Order</p>
+                            <h4 class="mb-0 {{ $masterData['stickers_need_order'] > 0 ? 'text-danger' : 'text-success' }}">
+                                {{ number_format($masterData['stickers_need_order']) }}
+                            </h4>
+                            @if ($masterData['stickers_need_order'] > 0)
+                                <small class="text-danger">
+                                    <i class="ti ti-alert-triangle"></i> Sisa < 30 </small>
+                                    @else
+                                        <small class="text-success">Stiker masih aman</small>
+                            @endif
                         </div>
-                        <div class="text-warning">
-                            <i class="ti ti-chart-line fs-3"></i>
+                        <div class="text-{{ $masterData['stickers_need_order'] > 0 ? 'danger' : 'success' }}">
+                            <i class="ti ti-sticker fs-3"></i>
                         </div>
                     </div>
                 </div>
@@ -106,133 +174,113 @@
         </div>
     </div>
 
-    <!-- Today's Activity -->
+    <!-- Activity Statistics -->
     <div class="row mb-4">
         <div class="col-12">
-            <h6 class="mb-3">Today's Activity</h6>
+            <h6 class="mb-3">Statistik Aktivitas
+                <small class="text-muted">- {{ $dateRange['label'] }}</small>
+            </h6>
         </div>
 
-        <div class="col-lg-3 col-md-6 mb-3">
-            <div class="card border">
-                <div class="card-body p-3">
-                    <div class="text-center">
-                        <i class="ti ti-scan text-primary fs-2 mb-2"></i>
-                        <h5 class="mb-1">{{ number_format($todayActivity['sales_today']) }}</h5>
-                        <p class="text-muted mb-0 small">Sales Scanned</p>
-                    </div>
+        <div class="col-lg-2 col-md-4 col-sm-6 mb-3">
+            <div class="card border" data-bs-toggle="tooltip" data-bs-placement="top"
+                title="Total transaksi penjualan yang tercatat di sistem">
+                <div class="card-body p-3 text-center">
+                    <i class="ti ti-scan text-primary fs-2 mb-2"></i>
+                    <h5 class="mb-1">{{ number_format($activityData['sales_count']) }}</h5>
+                    <p class="text-muted mb-0 small">Penjualan</p>
+                    <small class="text-muted d-block" style="font-size: 0.7rem;">
+                        <i class="ti ti-info-circle"></i> Total transaksi
+                    </small>
                 </div>
             </div>
         </div>
 
-        <div class="col-lg-3 col-md-6 mb-3">
-            <div class="card border">
-                <div class="card-body p-3">
-                    <div class="text-center">
-                        <i class="ph-duotone ph-factory text-success fs-2 mb-2"></i>
-                        <h5 class="mb-1">{{ number_format($todayActivity['production_today']) }}</h5>
-                        <p class="text-muted mb-0 small">Production</p>
-                    </div>
+        <div class="col-lg-2 col-md-4 col-sm-6 mb-3">
+            <div class="card border" data-bs-toggle="tooltip" data-bs-placement="top"
+                title="Jumlah batch produksi yang sudah selesai">
+                <div class="card-body p-3 text-center">
+                    <i class="ph-duotone ph-factory text-success fs-2 mb-2"></i>
+                    <h5 class="mb-1">{{ number_format($activityData['production_count']) }}</h5>
+                    <p class="text-muted mb-0 small">Produksi</p>
+                    <small class="text-muted d-block" style="font-size: 0.7rem;">
+                        <i class="ti ti-info-circle"></i> Batch selesai
+                    </small>
                 </div>
             </div>
         </div>
 
-        <div class="col-lg-3 col-md-6 mb-3">
-            <div class="card border">
-                <div class="card-body p-3">
-                    <div class="text-center">
-                        <i class="ti ti-shopping-cart text-info fs-2 mb-2"></i>
-                        <h5 class="mb-1">{{ number_format($todayActivity['purchases_today']) }}</h5>
-                        <p class="text-muted mb-0 small">Purchases</p>
-                    </div>
+        <div class="col-lg-2 col-md-4 col-sm-6 mb-3">
+            <div class="card border" data-bs-toggle="tooltip" data-bs-placement="top"
+                title="Total order pembelian bahan baku dan supplies">
+                <div class="card-body p-3 text-center">
+                    <i class="ti ti-shopping-cart text-info fs-2 mb-2"></i>
+                    <h5 class="mb-1">{{ number_format($activityData['purchases_count']) }}</h5>
+                    <p class="text-muted mb-0 small">Pembelian</p>
+                    <small class="text-muted d-block" style="font-size: 0.7rem;">
+                        <i class="ti ti-info-circle"></i> Order pembelian
+                    </small>
                 </div>
             </div>
         </div>
 
-        <div class="col-lg-3 col-md-6 mb-3">
-            <div class="card border">
-                <div class="card-body p-3">
-                    <div class="text-center">
-                        <i class="ti ti-package text-warning fs-2 mb-2"></i>
-                        <h5 class="mb-1">{{ number_format($todayActivity['qty_sold_today']) }}</h5>
-                        <p class="text-muted mb-0 small">Qty Sold</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Monthly Performance -->
-    <div class="row mb-4">
-        <div class="col-md-6">
-            <div class="card border">
-                <div class="card-header">
-                    <h6 class="mb-0">This Month Performance</h6>
-                </div>
-                <div class="card-body p-3">
-                    <div class="row text-center">
-                        <div class="col-6 mb-3">
-                            <h5 class="text-primary mb-1">{{ number_format($monthlyStats['sales_this_month']) }}</h5>
-                            <p class="text-muted mb-0 small">Sales</p>
-                        </div>
-                        <div class="col-6 mb-3">
-                            <h5 class="text-success mb-1">{{ number_format($monthlyStats['production_this_month']) }}</h5>
-                            <p class="text-muted mb-0 small">Production</p>
-                        </div>
-                        <div class="col-6">
-                            <h5 class="text-info mb-1">{{ number_format($monthlyStats['purchases_this_month']) }}</h5>
-                            <p class="text-muted mb-0 small">Purchases</p>
-                        </div>
-                        <div class="col-6">
-                            <h5 class="text-warning mb-1">{{ number_format($monthlyStats['qty_sold_this_month']) }}</h5>
-                            <p class="text-muted mb-0 small">Qty Sold</p>
-                        </div>
-                    </div>
+        <div class="col-lg-2 col-md-4 col-sm-6 mb-3">
+            <div class="card border" data-bs-toggle="tooltip" data-bs-placement="top"
+                title="Total jumlah produk yang terjual ke customer">
+                <div class="card-body p-3 text-center">
+                    <i class="ti ti-package text-warning fs-2 mb-2"></i>
+                    <h5 class="mb-1">{{ number_format($activityData['total_qty_sold']) }}</h5>
+                    <p class="text-muted mb-0 small">Qty Terjual</p>
+                    <small class="text-muted d-block" style="font-size: 0.7rem;">
+                        <i class="ti ti-info-circle"></i> Unit terjual
+                    </small>
                 </div>
             </div>
         </div>
 
-        <div class="col-md-6">
-            <div class="card border">
-                <div class="card-header">
-                    <h6 class="mb-0">System Health</h6>
+        <div class="col-lg-2 col-md-4 col-sm-6 mb-3">
+            <div class="card border" data-bs-toggle="tooltip" data-bs-placement="top"
+                title="Total jumlah produk yang diproduksi">
+                <div class="card-body p-3 text-center">
+                    <i class="ti ti-tools text-secondary fs-2 mb-2"></i>
+                    <h5 class="mb-1">{{ number_format($activityData['total_production_qty']) }}</h5>
+                    <p class="text-muted mb-0 small">Diproduksi</p>
+                    <small class="text-muted d-block" style="font-size: 0.7rem;">
+                        <i class="ti ti-info-circle"></i> Unit diproduksi
+                    </small>
                 </div>
-                <div class="card-body p-3">
-                    <div class="mb-3">
-                        <div class="d-flex justify-content-between">
-                            <small>Data Integrity</small>
-                            <span
-                                class="badge 
-                                @if ($systemHealth['data_integrity'] === 'Good') bg-success
-                                @elseif($systemHealth['data_integrity'] === 'Fair') bg-warning  
-                                @else bg-danger @endif">
-                                {{ $systemHealth['data_integrity'] }}
-                            </span>
-                        </div>
-                    </div>
-                    <div class="mb-2">
-                        <small class="text-muted">Last Activity:</small>
-                        <br>
-                        <small>{{ $systemHealth['last_activity'] ? $systemHealth['last_activity']->format('d/m/Y H:i') : 'No recent activity' }}</small>
-                    </div>
+            </div>
+        </div>
+
+        <div class="col-lg-2 col-md-4 col-sm-6 mb-3">
+            <div class="card border" data-bs-toggle="tooltip" data-bs-placement="top"
+                title="Total jumlah bahan dan supplies yang dibeli">
+                <div class="card-body p-3 text-center">
+                    <i class="ti ti-truck text-dark fs-2 mb-2"></i>
+                    <h5 class="mb-1">{{ number_format($activityData['total_purchase_qty']) }}</h5>
+                    <p class="text-muted mb-0 small">Dibeli</p>
+                    <small class="text-muted d-block" style="font-size: 0.7rem;">
+                        <i class="ti ti-info-circle"></i> Unit dibeli
+                    </small>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Top Performance & Recent Activity -->
+    <!-- Performance & Recent Activity -->
     <div class="row mb-4">
         <div class="col-lg-6">
             <div class="card border">
                 <div class="card-header d-flex justify-content-between align-items-center">
-                    <h6 class="mb-0">Top Selling Products</h6>
-                    <small class="text-muted">All time</small>
+                    <h6 class="mb-0">Produk Terlaris</h6>
+                    <small class="text-muted">{{ $dateRange['label'] }}</small>
                 </div>
                 <div class="card-body p-0">
-                    @if (count($topPerformance['top_selling_skus']) > 0)
+                    @if (count($performanceData['top_selling_skus']) > 0)
                         <div class="table-responsive">
                             <table class="table table-sm mb-0">
                                 <tbody>
-                                    @foreach ($topPerformance['top_selling_skus'] as $index => $sku)
+                                    @foreach ($performanceData['top_selling_skus'] as $index => $sku)
                                         <tr>
                                             <td class="py-2">
                                                 <span class="badge bg-secondary">#{{ $index + 1 }}</span>
@@ -247,7 +295,7 @@
                                             <td class="py-2 text-end">
                                                 <span
                                                     class="badge bg-primary">{{ number_format($sku['total_sold']) }}</span>
-                                                <br><small class="text-muted">{{ $sku['transactions'] }} orders</small>
+                                                <br><small class="text-muted">{{ $sku['transactions'] }} order</small>
                                             </td>
                                         </tr>
                                     @endforeach
@@ -257,7 +305,7 @@
                     @else
                         <div class="text-center py-4">
                             <i class="ti ti-chart-bar text-muted fs-3"></i>
-                            <p class="text-muted mb-0">No sales data yet</p>
+                            <p class="text-muted mb-0">Belum ada data penjualan untuk periode ini</p>
                         </div>
                     @endif
                 </div>
@@ -267,211 +315,141 @@
         <div class="col-lg-6">
             <div class="card border">
                 <div class="card-header">
-                    <h6 class="mb-0">Recent Activities</h6>
+                    <h6 class="mb-0">Aktivitas Terbaru</h6>
                 </div>
                 <div class="card-body p-0">
                     <div class="activity-timeline" style="max-height: 300px; overflow-y: auto;">
-                        @if (count($topPerformance['recent_sales']) > 0)
-                            @foreach ($topPerformance['recent_sales'] as $sale)
-                                <div class="d-flex align-items-center p-3 border-bottom">
-                                    <div class="flex-shrink-0">
-                                        <i class="ti ti-scan text-primary"></i>
-                                    </div>
-                                    <div class="flex-grow-1 ms-3">
-                                        <h6 class="mb-1">{{ $sale->no_resi }}</h6>
-                                        <small class="text-muted">
-                                            {{ $sale->created_at->diffForHumans() }}
-                                        </small>
-                                    </div>
-                                    <div class="flex-shrink-0">
-                                        <span class="badge bg-light text-dark">
-                                            @if (is_array($sale->produk_terjual))
-                                                {{ count($sale->produk_terjual) }} items
-                                            @else
-                                                1 item
-                                            @endif
-                                        </span>
-                                    </div>
+                        @forelse ($performanceData['recent_sales'] as $sale)
+                            <div class="d-flex align-items-center p-3 border-bottom">
+                                <div class="flex-shrink-0">
+                                    <i class="ti ti-scan text-primary"></i>
                                 </div>
-                            @endforeach
-                        @endif
-
-                        @if (count($topPerformance['recent_production']) > 0)
-                            @foreach ($topPerformance['recent_production'] as $production)
-                                <div class="d-flex align-items-center p-3 border-bottom">
-                                    <div class="flex-shrink-0">
-                                        <i class="ph-duotone ph-factory text-success"></i>
-                                    </div>
-                                    <div class="flex-grow-1 ms-3">
-                                        <h6 class="mb-1">
-                                            {{ $production->product ? $production->product->name_product : 'Unknown Product' }}
-                                        </h6>
-                                        <small class="text-muted">
-                                            {{ $production->created_at->diffForHumans() }}
-                                        </small>
-                                    </div>
-                                    <div class="flex-shrink-0">
-                                        <span class="badge bg-success">{{ number_format($production->quantity) }}</span>
-                                    </div>
+                                <div class="flex-grow-1 ms-3">
+                                    <h6 class="mb-1">{{ $sale->no_resi }}</h6>
+                                    <small class="text-muted">{{ $sale->created_at->diffForHumans() }}</small>
                                 </div>
-                            @endforeach
-                        @endif
-
-                        @if (count($topPerformance['recent_purchases']) > 0)
-                            @foreach ($topPerformance['recent_purchases'] as $purchase)
-                                <div class="d-flex align-items-center p-3 border-bottom">
-                                    <div class="flex-shrink-0">
-                                        <i class="ti ti-shopping-cart text-info"></i>
-                                    </div>
-                                    <div class="flex-grow-1 ms-3">
-                                        <h6 class="mb-1">{{ $purchase->item_name ?? 'Purchase Item' }}</h6>
-                                        <small class="text-muted">
-                                            {{ $purchase->created_at->diffForHumans() }}
-                                        </small>
-                                    </div>
-                                    <div class="flex-shrink-0">
-                                        <span class="badge bg-info">{{ number_format($purchase->qty_pembelian) }}</span>
-                                    </div>
+                                <div class="flex-shrink-0">
+                                    <span class="badge bg-light text-dark">
+                                        @if (is_array($sale->no_sku))
+                                            {{ count($sale->no_sku) }} item
+                                        @else
+                                            1 item
+                                        @endif
+                                    </span>
                                 </div>
-                            @endforeach
-                        @endif
+                            </div>
+                        @empty
+                            <div class="text-center py-4">
+                                <i class="ti ti-activity text-muted fs-3"></i>
+                                <p class="text-muted mb-0">Belum ada aktivitas terbaru</p>
+                            </div>
+                        @endforelse
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Quick Access & Reports -->
+    <!-- System Health & Quick Access -->
     <div class="row mb-4">
-        <div class="col-12">
-            <h6 class="mb-3">Quick Access</h6>
-        </div>
-
-        <!-- Master Data -->
-        <div class="col-lg-3 col-md-6 mb-3">
-            <div class="card border h-100">
-                <div class="card-body p-3">
-                    <div class="d-flex align-items-center mb-2">
-                        <i class="ti ti-box text-primary me-2"></i>
-                        <h6 class="mb-0">Products</h6>
-                    </div>
-                    <p class="text-muted mb-2 small">Manage products & inventory</p>
-                    <a href="{{ route('products.index') }}" class="btn btn-sm btn-outline-primary">
-                        <i class="ti ti-arrow-right me-1"></i>Manage
-                    </a>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-lg-3 col-md-6 mb-3">
-            <div class="card border h-100">
-                <div class="card-body p-3">
-                    <div class="d-flex align-items-center mb-2">
-                        <i class="ti ti-package text-success me-2"></i>
-                        <h6 class="mb-0">Bahan Baku</h6>
-                    </div>
-                    <p class="text-muted mb-2 small">Raw materials management</p>
-                    <a href="{{ route('bahan-baku.index') }}" class="btn btn-sm btn-outline-success">
-                        <i class="ti ti-arrow-right me-1"></i>Manage
-                    </a>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-lg-3 col-md-6 mb-3">
-            <div class="card border h-100">
-                <div class="card-body p-3">
-                    <div class="d-flex align-items-center mb-2">
-                        <i class="ph-duotone ph-factory text-info me-2"></i>
-                        <h6 class="mb-0">Production</h6>
-                    </div>
-                    <p class="text-muted mb-2 small">Production records</p>
-                    <a href="{{ route('catatan-produksi.index') }}" class="btn btn-sm btn-outline-info">
-                        <i class="ti ti-arrow-right me-1"></i>Records
-                    </a>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-lg-3 col-md-6 mb-3">
-            <div class="card border h-100">
-                <div class="card-body p-3">
-                    <div class="d-flex align-items-center mb-2">
-                        <i class="ti ti-scan text-warning me-2"></i>
-                        <h6 class="mb-0">Scanner</h6>
-                    </div>
-                    <p class="text-muted mb-2 small">Sales transactions</p>
-                    <a href="{{ route('history-sales.index') }}" class="btn btn-sm btn-outline-warning">
-                        <i class="ti ti-arrow-right me-1"></i>Scan
-                    </a>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Reports & System -->
-    <div class="row mb-4">
-        <div class="col-md-6 mb-3">
+        <div class="col-md-6">
             <div class="card border">
                 <div class="card-header">
-                    <h6 class="mb-0">Reports</h6>
+                    <h6 class="mb-0">Kesehatan Sistem</h6>
                 </div>
                 <div class="card-body p-3">
-                    <div class="d-grid gap-2">
-                        <a href="{{ route('reports.scanner.index') }}" class="btn btn-sm btn-outline-primary">
-                            <i class="ti ti-chart-line me-1"></i>Scanner Report
-                        </a>
-                        <a href="{{ route('reports.purchase.index') }}" class="btn btn-sm btn-outline-success">
-                            <i class="ti ti-shopping-cart me-1"></i>Purchase Report
-                        </a>
-                        <a href="{{ route('reports.catatan-produksi.index') }}" class="btn btn-sm btn-outline-info">
-                            <i class="ph-duotone ph-factory me-1"></i>Production Report
-                        </a>
+                    <div class="row text-center">
+                        <div class="col-6 mb-3">
+                            <h5 class="text-primary mb-1">{{ number_format($systemHealth['total_transactions']) }}</h5>
+                            <p class="text-muted mb-0 small">Total Transaksi</p>
+                        </div>
+                        <div class="col-6 mb-3">
+                            <span
+                                class="badge 
+                                @if ($systemHealth['data_integrity'] === 'Good') bg-success
+                                @elseif($systemHealth['data_integrity'] === 'Fair') bg-warning  
+                                @else bg-danger @endif">
+                                @if ($systemHealth['data_integrity'] === 'Good')
+                                    Bagus
+                                @elseif($systemHealth['data_integrity'] === 'Fair')
+                                    Cukup
+                                @else
+                                    Perlu Perhatian
+                                @endif
+                            </span>
+                            <p class="text-muted mb-0 small">Integritas Data</p>
+                        </div>
+                        <div class="col-12">
+                            <small class="text-muted">
+                                Aktivitas Terakhir:
+                                {{ $systemHealth['last_activity'] ? $systemHealth['last_activity']->format('d/m/Y H:i') : 'Belum ada aktivitas terbaru' }}
+                            </small>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
 
-        <div class="col-md-6 mb-3">
-            @if (Auth::user()->hasRole('Admin') || Auth::user()->hasRole('Super Admin'))
-                <div class="card border">
-                    <div class="card-header">
-                        <h6 class="mb-0">System Management</h6>
-                    </div>
-                    <div class="card-body p-3">
-                        <div class="d-grid gap-2">
-                            <a href="{{ route('users.index') }}" class="btn btn-sm btn-outline-secondary">
-                                <i class="ti ti-users me-1"></i>Users
+        <div class="col-md-6">
+            <div class="card border">
+                <div class="card-header">
+                    <h6 class="mb-0">Akses Cepat</h6>
+                </div>
+                <div class="card-body p-3">
+                    <div class="row">
+                        <div class="col-6 mb-2">
+                            <a href="{{ route('products.index') }}" class="btn btn-sm btn-outline-primary w-100">
+                                <i class="ti ti-box me-1"></i>Produk
                             </a>
-                            @if (Auth::user()->hasRole('Super Admin'))
-                                <a href="{{ route('roles.index') }}" class="btn btn-sm btn-outline-secondary">
-                                    <i class="ti ti-shield-lock me-1"></i>Roles
-                                </a>
-                            @endif
-                            <a href="{{ route('activity') }}" class="btn btn-sm btn-outline-secondary">
-                                <i class="ti ti-activity me-1"></i>Activity Log
+                        </div>
+                        <div class="col-6 mb-2">
+                            <a href="{{ route('scanner.index') }}" class="btn btn-sm btn-outline-success w-100">
+                                <i class="ti ti-scan me-1"></i>Scanner
+                            </a>
+                        </div>
+                        <div class="col-6 mb-2">
+                            <a href="{{ route('catatan-produksi.index') }}" class="btn btn-sm btn-outline-info w-100">
+                                <i class="ph-duotone ph-factory me-1"></i>Produksi
+                            </a>
+                        </div>
+                        <div class="col-6 mb-2">
+                            <a href="{{ route('stickers.index') }}" class="btn btn-sm btn-outline-warning w-100">
+                                <i class="ti ti-sticker me-1"></i>Stiker
                             </a>
                         </div>
                     </div>
                 </div>
-            @else
-                <div class="card border">
-                    <div class="card-header">
-                        <h6 class="mb-0">User Info</h6>
-                    </div>
-                    <div class="card-body p-3">
-                        <div class="text-center">
-                            <i class="ti ti-user-circle fs-3 text-muted mb-2"></i>
-                            <h6>{{ Auth::user()->name }}</h6>
-                            <p class="text-muted mb-0 small">{{ Auth::user()->email }}</p>
-                        </div>
-                    </div>
-                </div>
-            @endif
+            </div>
         </div>
     </div>
 
     <!-- [ Main Content ] end -->
+
+    <script>
+        function toggleDateInputs(range) {
+            const monthInput = document.getElementById('monthInput');
+            const yearInput = document.getElementById('yearInput');
+
+            if (range === 'month') {
+                monthInput.style.display = 'block';
+                yearInput.style.display = 'block';
+            } else if (range === 'year') {
+                monthInput.style.display = 'none';
+                yearInput.style.display = 'block';
+            } else { // all
+                monthInput.style.display = 'none';
+                yearInput.style.display = 'none';
+            }
+        }
+
+        // Initialize Bootstrap tooltips
+        document.addEventListener('DOMContentLoaded', function() {
+            var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+            var tooltipList = tooltipTriggerList.map(function(tooltipTriggerEl) {
+                return new bootstrap.Tooltip(tooltipTriggerEl);
+            });
+        });
+    </script>
 
     <style>
         .avatar {

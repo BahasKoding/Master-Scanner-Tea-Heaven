@@ -443,7 +443,7 @@
         // Global debug function - harus di luar document ready
         function debugLog(...args) {
             // Debug logging disabled for production
-            // console.log('[DEBUG Purchase Sticker]', new Date().toISOString(), ...args);
+            // Debug logging removed for production
         }
 
         // Global helper functions

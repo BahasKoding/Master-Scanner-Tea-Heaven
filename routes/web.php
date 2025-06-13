@@ -21,6 +21,7 @@ use App\Http\Controllers\ReportController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Carbon\Carbon;
 
 /*
 |--------------------------------------------------------------------------
@@ -240,7 +241,21 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/alerts', function () {
         return view('forms.form2_choices');
     });
-
+    // Debug route to test dashboard
+    // Route::get('/dashboard-test', function () {
+    //     try {
+    //         $controller = new \App\Http\Controllers\DashboardController();
+    //         $request = new \Illuminate\Http\Request();
+    //         return $controller->index($request);
+    //     } catch (\Exception $e) {
+    //         return response()->json([
+    //             'error' => $e->getMessage(),
+    //             'line' => $e->getLine(),
+    //             'file' => $e->getFile(),
+    //             'trace' => $e->getTraceAsString()
+    //         ], 500);
+    //     }
+    // });
     // Define a GET route with dynamic placeholders for route parameters.
     Route::get('{routeName}/{name?}', [HomeController::class, 'pageView']);
 });

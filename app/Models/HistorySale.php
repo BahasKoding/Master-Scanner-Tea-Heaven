@@ -125,4 +125,111 @@ class HistorySale extends Model
             throw $e;
         }
     }
+
+    /**
+     * Get top selling SKUs for a given date range
+     * 
+     * @param \Carbon\Carbon $startDate
+     * @param \Carbon\Carbon $endDate
+     * @param int $limit
+     * @return array
+     */
+    public static function getTopSellingSKUs($startDate, $endDate, $limit = 5)
+    {
+        try {
+            $skuSales = [];
+            $sales = self::whereBetween('created_at', [$startDate, $endDate])->get();
+
+            foreach ($sales as $sale) {
+                try {
+                    $skuArray = is_string($sale->no_sku) ? json_decode($sale->no_sku, true) : $sale->no_sku;
+                    $qtyArray = is_string($sale->qty) ? json_decode($sale->qty, true) : $sale->qty;
+
+                    if (is_array($skuArray) && is_array($qtyArray)) {
+                        foreach ($skuArray as $index => $sku) {
+                            if (!empty($sku)) {
+                                $qty = isset($qtyArray[$index]) ? (int)$qtyArray[$index] : 1;
+
+                                if (!isset($skuSales[$sku])) {
+                                    $skuSales[$sku] = [
+                                        'sku' => $sku,
+                                        'total_sold' => 0,
+                                        'transactions' => 0,
+                                        'name' => ''
+                                    ];
+                                }
+
+                                $skuSales[$sku]['total_sold'] += $qty;
+                                $skuSales[$sku]['transactions']++;
+                            }
+                        }
+                    }
+                } catch (\Exception $e) {
+                    // Skip this sale if there's an error
+                    continue;
+                }
+            }
+
+            // Get product names for SKUs
+            if (!empty($skuSales)) {
+                try {
+                    $products = Product::whereIn('sku', array_keys($skuSales))->get()->keyBy('sku');
+                    foreach ($skuSales as $sku => &$data) {
+                        if (isset($products[$sku])) {
+                            $data['name'] = $products[$sku]->name_product;
+                        } else {
+                            $data['name'] = 'Produk Tidak Dikenal';
+                        }
+                    }
+                } catch (\Exception $e) {
+                    \Illuminate\Support\Facades\Log::error('Error getting product names: ' . $e->getMessage());
+                    // Keep SKUs without names
+                }
+            }
+
+            // Sort by total sold and take top results
+            return collect($skuSales)
+                ->sortByDesc('total_sold')
+                ->take($limit)
+                ->values()
+                ->toArray();
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('Error in getTopSellingSKUs: ' . $e->getMessage());
+            return [];
+        }
+    }
+
+    /**
+     * Calculate total quantity sold for a date range
+     * 
+     * @param \Carbon\Carbon $startDate
+     * @param \Carbon\Carbon $endDate
+     * @return int
+     */
+    public static function getTotalQuantitySold($startDate, $endDate)
+    {
+        try {
+            $totalQty = 0;
+            $sales = self::whereBetween('created_at', [$startDate, $endDate])->get();
+
+            foreach ($sales as $sale) {
+                try {
+                    $qtyArray = is_string($sale->qty) ? json_decode($sale->qty, true) : $sale->qty;
+                    if (is_array($qtyArray)) {
+                        $totalQty += array_sum($qtyArray);
+                    } elseif (is_numeric($qtyArray)) {
+                        $totalQty += $qtyArray;
+                    }
+                } catch (\Exception $e) {
+                    // Skip this sale if there's an error parsing qty
+                    continue;
+                }
+            }
+
+            return $totalQty;
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('Error in getTotalQuantitySold: ' . $e->getMessage());
+            return 0;
+        }
+    }
 }
