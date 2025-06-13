@@ -34,7 +34,7 @@ class FinishedGoods extends Model
     public function updateStokMasukFromCatatanProduksi()
     {
         try {
-            $totalProduction = \App\Models\CatatanProduksi::where('product_id', $this->product_id)
+            $totalProduction = CatatanProduksi::where('product_id', $this->product_id)
                 ->sum('quantity');
 
             $this->stok_masuk = $totalProduction;
@@ -65,7 +65,7 @@ class FinishedGoods extends Model
             $totalSales = 0;
 
             // Get all history sales that contain this product's SKU
-            $historySales = \App\Models\HistorySale::whereNotNull('no_sku')->get();
+            $historySales = HistorySale::whereNotNull('no_sku')->get();
 
             foreach ($historySales as $sale) {
                 $skuArray = is_string($sale->no_sku) ? json_decode($sale->no_sku, true) : $sale->no_sku;
@@ -115,7 +115,7 @@ class FinishedGoods extends Model
     public function getStokMasukDynamicAttribute()
     {
         try {
-            return \App\Models\CatatanProduksi::where('product_id', $this->product_id)->sum('quantity');
+            return CatatanProduksi::where('product_id', $this->product_id)->sum('quantity');
         } catch (\Exception $e) {
             Log::error("Error calculating dynamic stok_masuk for product_id {$this->product_id}: " . $e->getMessage());
             return $this->stok_masuk ?? 0;
@@ -134,7 +134,7 @@ class FinishedGoods extends Model
             }
 
             $totalSales = 0;
-            $historySales = \App\Models\HistorySale::whereNotNull('no_sku')->get();
+            $historySales = HistorySale::whereNotNull('no_sku')->get();
 
             foreach ($historySales as $sale) {
                 $skuArray = is_string($sale->no_sku) ? json_decode($sale->no_sku, true) : $sale->no_sku;

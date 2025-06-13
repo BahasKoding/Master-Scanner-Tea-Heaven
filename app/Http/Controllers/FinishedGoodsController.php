@@ -5,11 +5,11 @@ namespace App\Http\Controllers;
 use App\Models\FinishedGoods;
 use App\Models\Product;
 use App\Models\CatatanProduksi;
+use App\Models\HistorySale;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Yajra\DataTables\Facades\DataTables;
 use Illuminate\Validation\ValidationException;
-use Illuminate\Support\Facades\DB;
 
 class FinishedGoodsController extends Controller
 {
@@ -117,7 +117,7 @@ class FinishedGoodsController extends Controller
                     ->addColumn('stok_masuk_display', function ($row) {
                         // Show dynamic value from CatatanProduksi
                         try {
-                            $dynamicValue = \App\Models\CatatanProduksi::where('product_id', $row->product_id)->sum('quantity');
+                            $dynamicValue = CatatanProduksi::where('product_id', $row->product_id)->sum('quantity');
                             return $dynamicValue;
                         } catch (\Exception $e) {
                             Log::error('Error calculating dynamic stok_masuk', ['error' => $e->getMessage()]);
@@ -127,14 +127,14 @@ class FinishedGoodsController extends Controller
                     ->addColumn('stok_keluar_display', function ($row) {
                         // Show dynamic value from HistorySale with improved validation
                         try {
-                            $product = \App\Models\Product::find($row->product_id);
+                            $product = Product::find($row->product_id);
                             if (!$product) {
                                 Log::warning('Product not found for stok_keluar calculation', ['product_id' => $row->product_id]);
                                 return $row->stok_keluar ?? 0;
                             }
 
                             $totalSales = 0;
-                            $historySales = \App\Models\HistorySale::whereNotNull('no_sku')->get();
+                            $historySales = HistorySale::whereNotNull('no_sku')->get();
 
                             foreach ($historySales as $sale) {
                                 try {
@@ -196,14 +196,14 @@ class FinishedGoodsController extends Controller
                         // Calculate dynamic live stock with improved validation
                         try {
                             $stokAwal = $row->stok_awal ?? 0;
-                            $stokMasuk = \App\Models\CatatanProduksi::where('product_id', $row->product_id)->sum('quantity');
+                            $stokMasuk = CatatanProduksi::where('product_id', $row->product_id)->sum('quantity');
                             $defective = $row->defective ?? 0;
 
-                            $product = \App\Models\Product::find($row->product_id);
+                            $product = Product::find($row->product_id);
                             $stokKeluar = 0;
 
                             if ($product) {
-                                $historySales = \App\Models\HistorySale::whereNotNull('no_sku')->get();
+                                $historySales = HistorySale::whereNotNull('no_sku')->get();
 
                                 foreach ($historySales as $sale) {
                                     try {
@@ -586,7 +586,7 @@ class FinishedGoodsController extends Controller
                 ->addColumn('stok_masuk_display', function ($row) {
                     // Show dynamic value from CatatanProduksi
                     try {
-                        $dynamicValue = \App\Models\CatatanProduksi::where('product_id', $row->product_id)->sum('quantity');
+                        $dynamicValue = CatatanProduksi::where('product_id', $row->product_id)->sum('quantity');
                         return $dynamicValue;
                     } catch (\Exception $e) {
                         Log::error('Error calculating dynamic stok_masuk in data method', ['error' => $e->getMessage()]);
@@ -596,14 +596,14 @@ class FinishedGoodsController extends Controller
                 ->addColumn('stok_keluar_display', function ($row) {
                     // Show dynamic value from HistorySale with improved validation
                     try {
-                        $product = \App\Models\Product::find($row->product_id);
+                        $product = Product::find($row->product_id);
                         if (!$product) {
                             Log::warning('Product not found for stok_keluar calculation in data method', ['product_id' => $row->product_id]);
                             return $row->stok_keluar ?? 0;
                         }
 
                         $totalSales = 0;
-                        $historySales = \App\Models\HistorySale::whereNotNull('no_sku')->get();
+                        $historySales = HistorySale::whereNotNull('no_sku')->get();
 
                         foreach ($historySales as $sale) {
                             try {
@@ -665,14 +665,14 @@ class FinishedGoodsController extends Controller
                     // Calculate dynamic live stock with improved validation
                     try {
                         $stokAwal = $row->stok_awal ?? 0;
-                        $stokMasuk = \App\Models\CatatanProduksi::where('product_id', $row->product_id)->sum('quantity');
+                        $stokMasuk = CatatanProduksi::where('product_id', $row->product_id)->sum('quantity');
                         $defective = $row->defective ?? 0;
 
-                        $product = \App\Models\Product::find($row->product_id);
+                        $product = Product::find($row->product_id);
                         $stokKeluar = 0;
 
                         if ($product) {
-                            $historySales = \App\Models\HistorySale::whereNotNull('no_sku')->get();
+                            $historySales = HistorySale::whereNotNull('no_sku')->get();
 
                             foreach ($historySales as $sale) {
                                 try {

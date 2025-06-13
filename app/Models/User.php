@@ -41,11 +41,6 @@ class User extends Authenticatable implements MustVerifyEmail
     ];
 
 
-    public function sendEmailVerificationNotification()
-    {
-        $this->notify(new \App\Notifications\VerifyEmailOTP);
-    }
-
     // Hash password before saving
     public function setPasswordAttribute($password)
     {

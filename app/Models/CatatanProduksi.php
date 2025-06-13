@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Log;
 
 class CatatanProduksi extends Model
 {
@@ -196,30 +197,30 @@ class CatatanProduksi extends Model
         // Auto-update FinishedGoods when CatatanProduksi is created
         static::created(function ($catatanProduksi) {
             try {
-                \App\Models\FinishedGoods::syncStockForProduct($catatanProduksi->product_id);
-                \Illuminate\Support\Facades\Log::info("Auto-synced FinishedGoods after CatatanProduksi created for product_id: {$catatanProduksi->product_id}");
+                FinishedGoods::syncStockForProduct($catatanProduksi->product_id);
+                Log::info("Auto-synced FinishedGoods after CatatanProduksi created for product_id: {$catatanProduksi->product_id}");
             } catch (\Exception $e) {
-                \Illuminate\Support\Facades\Log::error("Failed to sync FinishedGoods after CatatanProduksi created: " . $e->getMessage());
+                Log::error("Failed to sync FinishedGoods after CatatanProduksi created: " . $e->getMessage());
             }
         });
 
         // Auto-update FinishedGoods when CatatanProduksi is updated
         static::updated(function ($catatanProduksi) {
             try {
-                \App\Models\FinishedGoods::syncStockForProduct($catatanProduksi->product_id);
-                \Illuminate\Support\Facades\Log::info("Auto-synced FinishedGoods after CatatanProduksi updated for product_id: {$catatanProduksi->product_id}");
+                FinishedGoods::syncStockForProduct($catatanProduksi->product_id);
+                Log::info("Auto-synced FinishedGoods after CatatanProduksi updated for product_id: {$catatanProduksi->product_id}");
             } catch (\Exception $e) {
-                \Illuminate\Support\Facades\Log::error("Failed to sync FinishedGoods after CatatanProduksi updated: " . $e->getMessage());
+                Log::error("Failed to sync FinishedGoods after CatatanProduksi updated: " . $e->getMessage());
             }
         });
 
         // Auto-update FinishedGoods when CatatanProduksi is deleted
         static::deleted(function ($catatanProduksi) {
             try {
-                \App\Models\FinishedGoods::syncStockForProduct($catatanProduksi->product_id);
-                \Illuminate\Support\Facades\Log::info("Auto-synced FinishedGoods after CatatanProduksi deleted for product_id: {$catatanProduksi->product_id}");
+                FinishedGoods::syncStockForProduct($catatanProduksi->product_id);
+                Log::info("Auto-synced FinishedGoods after CatatanProduksi deleted for product_id: {$catatanProduksi->product_id}");
             } catch (\Exception $e) {
-                \Illuminate\Support\Facades\Log::error("Failed to sync FinishedGoods after CatatanProduksi deleted: " . $e->getMessage());
+                Log::error("Failed to sync FinishedGoods after CatatanProduksi deleted: " . $e->getMessage());
             }
         });
     }

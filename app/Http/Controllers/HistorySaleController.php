@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\HistorySale;
+use App\Models\Product;
 use App\Services\SalesService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -130,7 +131,7 @@ class HistorySaleController extends Controller
                     }
 
                     // VALIDASI BARU: Check if SKU exists in products table
-                    $product = \App\Models\Product::where('sku', trim($sku))->first();
+                    $product = Product::where('sku', trim($sku))->first();
                     if (!$product) {
                         return response()->json([
                             'status' => 'error',
@@ -274,7 +275,7 @@ class HistorySaleController extends Controller
                     }
 
                     // VALIDASI BARU: Check if SKU exists in products table
-                    $product = \App\Models\Product::where('sku', trim($sku))->first();
+                    $product = Product::where('sku', trim($sku))->first();
                     if (!$product) {
                         return response()->json([
                             'status' => 'error',
@@ -726,6 +727,46 @@ class HistorySaleController extends Controller
     }
 
     /**
+     * Validate SKU and get detailed product information
+     * Enhanced validation method for better integration
+     */
+    private function validateAndGetProduct($sku, $index = null)
+    {
+        if (empty(trim($sku))) {
+            return [
+                'valid' => false,
+                'error' => [
+                    'status' => 'error',
+                    'message' => 'SKU tidak boleh kosong',
+                    'invalid_sku' => $sku,
+                    'sku_index' => $index
+                ]
+            ];
+        }
+
+        // Check if SKU exists in products table
+        $product = Product::where('sku', trim($sku))->first();
+
+        if (!$product) {
+            return [
+                'valid' => false,
+                'error' => [
+                    'status' => 'error',
+                    'message' => 'SKU tidak ditemukan di database: ' . $sku . '. Pastikan SKU produk sudah terdaftar.',
+                    'invalid_sku' => $sku,
+                    'sku_index' => $index,
+                    'suggestion' => 'Periksa master data produk atau tambahkan produk baru dengan SKU ini'
+                ]
+            ];
+        }
+
+        return [
+            'valid' => true,
+            'product' => $product
+        ];
+    }
+
+    /**
      * Validate SKU for AJAX request
      */
     public function validateSku(Request $request)
@@ -741,7 +782,7 @@ class HistorySaleController extends Controller
             }
 
             // Check if SKU exists in products table
-            $product = \App\Models\Product::where('sku', $sku)->first();
+            $product = Product::where('sku', $sku)->first();
 
             if (!$product) {
                 return response()->json([
@@ -791,7 +832,7 @@ class HistorySaleController extends Controller
                 ]);
             }
 
-            $products = \App\Models\Product::where('sku', 'LIKE', '%' . $term . '%')
+            $products = Product::where('sku', 'LIKE', '%' . $term . '%')
                 ->orWhere('name_product', 'LIKE', '%' . $term . '%')
                 ->limit(10)
                 ->get(['id', 'sku', 'name_product', 'category_product', 'packaging', 'label']);

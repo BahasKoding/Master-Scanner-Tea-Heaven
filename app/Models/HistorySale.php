@@ -39,7 +39,7 @@ class HistorySale extends Model
             return collect();
         }
 
-        return \App\Models\Product::whereIn('sku', $skuArray)->get();
+        return Product::whereIn('sku', $skuArray)->get();
     }
 
     /**
@@ -75,7 +75,7 @@ class HistorySale extends Model
             return collect();
         }
 
-        $products = \App\Models\Product::whereIn('sku', $skuArray)->get()->keyBy('sku');
+        $products = Product::whereIn('sku', $skuArray)->get()->keyBy('sku');
         $result = collect();
 
         foreach ($skuArray as $index => $sku) {
@@ -114,10 +114,10 @@ class HistorySale extends Model
             $skuArray = is_string($historySale->no_sku) ? json_decode($historySale->no_sku, true) : $historySale->no_sku;
 
             if (is_array($skuArray)) {
-                $products = \App\Models\Product::whereIn('sku', $skuArray)->get();
+                $products = Product::whereIn('sku', $skuArray)->get();
 
                 foreach ($products as $product) {
-                    \App\Models\FinishedGoods::syncStockForProduct($product->id);
+                    FinishedGoods::syncStockForProduct($product->id);
                 }
             }
         } catch (\Exception $e) {

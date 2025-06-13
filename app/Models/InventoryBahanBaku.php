@@ -143,7 +143,7 @@ class InventoryBahanBaku extends Model
     {
         try {
             // Calculate total from all purchases for this bahan baku
-            $totalStokMasuk = \App\Models\Purchase::where('bahan_baku_id', $bahanBakuId)
+            $totalStokMasuk = Purchase::where('bahan_baku_id', $bahanBakuId)
                 ->where('kategori', 'bahan_baku')
                 ->sum('total_stok_masuk');
 
@@ -164,7 +164,7 @@ class InventoryBahanBaku extends Model
     {
         try {
             // Calculate total from all catatan produksi for this bahan baku
-            $totalTerpakai = \App\Models\CatatanProduksi::whereJsonContains('sku_induk', (string)$bahanBakuId)
+            $totalTerpakai = CatatanProduksi::whereJsonContains('sku_induk', (string)$bahanBakuId)
                 ->get()
                 ->sum(function ($catatan) use ($bahanBakuId) {
                     $bahanBakuIds = $catatan->sku_induk ?? [];

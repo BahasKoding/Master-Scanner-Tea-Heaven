@@ -538,7 +538,7 @@ class StickerController extends Controller
             // Log activity
             $exportDescription = 'Pengguna mengekspor data sticker';
             if ($request->has('product_id') && !empty($request->product_id)) {
-                $product = \App\Models\Product::find($request->product_id);
+                $product = Product::find($request->product_id);
                 $exportDescription .= ' untuk produk: ' . ($product ? $product->name_product : 'ID ' . $request->product_id);
             }
             if ($request->has('status') && !empty($request->status)) {
