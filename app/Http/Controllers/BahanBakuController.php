@@ -297,4 +297,41 @@ class BahanBakuController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Check if SKU Induk already exists in database
+     */
+    public function checkSkuInduk(Request $request)
+    {
+        try {
+            $skuInduk = $request->input('sku_induk');
+            $bahanBakuId = $request->input('bahan_baku_id'); // For edit mode
+
+            if (empty($skuInduk)) {
+                return response()->json([
+                    'exists' => false,
+                    'message' => ''
+                ]);
+            }
+
+            $query = BahanBaku::where('sku_induk', $skuInduk);
+
+            // If we're editing, exclude the current bahan baku
+            if ($bahanBakuId) {
+                $query->where('id', '!=', $bahanBakuId);
+            }
+
+            $exists = $query->exists();
+
+            return response()->json([
+                'exists' => $exists,
+                'message' => $exists ? 'SKU Induk ini sudah digunakan. Silahkan gunakan SKU Induk yang berbeda.' : ''
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'exists' => false,
+                'message' => 'Terjadi kesalahan saat mengecek SKU Induk'
+            ], 500);
+        }
+    }
 }

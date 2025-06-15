@@ -21,6 +21,40 @@
             border-radius: 5px;
             margin-bottom: 20px;
         }
+
+        /* SKU Induk Warning styling */
+        #sku-induk-warning,
+        #edit-sku-induk-warning {
+            font-weight: 500;
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            border-radius: 6px;
+            padding: 12px 15px;
+            margin-top: 8px;
+            animation: fadeIn 0.3s ease-in;
+            color: #721c24;
+            font-size: 0.9rem;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            border-left: 4px solid #dc3545;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Disabled button styling */
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
     </style>
 @endsection
 
@@ -128,7 +162,9 @@
                         </div>
                         <div class="mb-3">
                             <label class="form-label">SKU Induk <span class="text-danger">*</span></label>
-                            <input type="text" class="form-control" name="sku_induk" required>
+                            <input type="text" class="form-control" name="sku_induk" id="add_sku_induk" required>
+                            <div class="invalid-feedback" id="error-sku_induk"></div>
+                            <div class="text-danger mt-1" id="sku-induk-warning" style="display: none;"></div>
                         </div>
                         <div class="mb-3">
                             <label class="form-label">Nama Barang <span class="text-danger">*</span></label>
@@ -180,6 +216,8 @@
                         <div class="mb-3">
                             <label class="form-label">SKU Induk <span class="text-danger">*</span></label>
                             <input type="text" class="form-control" name="sku_induk" id="edit_sku_induk" required>
+                            <div class="invalid-feedback" id="error-edit-sku_induk"></div>
+                            <div class="text-danger mt-1" id="edit-sku-induk-warning" style="display: none;"></div>
                         </div>
                         <div class="mb-3">
                             <label class="form-label">Nama Barang <span class="text-danger">*</span></label>
@@ -230,6 +268,9 @@
     <!-- Choices JS -->
     <script src="{{ URL::asset('build/js/plugins/choices.min.js') }}"></script>
 
+    <!-- SweetAlert2 -->
+    <script src="{{ URL::asset('build/js/plugins/sweetalert2.all.min.js') }}"></script>
+
     <script type="text/javascript">
         $(document).ready(function() {
             // Debounce function to limit how often a function can trigger
@@ -242,6 +283,85 @@
                     timeout = setTimeout(() => func.apply(context, args), wait);
                 };
             }
+
+            // Function to check SKU Induk availability
+            function checkSkuIndukAvailability(skuInduk, bahanBakuId = null, warningElementId, inputElementId,
+                formType) {
+                if (!skuInduk || skuInduk.length < 2) {
+                    $(warningElementId).hide();
+                    enableSaveButtons(formType);
+                    return;
+                }
+
+                $.ajax({
+                    url: "{{ route('bahan-baku.check-sku-induk') }}",
+                    method: 'POST',
+                    data: {
+                        sku_induk: skuInduk,
+                        bahan_baku_id: bahanBakuId,
+                        _token: '{{ csrf_token() }}'
+                    },
+                    success: function(response) {
+                        if (response.exists) {
+                            // Show warning message
+                            $(warningElementId).text(
+                                `⚠️ SKU Induk "${skuInduk}" sudah digunakan. Silahkan gunakan SKU Induk yang berbeda.`
+                            ).show();
+
+                            // Disable save buttons
+                            disableSaveButtons(formType);
+
+                            // Show toast notification
+                            Swal.fire({
+                                title: 'SKU Induk Sudah Digunakan!',
+                                text: `SKU Induk "${skuInduk}" sudah ada di database. Silahkan gunakan SKU Induk lain.`,
+                                icon: 'warning',
+                                timer: 4000,
+                                showConfirmButton: false,
+                                toast: true,
+                                position: 'top-end'
+                            });
+                        } else {
+                            $(warningElementId).hide();
+                            enableSaveButtons(formType);
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        console.error('Error checking SKU Induk:', error);
+                        $(warningElementId).hide();
+                        enableSaveButtons(formType);
+                    }
+                });
+            }
+
+            // Function to disable save buttons
+            function disableSaveButtons(formType) {
+                if (formType === 'add') {
+                    $('#addBahanBakuForm button[type="submit"]').prop('disabled', true);
+                } else if (formType === 'edit') {
+                    $('#editBahanBakuForm button[type="submit"]').prop('disabled', true);
+                }
+            }
+
+            // Function to enable save buttons
+            function enableSaveButtons(formType) {
+                if (formType === 'add') {
+                    $('#addBahanBakuForm button[type="submit"]').prop('disabled', false);
+                } else if (formType === 'edit') {
+                    $('#editBahanBakuForm button[type="submit"]').prop('disabled', false);
+                }
+            }
+
+            // Debounced function for add form
+            const debouncedCheckSkuIndukAdd = debounce(function(skuInduk) {
+                checkSkuIndukAvailability(skuInduk, null, '#sku-induk-warning', '#add_sku_induk', 'add');
+            }, 500);
+
+            // Debounced function for edit form
+            const debouncedCheckSkuIndukEdit = debounce(function(skuInduk, bahanBakuId) {
+                checkSkuIndukAvailability(skuInduk, bahanBakuId, '#edit-sku-induk-warning',
+                    '#edit_sku_induk', 'edit');
+            }, 500);
 
             // Initialize Choices.js for add form
             var addKategoriChoices = new Choices('#add-kategori', {
@@ -374,11 +494,49 @@
                 table.draw();
             });
 
+            // SKU Induk checking for Add form
+            $('#add_sku_induk').on('input', function() {
+                const skuInduk = $(this).val().trim();
+
+                // Clear warning if user clears the input
+                if (skuInduk === '') {
+                    $('#sku-induk-warning').hide();
+                    enableSaveButtons('add');
+                }
+
+                debouncedCheckSkuIndukAdd(skuInduk);
+            });
+
+            // SKU Induk checking for Edit form
+            $('#edit_sku_induk').on('input', function() {
+                const skuInduk = $(this).val().trim();
+                const bahanBakuId = $('#edit_bahan_baku_id').val();
+
+                // Clear warning if user clears the input
+                if (skuInduk === '') {
+                    $('#edit-sku-induk-warning').hide();
+                    enableSaveButtons('edit');
+                }
+
+                debouncedCheckSkuIndukEdit(skuInduk, bahanBakuId);
+            });
+
             // Add Bahan Baku Form Submit
             $('#addBahanBakuForm').on('submit', function(e) {
                 e.preventDefault();
                 var form = $(this);
                 var submitButton = form.find('button[type="submit"]');
+
+                // Check if SKU Induk warning is visible (means duplicate SKU Induk)
+                if ($('#sku-induk-warning').is(':visible')) {
+                    Swal.fire({
+                        title: 'SKU Induk Tidak Valid!',
+                        text: 'Tidak dapat menyimpan karena SKU Induk sudah digunakan. Silahkan ganti SKU Induk terlebih dahulu.',
+                        icon: 'error',
+                        confirmButtonText: 'OK'
+                    });
+                    return;
+                }
 
                 // Disable submit button to prevent double submission
                 submitButton.prop('disabled', true);
@@ -553,6 +711,17 @@
                 var submitButton = form.find('button[type="submit"]');
                 var id = $('#edit_bahan_baku_id').val();
 
+                // Check if SKU Induk warning is visible (means duplicate SKU Induk)
+                if ($('#edit-sku-induk-warning').is(':visible')) {
+                    Swal.fire({
+                        title: 'SKU Induk Tidak Valid!',
+                        text: 'Tidak dapat menyimpan karena SKU Induk sudah digunakan. Silahkan ganti SKU Induk terlebih dahulu.',
+                        icon: 'error',
+                        confirmButtonText: 'OK'
+                    });
+                    return;
+                }
+
                 // Disable submit button to prevent double submission
                 submitButton.prop('disabled', true);
 
@@ -690,6 +859,13 @@
                 $(this).find('form')[0].reset();
                 editKategoriChoices.setChoiceByValue('');
                 editSatuanChoices.setChoiceByValue('');
+
+                // Clear SKU Induk warnings
+                $('#edit-sku-induk-warning').hide();
+
+                // Re-enable buttons
+                $(this).find('button').prop('disabled', false);
+
                 // Clean up any lingering modal artifacts
                 $('.modal-backdrop').remove();
                 $('body').removeClass('modal-open');
@@ -702,6 +878,13 @@
                 $(this).find('form')[0].reset();
                 addKategoriChoices.setChoiceByValue('');
                 addSatuanChoices.setChoiceByValue('');
+
+                // Clear SKU Induk warnings
+                $('#sku-induk-warning').hide();
+
+                // Re-enable buttons
+                $(this).find('button').prop('disabled', false);
+
                 // Clean up any lingering modal artifacts
                 $('.modal-backdrop').remove();
                 $('body').removeClass('modal-open');

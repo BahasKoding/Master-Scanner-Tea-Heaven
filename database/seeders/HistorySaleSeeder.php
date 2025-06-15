@@ -20,24 +20,24 @@ class HistorySaleSeeder extends Seeder
         HistorySale::query()->delete();
         DB::statement('SET FOREIGN_KEY_CHECKS=1;');
 
-        $this->command->info('🚀 Memulai konversi data history sales terbaru...');
+        $this->command->info('🚀 Memulai konversi data history sales dari file Excel terbaru...');
 
-        // PROSES FILE EXCEL TERBARU (file_excel_14mei_11june.md) - Data Juni 2025
-        $this->processLatestExcelFile();
+        // PROSES FILE EXCEL TERBARU (file_excel_14mei_14june.md) - Data Mei-Juni 2025
+        $this->processExcelFile();
 
         $totalRecords = HistorySale::count();
-        $this->command->info("✅ SEEDER SELESAI! Total {$totalRecords} riwayat penjualan berhasil dibuat dari data terbaru.");
-        $this->command->info("📊 Data history sales terbaru telah berhasil diproses.");
+        $this->command->info("✅ SEEDER SELESAI! Total {$totalRecords} riwayat penjualan berhasil dibuat dari data Excel terbaru.");
+        $this->command->info("📊 Data history sales periode Mei-Juni 2025 telah berhasil diproses.");
     }
 
     /**
-     * Process latest Excel file data from file_excel_14mei_11june.md (data terbaru)
+     * Process Excel file data from file_excel_14mei_14june.md
      */
-    private function processLatestExcelFile()
+    private function processExcelFile()
     {
-        $this->command->info('📂 Memproses data history sales terbaru dari file_excel_14mei_11june.md...');
+        $this->command->info('📂 Memproses data history sales dari file_excel_14mei_14june.md...');
 
-        $filePath = base_path('file_excel_14mei_11june.md');
+        $filePath = base_path('file_excel_14mei_14june.md');
 
         if (!file_exists($filePath)) {
             $this->command->error("File {$filePath} tidak ditemukan!");
@@ -48,41 +48,41 @@ class HistorySaleSeeder extends Seeder
         $lines = file($filePath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
 
         if (empty($lines)) {
-            $this->command->error('File data terbaru kosong!');
+            $this->command->error('File data Excel kosong!');
             return;
         }
 
-        // Lewati header (baris pertama)
+        // Lewati header (baris pertama) 
+        // Header: ID	No Resi	SKU	Jumlah	Dibuat Pada	Diperbarui Pada
         array_shift($lines);
 
         $salesData = [];
-        $batchSize = 100; // Increase batch size for better performance
+        $batchSize = 50; // Reduce batch size for better error handling
         $totalProcessed = 0;
         $skippedLines = 0;
         $skippedReasons = [];
         $failedInserts = [];
         $successfulInserts = 0;
 
-        $this->command->info('Memproses ' . count($lines) . ' baris data history sales terbaru...');
+        $this->command->info('Memproses ' . count($lines) . ' baris data history sales...');
 
         foreach ($lines as $index => $line) {
             $lineNumber = $index + 2; // +2 karena index dimulai dari 0 dan ada header
 
             try {
-                // Parse each line with tab separator
+                // Parse each line dengan tab separator
                 $columns = explode("\t", trim($line));
 
-                // Debug: tampilkan baris yang sedang diproses setiap 200 baris
-                if ($lineNumber % 200 == 0) {
-                    $this->command->info("📍 Memproses baris ke-{$lineNumber}...");
+                // Debug: tampilkan progress setiap 100 baris
+                if ($lineNumber % 100 == 0) {
+                    $this->command->info("📍 Memproses baris ke-{$lineNumber} dari " . (count($lines) + 1) . " total...");
                 }
 
-                // Pastikan ada minimal 6 kolom: ID, No Resi, SKU, Jumlah, Created At, Updated At
+                // Pastikan ada minimal 6 kolom: ID, No Resi, SKU, Jumlah, Dibuat Pada, Diperbarui Pada
                 if (count($columns) < 6) {
                     $skippedLines++;
                     $reason = "Baris {$lineNumber} tidak valid (hanya " . count($columns) . " kolom): " . substr($line, 0, 100) . "...";
                     $skippedReasons[] = $reason;
-                    $this->command->warn($reason);
                     continue;
                 }
 
@@ -98,7 +98,6 @@ class HistorySaleSeeder extends Seeder
                     $skippedLines++;
                     $reason = "Baris {$lineNumber} memiliki ID tidak valid: '{$id}'";
                     $skippedReasons[] = $reason;
-                    $this->command->warn($reason);
                     continue;
                 }
 
@@ -107,7 +106,6 @@ class HistorySaleSeeder extends Seeder
                     $skippedLines++;
                     $reason = "Baris {$lineNumber} tidak memiliki no resi";
                     $skippedReasons[] = $reason;
-                    $this->command->warn($reason);
                     continue;
                 }
 
@@ -124,32 +122,17 @@ class HistorySaleSeeder extends Seeder
                     $skippedLines++;
                     $reason = "Baris {$lineNumber} tidak memiliki SKU valid";
                     $skippedReasons[] = $reason;
-                    $this->command->warn($reason);
                     continue;
                 }
 
                 // Jika jumlah quantity tidak sama dengan SKU, isi dengan 1
                 if (count($skus) !== count($quantities)) {
-                    $this->command->warn("Baris {$lineNumber}: Mismatch SKU (" . count($skus) . ") dan quantity (" . count($quantities) . ") - mengisi dengan qty 1");
                     $quantities = array_fill(0, count($skus), 1);
                 }
 
-                // Validasi dan parsing timestamp dengan error handling yang lebih robust
-                try {
-                    $createdAtParsed = Carbon::parse($createdAt);
-                    $updatedAtParsed = Carbon::parse($updatedAt);
-                } catch (\Exception $e) {
-                    // Jika timestamp invalid, coba format alternatif
-                    try {
-                        $createdAtParsed = Carbon::createFromFormat('Y-m-d H:i:s', $createdAt);
-                        $updatedAtParsed = Carbon::createFromFormat('Y-m-d H:i:s', $updatedAt);
-                    } catch (\Exception $e2) {
-                        // Jika masih gagal, gunakan timestamp sekarang
-                        $this->command->warn("Baris {$lineNumber}: Invalid timestamp format, menggunakan timestamp sekarang");
-                        $createdAtParsed = Carbon::now();
-                        $updatedAtParsed = Carbon::now();
-                    }
-                }
+                // Validasi dan parsing timestamp dengan multiple format
+                $createdAtParsed = $this->parseDateTime($createdAt, $lineNumber, 'created_at');
+                $updatedAtParsed = $this->parseDateTime($updatedAt, $lineNumber, 'updated_at');
 
                 // Reset arrays to have sequential numeric keys
                 $skus = array_values($skus);
@@ -170,32 +153,8 @@ class HistorySaleSeeder extends Seeder
 
                 // Insert dalam batch untuk performa
                 if (count($salesData) >= $batchSize) {
-                    try {
-                        HistorySale::insert($salesData);
-                        $successfulInserts += count($salesData);
-                        $this->command->info("✅ Batch " . ceil($totalProcessed / $batchSize) . " berhasil ({$batchSize} records) - Total sukses: {$successfulInserts}");
-                        $salesData = []; // Reset array
-                    } catch (\Exception $e) {
-                        $this->command->error("❌ Gagal menyimpan batch pada baris sekitar {$lineNumber}: " . $e->getMessage());
-
-                        // Coba insert satu per satu untuk mengetahui data mana yang bermasalah
-                        foreach ($salesData as $singleRecord) {
-                            try {
-                                HistorySale::create($singleRecord);
-                                $successfulInserts++;
-                            } catch (\Exception $singleError) {
-                                $failedInserts[] = [
-                                    'line' => $lineNumber,
-                                    'id' => $singleRecord['id'],
-                                    'no_resi' => $singleRecord['no_resi'],
-                                    'error' => $singleError->getMessage(),
-                                    'data' => json_encode($singleRecord, JSON_UNESCAPED_UNICODE)
-                                ];
-                                $this->command->error("❌ Gagal insert ID {$singleRecord['id']} - Resi: {$singleRecord['no_resi']} - Error: " . $singleError->getMessage());
-                            }
-                        }
-                        $salesData = [];
-                    }
+                    $this->insertBatch($salesData, $successfulInserts, $failedInserts, $lineNumber);
+                    $salesData = []; // Reset array
                 }
             } catch (\Exception $e) {
                 $skippedLines++;
@@ -208,59 +167,111 @@ class HistorySaleSeeder extends Seeder
 
         // Insert sisa data
         if (!empty($salesData)) {
-            try {
-                HistorySale::insert($salesData);
-                $successfulInserts += count($salesData);
-                $this->command->info("✅ Batch terakhir berhasil (" . count($salesData) . " records)");
-            } catch (\Exception $e) {
-                $this->command->error("❌ Gagal menyimpan batch terakhir: " . $e->getMessage());
-
-                // Coba insert satu per satu untuk batch terakhir
-                foreach ($salesData as $singleRecord) {
-                    try {
-                        HistorySale::create($singleRecord);
-                        $successfulInserts++;
-                    } catch (\Exception $singleError) {
-                        $failedInserts[] = [
-                            'line' => 'batch_terakhir',
-                            'id' => $singleRecord['id'],
-                            'no_resi' => $singleRecord['no_resi'],
-                            'error' => $singleError->getMessage(),
-                            'data' => json_encode($singleRecord, JSON_UNESCAPED_UNICODE)
-                        ];
-                        $this->command->error("❌ Gagal insert ID {$singleRecord['id']} - Resi: {$singleRecord['no_resi']} - Error: " . $singleError->getMessage());
-                    }
-                }
-            }
+            $this->insertBatch($salesData, $successfulInserts, $failedInserts, 'batch_terakhir');
         }
 
         // SUMMARY REPORT
-        $this->command->info("📊 SUMMARY REPORT - HISTORY SALES TERBARU:");
+        $this->command->info("📊 SUMMARY REPORT - HISTORY SALES:");
         $this->command->info("✅ Total baris diproses: {$totalProcessed}");
         $this->command->info("✅ Berhasil diinsert: {$successfulInserts}");
         $this->command->info("⚠️  Baris dilewati: {$skippedLines}");
         $this->command->info("❌ Gagal diinsert: " . count($failedInserts));
 
         if (!empty($skippedReasons)) {
-            $this->command->warn("📋 ALASAN DATA DILEWATI (20 pertama):");
-            foreach (array_slice($skippedReasons, 0, 20) as $reason) {
+            $this->command->warn("📋 ALASAN DATA DILEWATI (10 pertama):");
+            foreach (array_slice($skippedReasons, 0, 10) as $reason) {
                 $this->command->warn("- " . $reason);
             }
-            if (count($skippedReasons) > 20) {
-                $this->command->warn("... dan " . (count($skippedReasons) - 20) . " alasan lainnya");
+            if (count($skippedReasons) > 10) {
+                $this->command->warn("... dan " . (count($skippedReasons) - 10) . " alasan lainnya");
             }
         }
 
         if (!empty($failedInserts)) {
-            $this->command->error("📋 DATA YANG GAGAL DIINSERT (10 pertama):");
-            foreach (array_slice($failedInserts, 0, 10) as $failed) {
+            $this->command->error("📋 DATA YANG GAGAL DIINSERT (5 pertama):");
+            foreach (array_slice($failedInserts, 0, 5) as $failed) {
                 $this->command->error("- Baris {$failed['line']}: ID {$failed['id']} - Resi: {$failed['no_resi']} - Error: {$failed['error']}");
             }
-            if (count($failedInserts) > 10) {
-                $this->command->error("... dan " . (count($failedInserts) - 10) . " data lainnya yang gagal");
+            if (count($failedInserts) > 5) {
+                $this->command->error("... dan " . (count($failedInserts) - 5) . " data lainnya yang gagal");
             }
         }
 
-        $this->command->info("✅ Data history sales terbaru selesai diproses!");
+        $this->command->info("✅ Data history sales periode Mei-Juni 2025 selesai diproses!");
+    }
+
+    /**
+     * Parse datetime with multiple format support
+     */
+    private function parseDateTime($dateTimeString, $lineNumber, $fieldName)
+    {
+        // Daftar format tanggal yang mungkin
+        $formats = [
+            'Y-m-d H:i:s',           // 2025-06-14 09:08:10
+            'd/m/Y H:i:s',           // 14/06/2025 09:08:10  
+            'm/d/Y H:i:s',           // 06/14/2025 09:08:10
+            'Y-m-d',                 // 2025-06-14
+            'd/m/Y',                 // 14/06/2025
+            'm/d/Y',                 // 06/14/2025
+            'j/n/Y H:i:s',           // 14/6/2025 09:08:10 (tanpa leading zero)
+            'n/j/Y H:i:s',           // 6/14/2025 09:08:10 (tanpa leading zero)
+        ];
+
+        foreach ($formats as $format) {
+            try {
+                $parsed = Carbon::createFromFormat($format, $dateTimeString);
+                if ($parsed) {
+                    return $parsed;
+                }
+            } catch (\Exception $e) {
+                // Lanjut ke format berikutnya
+                continue;
+            }
+        }
+
+        // Jika semua format gagal, coba Carbon::parse untuk auto-detection
+        try {
+            $parsed = Carbon::parse($dateTimeString);
+            if ($parsed) {
+                return $parsed;
+            }
+        } catch (\Exception $e) {
+            // Jika masih gagal, gunakan timestamp sekarang dan beri warning
+            $this->command->warn("Baris {$lineNumber}: Invalid {$fieldName} format '{$dateTimeString}', menggunakan timestamp sekarang");
+            return Carbon::now();
+        }
+
+        // Fallback terakhir
+        return Carbon::now();
+    }
+
+    /**
+     * Insert batch data with error handling
+     */
+    private function insertBatch(&$salesData, &$successfulInserts, &$failedInserts, $lineNumber)
+    {
+        try {
+            HistorySale::insert($salesData);
+            $successfulInserts += count($salesData);
+            $this->command->info("✅ Batch berhasil ({$salesData[0]['id']} - {$salesData[count($salesData) - 1]['id']}) = " . count($salesData) . " records");
+        } catch (\Exception $e) {
+            $this->command->error("❌ Gagal menyimpan batch pada sekitar baris {$lineNumber}: " . $e->getMessage());
+
+            // Coba insert satu per satu untuk mengetahui data mana yang bermasalah
+            foreach ($salesData as $singleRecord) {
+                try {
+                    HistorySale::create($singleRecord);
+                    $successfulInserts++;
+                } catch (\Exception $singleError) {
+                    $failedInserts[] = [
+                        'line' => $lineNumber,
+                        'id' => $singleRecord['id'],
+                        'no_resi' => $singleRecord['no_resi'],
+                        'error' => $singleError->getMessage(),
+                        'data' => json_encode($singleRecord, JSON_UNESCAPED_UNICODE)
+                    ];
+                }
+            }
+        }
     }
 }

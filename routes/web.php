@@ -153,6 +153,7 @@ Route::middleware(['auth'])->group(function () {
     // Resource routes using Laravel's resource controller pattern
     Route::resource('products', ProductController::class);
     Route::post('products/export', [ProductController::class, 'exportExcel'])->name('products.export');
+    Route::post('products/check-sku', [ProductController::class, 'checkSku'])->name('products.check-sku');
     Route::resource('catatan-produksi', CatatanProduksiController::class);
     Route::get('get-bahan-baku-list', [CatatanProduksiController::class, 'getBahanBakuList'])->name('catatan-produksi.bahan-baku-list');
     Route::get('get-filtered-products-list', [CatatanProduksiController::class, 'getFilteredProductsList'])->name('catatan-produksi.filtered-products-list');
@@ -167,6 +168,7 @@ Route::middleware(['auth'])->group(function () {
     });
 
     Route::resource('bahan-baku', BahanBakuController::class);
+    Route::post('bahan-baku/check-sku-induk', [BahanBakuController::class, 'checkSkuInduk'])->name('bahan-baku.check-sku-induk');
 
     // Purchase routes - untuk pembelian bahan baku
     Route::resource('purchase', PurchaseController::class);

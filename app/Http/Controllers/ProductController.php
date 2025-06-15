@@ -382,4 +382,41 @@ class ProductController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Check if SKU already exists in database
+     */
+    public function checkSku(Request $request)
+    {
+        try {
+            $sku = $request->input('sku');
+            $productId = $request->input('product_id'); // For edit mode
+
+            if (empty($sku)) {
+                return response()->json([
+                    'exists' => false,
+                    'message' => ''
+                ]);
+            }
+
+            $query = Product::where('sku', $sku);
+
+            // If we're editing, exclude the current product
+            if ($productId) {
+                $query->where('id', '!=', $productId);
+            }
+
+            $exists = $query->exists();
+
+            return response()->json([
+                'exists' => $exists,
+                'message' => $exists ? 'SKU ini sudah digunakan. Silahkan gunakan SKU yang berbeda.' : ''
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'exists' => false,
+                'message' => 'Terjadi kesalahan saat mengecek SKU'
+            ], 500);
+        }
+    }
 }

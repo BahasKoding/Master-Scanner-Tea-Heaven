@@ -109,6 +109,40 @@
                 font-size: 0.8rem;
             }
         }
+
+        /* SKU Warning styling */
+        #sku-warning,
+        #edit-sku-warning {
+            font-weight: 500;
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            border-radius: 6px;
+            padding: 12px 15px;
+            margin-top: 8px;
+            animation: fadeIn 0.3s ease-in;
+            color: #721c24;
+            font-size: 0.9rem;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            border-left: 4px solid #dc3545;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Disabled button styling */
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
     </style>
 @endsection
 
@@ -237,8 +271,9 @@
                         </div>
                         <div class="mb-3">
                             <label class="form-label">SKU <span class="text-danger">*</span></label>
-                            <input type="text" class="form-control" name="sku" required>
+                            <input type="text" class="form-control" name="sku" id="add_sku" required>
                             <div class="invalid-feedback" id="error-sku"></div>
+                            <div class="text-danger mt-1" id="sku-warning" style="display: none;"></div>
                         </div>
                         <div class="mb-3">
                             <label class="form-label">Nama Produk <span class="text-danger">*</span></label>
@@ -298,6 +333,7 @@
                             <label class="form-label">SKU <span class="text-danger">*</span></label>
                             <input type="text" class="form-control" name="sku" id="edit_sku" required>
                             <div class="invalid-feedback" id="error-edit-sku"></div>
+                            <div class="text-danger mt-1" id="edit-sku-warning" style="display: none;"></div>
                         </div>
                         <div class="mb-3">
                             <label class="form-label">Nama Produk <span class="text-danger">*</span></label>
@@ -364,6 +400,85 @@
                     timeout = setTimeout(() => func.apply(context, args), wait);
                 };
             }
+
+            // Function to check SKU availability
+            function checkSkuAvailability(sku, productId = null, warningElementId, inputElementId, formType) {
+                if (!sku || sku.length < 2) {
+                    $(warningElementId).hide();
+                    enableSaveButtons(formType);
+                    return;
+                }
+
+                $.ajax({
+                    url: "{{ route('products.check-sku') }}",
+                    method: 'POST',
+                    data: {
+                        sku: sku,
+                        product_id: productId,
+                        _token: '{{ csrf_token() }}'
+                    },
+                    success: function(response) {
+                        if (response.exists) {
+                            // Show warning message
+                            $(warningElementId).text(
+                                `⚠️ SKU "${sku}" sudah digunakan. Silahkan gunakan SKU yang berbeda.`
+                            ).show();
+
+                            // Disable save buttons
+                            disableSaveButtons(formType);
+
+                            // Show toast notification
+                            Swal.fire({
+                                title: 'SKU Sudah Digunakan!',
+                                text: `SKU "${sku}" sudah ada di database. Silahkan gunakan SKU lain.`,
+                                icon: 'warning',
+                                timer: 4000,
+                                showConfirmButton: false,
+                                toast: true,
+                                position: 'top-end'
+                            });
+                        } else {
+                            $(warningElementId).hide();
+                            enableSaveButtons(formType);
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        console.error('Error checking SKU:', error);
+                        $(warningElementId).hide();
+                        enableSaveButtons(formType);
+                    }
+                });
+            }
+
+            // Function to disable save buttons
+            function disableSaveButtons(formType) {
+                if (formType === 'add') {
+                    $('#addProductForm button[type="submit"]').prop('disabled', true);
+                    $('#saveAndAddMore').prop('disabled', true);
+                } else if (formType === 'edit') {
+                    $('#editProductForm button[type="submit"]').prop('disabled', true);
+                }
+            }
+
+            // Function to enable save buttons
+            function enableSaveButtons(formType) {
+                if (formType === 'add') {
+                    $('#addProductForm button[type="submit"]').prop('disabled', false);
+                    $('#saveAndAddMore').prop('disabled', false);
+                } else if (formType === 'edit') {
+                    $('#editProductForm button[type="submit"]').prop('disabled', false);
+                }
+            }
+
+            // Debounced function for add form
+            const debouncedCheckSkuAdd = debounce(function(sku) {
+                checkSkuAvailability(sku, null, '#sku-warning', '#add_sku', 'add');
+            }, 500);
+
+            // Debounced function for edit form
+            const debouncedCheckSkuEdit = debounce(function(sku, productId) {
+                checkSkuAvailability(sku, productId, '#edit-sku-warning', '#edit_sku', 'edit');
+            }, 500);
 
             // Responsive adjustments for mobile
             function adjustForMobile() {
@@ -509,6 +624,33 @@
                 table.search('').columns().search('').draw();
             });
 
+            // SKU checking for Add form
+            $('#add_sku').on('input', function() {
+                const sku = $(this).val().trim();
+
+                // Clear warning if user clears the input
+                if (sku === '') {
+                    $('#sku-warning').hide();
+                    enableSaveButtons('add');
+                }
+
+                debouncedCheckSkuAdd(sku);
+            });
+
+            // SKU checking for Edit form
+            $('#edit_sku').on('input', function() {
+                const sku = $(this).val().trim();
+                const productId = $('#edit_product_id').val();
+
+                // Clear warning if user clears the input
+                if (sku === '') {
+                    $('#edit-sku-warning').hide();
+                    enableSaveButtons('edit');
+                }
+
+                debouncedCheckSkuEdit(sku, productId);
+            });
+
             // Export Excel function
             $('#export-excel').on('click', function() {
                 var button = $(this);
@@ -642,6 +784,17 @@
                 var form = $('#addProductForm');
                 var submitButton = $(this);
 
+                // Check if SKU warning is visible (means duplicate SKU)
+                if ($('#sku-warning').is(':visible')) {
+                    Swal.fire({
+                        title: 'SKU Tidak Valid!',
+                        text: 'Tidak dapat menyimpan karena SKU sudah digunakan. Silahkan ganti SKU terlebih dahulu.',
+                        icon: 'error',
+                        confirmButtonText: 'OK'
+                    });
+                    return;
+                }
+
                 // Disable submit button to prevent double submission
                 submitButton.prop('disabled', true);
 
@@ -734,6 +887,17 @@
                 e.preventDefault();
                 var form = $(this);
                 var submitButton = form.find('button[type="submit"]');
+
+                // Check if SKU warning is visible (means duplicate SKU)
+                if ($('#sku-warning').is(':visible')) {
+                    Swal.fire({
+                        title: 'SKU Tidak Valid!',
+                        text: 'Tidak dapat menyimpan karena SKU sudah digunakan. Silahkan ganti SKU terlebih dahulu.',
+                        icon: 'error',
+                        confirmButtonText: 'OK'
+                    });
+                    return;
+                }
 
                 // Disable submit button to prevent double submission
                 submitButton.prop('disabled', true);
@@ -908,6 +1072,17 @@
                 var submitButton = form.find('button[type="submit"]');
                 var id = $('#edit_product_id').val();
 
+                // Check if SKU warning is visible (means duplicate SKU)
+                if ($('#edit-sku-warning').is(':visible')) {
+                    Swal.fire({
+                        title: 'SKU Tidak Valid!',
+                        text: 'Tidak dapat menyimpan karena SKU sudah digunakan. Silahkan ganti SKU terlebih dahulu.',
+                        icon: 'error',
+                        confirmButtonText: 'OK'
+                    });
+                    return;
+                }
+
                 // Disable submit button to prevent double submission
                 submitButton.prop('disabled', true);
 
@@ -1056,6 +1231,10 @@
                 $(this).find('form')[0].reset();
                 $(this).find('.is-invalid').removeClass('is-invalid');
                 $(this).find('.invalid-feedback').text('');
+
+                // Clear SKU warnings
+                $('#sku-warning').hide();
+                $('#edit-sku-warning').hide();
 
                 // Re-enable all buttons
                 $(this).find('button').prop('disabled', false);
