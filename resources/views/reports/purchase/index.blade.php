@@ -25,19 +25,20 @@
         }
 
         .summary-card {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            border-radius: 10px;
+            background: #6c757d;
+            border-radius: 8px;
             padding: 20px;
             color: white;
             margin-bottom: 15px;
+            border: 1px solid #dee2e6;
         }
 
         .summary-card.success {
-            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            background: #198754;
         }
 
         .summary-card.warning {
-            background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+            background: #fd7e14;
         }
 
         .summary-card .summary-icon {
@@ -146,12 +147,10 @@
                         <div class="col-12 col-md-6">
                             <div class="d-flex flex-column flex-sm-row gap-2 justify-content-md-end">
                                 <button id="clear-filters" class="btn btn-secondary btn-sm">
-                                    <i class="fas fa-filter"></i>
-                                    <span class="d-none d-sm-inline">Clear Filters</span>
+                                    Clear Filters
                                 </button>
                                 <button id="export-excel" class="btn btn-success btn-sm">
-                                    <i class="fas fa-file-excel"></i>
-                                    <span class="d-none d-sm-inline">Export Excel</span>
+                                    Export Excel
                                 </button>
                             </div>
                         </div>
@@ -201,7 +200,7 @@
                         <div class="row">
                             <div class="col-12">
                                 <button id="apply-filters" class="btn btn-primary">
-                                    <i class="fas fa-search"></i> Apply Filters
+                                    Apply Filters
                                 </button>
                             </div>
                         </div>
@@ -329,17 +328,17 @@
                 dom: 'Bfrtip',
                 buttons: [{
                         extend: 'copy',
-                        text: '<i class="fas fa-copy"></i> Copy',
+                        text: 'Copy',
                         className: 'btn btn-secondary'
                     },
                     {
                         extend: 'excel',
-                        text: '<i class="fas fa-file-excel"></i> Excel',
+                        text: 'Excel',
                         className: 'btn btn-success'
                     },
                     {
                         extend: 'print',
-                        text: '<i class="fas fa-print"></i> Print',
+                        text: 'Print',
                         className: 'btn btn-info'
                     }
                 ],

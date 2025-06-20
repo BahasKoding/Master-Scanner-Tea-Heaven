@@ -105,8 +105,7 @@ class HistorySaleController extends Controller
             $skus = [];
             $quantities = [];
             $seenSkus = [];
-
-            $invalidSkus = []; // Track invalid SKUs for better error handling
+            $warningSkus = []; // Track SKUs that don't exist in Product table (warning only)
 
             foreach ($validatedData['no_sku'] as $index => $sku) {
                 if (!empty(trim($sku))) {
@@ -130,15 +129,10 @@ class HistorySaleController extends Controller
                         ], 422);
                     }
 
-                    // VALIDASI BARU: Check if SKU exists in products table
+                    // PERINGATAN: Check if SKU exists in products table (warning only, not blocking)
                     $product = Product::where('sku', trim($sku))->first();
                     if (!$product) {
-                        return response()->json([
-                            'status' => 'error',
-                            'message' => 'SKU tidak ditemukan di database: ' . $sku . '. Pastikan SKU produk sudah terdaftar.',
-                            'invalid_sku' => $sku,
-                            'sku_index' => $index
-                        ], 422);
+                        $warningSkus[] = $sku;
                     }
 
                     $seenSkus[] = $sku;
@@ -171,10 +165,20 @@ class HistorySaleController extends Controller
             // Log activity
             addActivity('sales', 'create', 'Pengguna membuat catatan penjualan dengan resi: ' . $noResi, $historySale->id);
 
-            return response()->json([
+            // Prepare response message
+            $message = 'Riwayat penjualan berhasil ditambahkan' . (count($skus) > 0 ? ' dengan ' . count($skus) . ' SKU' : '');
+            $responseData = [
                 'status' => 'success',
-                'message' => 'Riwayat penjualan berhasil ditambahkan' . (count($skus) > 0 ? ' dengan ' . count($skus) . ' SKU' : ''),
-            ]);
+                'message' => $message,
+            ];
+
+            // Add warning if there are SKUs not found in Product table
+            if (!empty($warningSkus)) {
+                $responseData['warning'] = 'Peringatan: SKU berikut tidak ditemukan di tabel Product: ' . implode(', ', $warningSkus);
+                $responseData['warning_skus'] = $warningSkus;
+            }
+
+            return response()->json($responseData);
         } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json([
                 'status' => 'error',
@@ -251,6 +255,7 @@ class HistorySaleController extends Controller
             $skus = [];
             $quantities = [];
             $seenSkus = [];
+            $warningSkus = []; // Track SKUs that don't exist in Product table (warning only)
 
             foreach ($validatedData['no_sku'] as $index => $sku) {
                 if (!empty(trim($sku))) {
@@ -274,15 +279,10 @@ class HistorySaleController extends Controller
                         ], 422);
                     }
 
-                    // VALIDASI BARU: Check if SKU exists in products table
+                    // PERINGATAN: Check if SKU exists in products table (warning only, not blocking)
                     $product = Product::where('sku', trim($sku))->first();
                     if (!$product) {
-                        return response()->json([
-                            'status' => 'error',
-                            'message' => 'SKU tidak ditemukan di database: ' . $sku . '. Pastikan SKU produk sudah terdaftar.',
-                            'invalid_sku' => $sku,
-                            'sku_index' => $index
-                        ], 422);
+                        $warningSkus[] = $sku;
                     }
 
                     $seenSkus[] = $sku;
@@ -323,10 +323,19 @@ class HistorySaleController extends Controller
             // Log activity
             addActivity('sales', 'update', 'Pengguna mengubah catatan penjualan dari resi: ' . $oldResi . ' menjadi ' . $noResi, $historySale->id);
 
-            return response()->json([
+            // Prepare response message
+            $responseData = [
                 'status' => 'success',
                 'message' => 'Riwayat penjualan berhasil diperbarui'
-            ]);
+            ];
+
+            // Add warning if there are SKUs not found in Product table
+            if (!empty($warningSkus)) {
+                $responseData['warning'] = 'Peringatan: SKU berikut tidak ditemukan di tabel Product: ' . implode(', ', $warningSkus);
+                $responseData['warning_skus'] = $warningSkus;
+            }
+
+            return response()->json($responseData);
         } catch (\Exception $e) {
             return response()->json([
                 'status' => 'error',
@@ -396,7 +405,11 @@ class HistorySaleController extends Controller
             if ($request->boolean('load_all', false)) {
                 // No date filter applied
             }
-            // Jika tidak ada filter tanggal, tampilkan data hari ini berdasarkan timezone Asia/Jakarta
+            // Check if SKU filter is applied - if yes, don't apply default date filter
+            else if ($request->filled('sku_filter') && !$request->filled(['start_date', 'end_date'])) {
+                // No date filter applied when SKU filter is active
+            }
+            // Jika tidak ada filter tanggal dan tidak ada SKU filter, tampilkan data hari ini berdasarkan timezone Asia/Jakarta
             else if (!$request->filled(['start_date', 'end_date'])) {
                 $today = date('Y-m-d');
                 $startDate = $today . ' 00:00:00';
@@ -440,6 +453,18 @@ class HistorySaleController extends Controller
                     $q->where('no_resi', 'like', "%{$searchValue}%")
                         ->orWhere('no_sku', 'like', "%{$searchValue}%");
                 });
+            }
+
+            // Handle SKU filter
+            $skuFilter = $request->input('sku_filter');
+            if ($skuFilter) {
+                if ($skuFilter === 'unknown') {
+                    // Filter for records containing unknown SKUs
+                    $this->filterUnknownProducts($query);
+                } elseif ($skuFilter === 'known') {
+                    // Filter for records containing only known SKUs
+                    $this->filterKnownProducts($query);
+                }
             }
 
             // Get filtered records count
@@ -514,11 +539,19 @@ class HistorySaleController extends Controller
                 $quantities = [];
             }
 
-            // Format SKUs and quantities for display
+            // Format SKUs and quantities for display with warning indicators
             $skuDisplay = [];
             $qtyDisplay = [];
             foreach ($skus as $index => $sku) {
-                $skuDisplay[] = $sku;
+                // Check if SKU exists in Product table
+                $product = Product::where('sku', trim($sku))->first();
+                if (!$product) {
+                    // Add warning indicator for unknown SKUs
+                    $skuDisplay[] = '<span class="badge bg-warning text-dark me-1" data-bs-toggle="tooltip" data-bs-placement="top" title="SKU tidak ditemukan di tabel Product - Perlu ditambahkan ke master data">⚠️</span>' .
+                        '<span class="text-warning fw-bold" data-bs-toggle="tooltip" data-bs-placement="top" title="SKU: ' . htmlspecialchars($sku) . ' tidak terdaftar">' . htmlspecialchars($sku) . '</span>';
+                } else {
+                    $skuDisplay[] = htmlspecialchars($sku);
+                }
                 $qtyDisplay[] = isset($quantities[$index]) ? $quantities[$index] : 1;
             }
 
@@ -602,7 +635,11 @@ class HistorySaleController extends Controller
                 $endDate = $request->input('end_date') . ' 23:59:59';
                 $query->whereBetween('created_at', [$startDate, $endDate]);
             }
-            // Jika tidak ada filter tanggal, tampilkan data hari ini
+            // Check if SKU filter is applied - if yes, don't apply default date filter
+            else if ($request->filled('sku_filter') && !$request->has('export_all')) {
+                // No date filter applied when SKU filter is active
+            }
+            // Jika tidak ada filter tanggal dan tidak ada SKU filter, tampilkan data hari ini
             else if (!$request->has('export_all')) {
                 $today = date('Y-m-d');
                 $startDate = $today . ' 00:00:00';
@@ -610,6 +647,18 @@ class HistorySaleController extends Controller
                 $query->whereBetween('created_at', [$startDate, $endDate]);
             }
             // Jika tidak ada filter dan request export_all, tampilkan semua data
+
+            // Handle SKU filter for export
+            $skuFilter = $request->input('sku_filter');
+            if ($skuFilter) {
+                if ($skuFilter === 'unknown') {
+                    // Filter for records containing unknown SKUs
+                    $this->filterUnknownProducts($query);
+                } elseif ($skuFilter === 'known') {
+                    // Filter for records containing only known SKUs
+                    $this->filterKnownProducts($query);
+                }
+            }
 
             // Get total count for logging
             $totalRecords = $query->count();
@@ -938,5 +987,84 @@ class HistorySaleController extends Controller
                 'message' => 'Terjadi kesalahan: ' . $e->getMessage()
             ], 500);
         }
+    }
+
+    /**
+     * Filter records containing unknown SKUs
+     */
+    private function filterUnknownProducts(&$query)
+    {
+        // Get all SKUs from Product table for comparison
+        $knownSkus = Product::pluck('sku')->toArray();
+
+        $query->where(function ($q) use ($knownSkus) {
+            // Use a more efficient approach by checking each record individually
+            $historySales = HistorySale::select('id', 'no_sku')->get();
+            $unknownProductIds = [];
+
+            foreach ($historySales as $sale) {
+                $skus = is_string($sale->no_sku) ? json_decode($sale->no_sku, true) : $sale->no_sku;
+                if (is_array($skus)) {
+                    $hasUnknownSku = false;
+                    foreach ($skus as $sku) {
+                        if (!in_array(trim($sku), $knownSkus)) {
+                            $hasUnknownSku = true;
+                            break;
+                        }
+                    }
+                    if ($hasUnknownSku) {
+                        $unknownProductIds[] = $sale->id;
+                    }
+                }
+            }
+
+            if (!empty($unknownProductIds)) {
+                $q->whereIn('id', $unknownProductIds);
+            } else {
+                $q->where('id', 0); // No results if no unknown products found
+            }
+        });
+    }
+
+    /**
+     * Filter records containing only known SKUs
+     */
+    private function filterKnownProducts(&$query)
+    {
+        // Get all SKUs from Product table for comparison
+        $knownSkus = Product::pluck('sku')->toArray();
+
+        if (empty($knownSkus)) {
+            $query->where('id', 0); // No results if no known products exist
+            return;
+        }
+
+        $query->where(function ($q) use ($knownSkus) {
+            // Use a more efficient approach by checking each record individually
+            $historySales = HistorySale::select('id', 'no_sku')->get();
+            $knownProductIds = [];
+
+            foreach ($historySales as $sale) {
+                $skus = is_string($sale->no_sku) ? json_decode($sale->no_sku, true) : $sale->no_sku;
+                if (is_array($skus)) {
+                    $allSkusKnown = true;
+                    foreach ($skus as $sku) {
+                        if (!in_array(trim($sku), $knownSkus)) {
+                            $allSkusKnown = false;
+                            break;
+                        }
+                    }
+                    if ($allSkusKnown && !empty($skus)) {
+                        $knownProductIds[] = $sale->id;
+                    }
+                }
+            }
+
+            if (!empty($knownProductIds)) {
+                $q->whereIn('id', $knownProductIds);
+            } else {
+                $q->where('id', 0); // No results if no known products found
+            }
+        });
     }
 }

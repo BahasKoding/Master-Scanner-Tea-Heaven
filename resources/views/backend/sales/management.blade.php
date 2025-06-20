@@ -727,7 +727,16 @@
                         success: function(response) {
                             if (response.status === 'success') {
                                 $('#editHistorySaleModal').modal('hide');
-                                Swal.fire('Success!', response.message, 'success');
+
+                                // Show success message with warning if applicable
+                                if (response.warning) {
+                                    Swal.fire('Berhasil dengan Peringatan!',
+                                        response.message + '\n\n' + response.warning,
+                                        'warning');
+                                } else {
+                                    Swal.fire('Success!', response.message, 'success');
+                                }
+
                                 table.ajax.reload();
                             }
                         },

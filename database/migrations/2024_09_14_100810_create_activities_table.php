@@ -19,6 +19,11 @@ return new class extends Migration
             $table->text('note')->nullable(true);
             $table->unsignedBigInteger('user_id')->nullable(true);
             $table->timestamps();
+
+            // Simple indexes untuk performa
+            $table->index(['category', 'created_at']);
+            $table->index(['user_id', 'created_at']);
+            $table->index('created_at');
         });
     }
 

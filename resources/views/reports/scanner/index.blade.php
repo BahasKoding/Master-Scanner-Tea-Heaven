@@ -25,24 +25,25 @@
         }
 
         .summary-card {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            border-radius: 10px;
+            background: #6c757d;
+            border-radius: 8px;
             padding: 20px;
             color: white;
             margin-bottom: 15px;
+            border: 1px solid #dee2e6;
         }
 
         .summary-card.success {
-            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            background: #198754;
         }
 
         .summary-card.warning {
-            background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+            background: #fd7e14;
         }
 
         .summary-card.info {
-            background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
-            color: #333;
+            background: #0dcaf0;
+            color: #212529;
         }
 
         .summary-card .summary-icon {
@@ -74,6 +75,37 @@
             .summary-card .summary-value {
                 font-size: 1.4rem;
             }
+        }
+
+        /* Unknown Products Warning Collapse Styling */
+        #unknown-products-warning {
+            border-left: 4px solid #ffc107;
+        }
+
+        #toggle-unknown-details {
+            transition: all 0.3s ease;
+            border: 1px solid #ffc107;
+            color: #856404;
+        }
+
+        #toggle-unknown-details:hover {
+            background-color: #ffc107;
+            color: white;
+            transform: translateY(-1px);
+        }
+
+        #toggle-icon {
+            transition: transform 0.3s ease;
+        }
+
+        #unknown-products-details {
+            border-left: 2px solid #ffc107;
+            margin-left: 10px;
+        }
+
+        #unknown-skus-list .badge {
+            margin: 2px;
+            font-size: 0.8rem;
         }
     </style>
 @endsection
@@ -151,17 +183,14 @@
                         <div class="col-12 col-md-6">
                             <div class="d-flex flex-column flex-sm-row gap-2 justify-content-md-end">
                                 <button id="clear-filters" class="btn btn-secondary btn-sm">
-                                    <i class="fas fa-filter"></i>
-                                    <span class="d-none d-sm-inline">Clear Filters</span>
+                                    Clear Filters
                                 </button>
                                 <button id="export-excel" class="btn btn-success btn-sm">
-                                    <i class="fas fa-file-excel"></i>
-                                    <span class="d-none d-sm-inline">Export Excel</span>
+                                    Export Excel
                                 </button>
                                 <button id="export-all" class="btn btn-success btn-sm"
                                     title="Export all data in the database">
-                                    <i class="fas fa-download"></i>
-                                    <span class="d-none d-sm-inline">Export All</span>
+                                    Export All
                                 </button>
                             </div>
                         </div>
@@ -188,7 +217,7 @@
                         <div class="row">
                             <div class="col-12">
                                 <button id="apply-filters" class="btn btn-primary">
-                                    <i class="fas fa-search"></i> Apply Filters
+                                    Apply Filters
                                 </button>
                             </div>
                         </div>
@@ -215,14 +244,14 @@
                             <button class="nav-link active" id="data-tab" data-bs-toggle="tab"
                                 data-bs-target="#data-pane" type="button" role="tab" aria-controls="data-pane"
                                 aria-selected="true">
-                                <i class="fas fa-table"></i> Data Transaksi
+                                Data Transaksi
                             </button>
                         </li>
                         <li class="nav-item" role="presentation">
                             <button class="nav-link" id="summary-tab" data-bs-toggle="tab"
                                 data-bs-target="#summary-pane" type="button" role="tab"
                                 aria-controls="summary-pane" aria-selected="false">
-                                <i class="fas fa-chart-pie"></i> Ringkasan SKU
+                                Ringkasan SKU
                             </button>
                         </li>
                     </ul>
@@ -253,71 +282,131 @@
 
                         <!-- Ringkasan SKU Tab -->
                         <div class="tab-pane fade" id="summary-pane" role="tabpanel" aria-labelledby="summary-tab">
+                            <!-- Summary Header Info -->
+                            <div class="alert alert-info mb-4">
+                                <h6 class="mb-2">Panduan Membaca Ringkasan SKU</h6>
+                                <p class="mb-1"><strong>SKU (Stock Keeping Unit):</strong> Kode unik untuk setiap produk
+                                </p>
+                                <p class="mb-1"><strong>Quantity:</strong> Jumlah produk yang terjual</p>
+                                <p class="mb-0"><strong>Transactions:</strong> Berapa kali produk tersebut muncul dalam
+                                    transaksi</p>
+                            </div>
+
+                            <!-- Unknown Products Warning - Collapsible -->
+                            <div class="alert alert-warning mb-4" id="unknown-products-warning" style="display: none;">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <h6 class="mb-0" id="unknown-products-title">Peringatan: Produk Tidak Terdefinisi
+                                    </h6>
+                                    <button class="btn btn-sm btn-outline-warning" type="button"
+                                        data-bs-toggle="collapse" data-bs-target="#unknown-products-details"
+                                        aria-expanded="false" aria-controls="unknown-products-details"
+                                        id="toggle-unknown-details">
+                                        <i class="fas fa-chevron-down" id="toggle-icon"></i>
+                                        <span class="ms-1">Lihat Detail</span>
+                                    </button>
+                                </div>
+                                <div class="collapse mt-3" id="unknown-products-details">
+                                    <div class="border-top pt-3">
+                                        <p class="mb-2">Ditemukan produk dengan SKU yang belum terdefinisi di tabel
+                                            Product.
+                                            Produk ini akan muncul sebagai "Unknown Product" dalam ringkasan.</p>
+                                        <div class="mb-3">
+                                            <strong>SKU yang belum terdefinisi:</strong>
+                                            <div id="unknown-skus-list" class="mt-2"></div>
+                                        </div>
+                                        <div class="alert alert-info mb-0">
+                                            <small>
+                                                <strong><i class="fas fa-lightbulb me-1"></i>Solusi:</strong>
+                                                Tambahkan SKU tersebut ke dalam tabel Product melalui menu manajemen produk
+                                                untuk mendapatkan informasi kategori dan label yang akurat.
+                                            </small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
                             <div class="row">
                                 <!-- Summary Statistics -->
                                 <div class="col-12 mb-4">
                                     <div class="row" id="summary-stats">
                                         <div class="col-lg-2 col-md-4 col-6 mb-3">
-                                            <div class="card text-center">
+                                            <div class="card text-center border-primary">
                                                 <div class="card-body p-3">
-                                                    <div class="text-primary">
-                                                        <i class="fas fa-cubes fa-2x"></i>
+                                                    <div class="text-primary mb-2">
+                                                        <div class="bg-primary bg-opacity-10 rounded-circle d-inline-flex align-items-center justify-content-center"
+                                                            style="width: 50px; height: 50px;">
+                                                            <span class="fw-bold">QTY</span>
+                                                        </div>
                                                     </div>
                                                     <h5 class="mt-2 mb-1" id="summary-total-qty">0</h5>
-                                                    <p class="mb-0 text-muted">Total Quantity</p>
+                                                    <p class="mb-0 text-muted small">Total Quantity</p>
                                                 </div>
                                             </div>
                                         </div>
                                         <div class="col-lg-2 col-md-4 col-6 mb-3">
-                                            <div class="card text-center">
+                                            <div class="card text-center border-success">
                                                 <div class="card-body p-3">
-                                                    <div class="text-success">
-                                                        <i class="fas fa-barcode fa-2x"></i>
+                                                    <div class="text-success mb-2">
+                                                        <div class="bg-success bg-opacity-10 rounded-circle d-inline-flex align-items-center justify-content-center"
+                                                            style="width: 50px; height: 50px;">
+                                                            <span class="fw-bold">SKU</span>
+                                                        </div>
                                                     </div>
                                                     <h5 class="mt-2 mb-1" id="summary-unique-skus">0</h5>
-                                                    <p class="mb-0 text-muted">Unique SKUs</p>
+                                                    <p class="mb-0 text-muted small">Unique SKUs</p>
                                                 </div>
                                             </div>
                                         </div>
                                         <div class="col-lg-2 col-md-4 col-6 mb-3">
-                                            <div class="card text-center">
+                                            <div class="card text-center border-warning">
                                                 <div class="card-body p-3">
-                                                    <div class="text-warning">
-                                                        <i class="fas fa-tags fa-2x"></i>
+                                                    <div class="text-warning mb-2">
+                                                        <div class="bg-warning bg-opacity-10 rounded-circle d-inline-flex align-items-center justify-content-center"
+                                                            style="width: 50px; height: 50px;">
+                                                            <span class="fw-bold">CAT</span>
+                                                        </div>
                                                     </div>
                                                     <h5 class="mt-2 mb-1" id="summary-unique-categories">0</h5>
-                                                    <p class="mb-0 text-muted">Categories</p>
+                                                    <p class="mb-0 text-muted small">Categories</p>
                                                 </div>
                                             </div>
                                         </div>
                                         <div class="col-lg-2 col-md-4 col-6 mb-3">
-                                            <div class="card text-center">
+                                            <div class="card text-center border-info">
                                                 <div class="card-body p-3">
-                                                    <div class="text-info">
-                                                        <i class="fas fa-tag fa-2x"></i>
+                                                    <div class="text-info mb-2">
+                                                        <div class="bg-info bg-opacity-10 rounded-circle d-inline-flex align-items-center justify-content-center"
+                                                            style="width: 50px; height: 50px;">
+                                                            <span class="fw-bold">LBL</span>
+                                                        </div>
                                                     </div>
                                                     <h5 class="mt-2 mb-1" id="summary-unique-labels">0</h5>
-                                                    <p class="mb-0 text-muted">Labels</p>
+                                                    <p class="mb-0 text-muted small">Labels</p>
                                                 </div>
                                             </div>
                                         </div>
                                         <div class="col-lg-2 col-md-4 col-6 mb-3">
-                                            <div class="card text-center">
+                                            <div class="card text-center border-secondary">
                                                 <div class="card-body p-3">
-                                                    <div class="text-secondary">
-                                                        <i class="fas fa-receipt fa-2x"></i>
+                                                    <div class="text-secondary mb-2">
+                                                        <div class="bg-secondary bg-opacity-10 rounded-circle d-inline-flex align-items-center justify-content-center"
+                                                            style="width: 50px; height: 50px;">
+                                                            <span class="fw-bold">TXN</span>
+                                                        </div>
                                                     </div>
                                                     <h5 class="mt-2 mb-1" id="summary-total-transactions">0</h5>
-                                                    <p class="mb-0 text-muted">Transactions</p>
+                                                    <p class="mb-0 text-muted small">Transactions</p>
                                                 </div>
                                             </div>
                                         </div>
                                         <div class="col-lg-2 col-md-4 col-6 mb-3">
                                             <div class="card text-center">
                                                 <div class="card-body p-3">
-                                                    <button class="btn btn-primary btn-sm" id="refresh-summary">
-                                                        <i class="fas fa-sync-alt"></i> Refresh
+                                                    <button class="btn btn-outline-primary btn-sm w-100"
+                                                        id="refresh-summary">
+                                                        Refresh Data
                                                     </button>
+                                                    <small class="text-muted d-block mt-2">Update ringkasan</small>
                                                 </div>
                                             </div>
                                         </div>
@@ -326,30 +415,83 @@
 
                                 <!-- Summary Tables -->
                                 <div class="col-12">
-                                    <div class="row">
-                                        <!-- SKU Summary -->
-                                        <div class="col-lg-4 col-md-12 mb-4">
-                                            <div class="card">
+                                    <!-- Performance Metrics -->
+                                    <div class="row mb-4">
+                                        <div class="col-12">
+                                            <div class="card bg-light">
                                                 <div class="card-header">
-                                                    <h6 class="mb-0">
-                                                        <i class="fas fa-barcode"></i> Top SKUs
-                                                    </h6>
+                                                    <h6 class="mb-0">Analisis Performa Produk</h6>
+                                                </div>
+                                                <div class="card-body">
+                                                    <div class="row">
+                                                        <div class="col-md-3 col-6 mb-3">
+                                                            <div class="text-center">
+                                                                <div class="bg-success text-white rounded p-2 mb-2">
+                                                                    <span class="fw-bold" id="top-performer-qty">0</span>
+                                                                </div>
+                                                                <small class="text-muted">Produk Terlaris (Qty)</small>
+                                                                <div class="fw-bold small" id="top-performer-name">-</div>
+                                                            </div>
+                                                        </div>
+                                                        <div class="col-md-3 col-6 mb-3">
+                                                            <div class="text-center">
+                                                                <div class="bg-info text-white rounded p-2 mb-2">
+                                                                    <span class="fw-bold" id="most-frequent-txn">0</span>
+                                                                </div>
+                                                                <small class="text-muted">Paling Sering Dibeli</small>
+                                                                <div class="fw-bold small" id="most-frequent-name">-</div>
+                                                            </div>
+                                                        </div>
+                                                        <div class="col-md-3 col-6 mb-3">
+                                                            <div class="text-center">
+                                                                <div class="bg-warning text-dark rounded p-2 mb-2">
+                                                                    <span class="fw-bold" id="avg-qty-per-txn">0</span>
+                                                                </div>
+                                                                <small class="text-muted">Rata-rata Qty/Transaksi</small>
+                                                                <div class="fw-bold small">Per Pembelian</div>
+                                                            </div>
+                                                        </div>
+                                                        <div class="col-md-3 col-6 mb-3">
+                                                            <div class="text-center">
+                                                                <div class="bg-secondary text-white rounded p-2 mb-2">
+                                                                    <span class="fw-bold"
+                                                                        id="category-diversity">0%</span>
+                                                                </div>
+                                                                <small class="text-muted">Keragaman Kategori</small>
+                                                                <div class="fw-bold small">Distribusi</div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- SKU Summary -->
+                                    <div class="row mb-4">
+                                        <div class="col-12">
+                                            <div class="card">
+                                                <div class="card-header bg-primary text-white">
+                                                    <h6 class="mb-0">Produk Terlaris (Top 10)</h6>
+                                                    <small>Diurutkan berdasarkan quantity terjual</small>
                                                 </div>
                                                 <div class="card-body p-0">
                                                     <div style="max-height: 400px; overflow-y: auto;">
                                                         <table class="table table-sm mb-0" id="sku-summary-table">
-                                                            <thead class="table-light">
+                                                            <thead class="table-light sticky-top">
                                                                 <tr>
-                                                                    <th>SKU</th>
-                                                                    <th>Product</th>
-                                                                    <th class="text-center">Qty</th>
+                                                                    <th width="10%">Rank</th>
+                                                                    <th width="50%">Produk</th>
+                                                                    <th width="15%" class="text-center">Qty</th>
+                                                                    <th width="15%" class="text-center">Txn</th>
+                                                                    <th width="10%" class="text-center">Avg/Txn</th>
                                                                 </tr>
                                                             </thead>
                                                             <tbody>
                                                                 <tr>
-                                                                    <td colspan="3"
+                                                                    <td colspan="5"
                                                                         class="text-center text-muted py-3">
-                                                                        <i class="fas fa-spinner fa-spin"></i> Loading...
+                                                                        Loading data...
                                                                     </td>
                                                                 </tr>
                                                             </tbody>
@@ -358,30 +500,33 @@
                                                 </div>
                                             </div>
                                         </div>
+                                    </div>
 
+                                    <!-- Category and Label Summary -->
+                                    <div class="row mb-4">
                                         <!-- Category Summary -->
-                                        <div class="col-lg-4 col-md-12 mb-4">
-                                            <div class="card">
-                                                <div class="card-header">
-                                                    <h6 class="mb-0">
-                                                        <i class="fas fa-tags"></i> By Category
-                                                    </h6>
+                                        <div class="col-lg-6 col-md-12 mb-4">
+                                            <div class="card h-100">
+                                                <div class="card-header bg-success text-white">
+                                                    <h6 class="mb-0">Ringkasan per Kategori</h6>
+                                                    <small>Breakdown penjualan berdasarkan kategori</small>
                                                 </div>
                                                 <div class="card-body p-0">
                                                     <div style="max-height: 400px; overflow-y: auto;">
                                                         <table class="table table-sm mb-0" id="category-summary-table">
-                                                            <thead class="table-light">
+                                                            <thead class="table-light sticky-top">
                                                                 <tr>
-                                                                    <th>Category</th>
-                                                                    <th class="text-center">SKUs</th>
-                                                                    <th class="text-center">Qty</th>
+                                                                    <th width="40%">Kategori</th>
+                                                                    <th width="20%" class="text-center">SKUs</th>
+                                                                    <th width="20%" class="text-center">Qty</th>
+                                                                    <th width="20%" class="text-center">%</th>
                                                                 </tr>
                                                             </thead>
                                                             <tbody>
                                                                 <tr>
-                                                                    <td colspan="3"
+                                                                    <td colspan="4"
                                                                         class="text-center text-muted py-3">
-                                                                        <i class="fas fa-spinner fa-spin"></i> Loading...
+                                                                        Loading data...
                                                                     </td>
                                                                 </tr>
                                                             </tbody>
@@ -392,32 +537,63 @@
                                         </div>
 
                                         <!-- Label Summary -->
-                                        <div class="col-lg-4 col-md-12 mb-4">
-                                            <div class="card">
-                                                <div class="card-header">
-                                                    <h6 class="mb-0">
-                                                        <i class="fas fa-tag"></i> By Label
-                                                    </h6>
+                                        <div class="col-lg-6 col-md-12 mb-4">
+                                            <div class="card h-100">
+                                                <div class="card-header bg-info text-white">
+                                                    <h6 class="mb-0">Ringkasan per Label</h6>
+                                                    <small>Breakdown penjualan berdasarkan label</small>
                                                 </div>
                                                 <div class="card-body p-0">
                                                     <div style="max-height: 400px; overflow-y: auto;">
                                                         <table class="table table-sm mb-0" id="label-summary-table">
-                                                            <thead class="table-light">
+                                                            <thead class="table-light sticky-top">
                                                                 <tr>
-                                                                    <th>Label</th>
-                                                                    <th class="text-center">SKUs</th>
-                                                                    <th class="text-center">Qty</th>
+                                                                    <th width="40%">Label</th>
+                                                                    <th width="20%" class="text-center">SKUs</th>
+                                                                    <th width="20%" class="text-center">Qty</th>
+                                                                    <th width="20%" class="text-center">%</th>
                                                                 </tr>
                                                             </thead>
                                                             <tbody>
                                                                 <tr>
-                                                                    <td colspan="3"
+                                                                    <td colspan="4"
                                                                         class="text-center text-muted py-3">
-                                                                        <i class="fas fa-spinner fa-spin"></i> Loading...
+                                                                        Loading data...
                                                                     </td>
                                                                 </tr>
                                                             </tbody>
                                                         </table>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Additional Insights -->
+                                    <div class="row">
+                                        <div class="col-12">
+                                            <div class="card">
+                                                <div class="card-header">
+                                                    <h6 class="mb-0">Insight Tambahan</h6>
+                                                </div>
+                                                <div class="card-body">
+                                                    <div class="row">
+                                                        <div class="col-md-6">
+                                                            <h6 class="text-primary">Produk dengan Frekuensi Tinggi</h6>
+                                                            <p class="small text-muted mb-2">Produk yang sering muncul
+                                                                dalam transaksi (meski quantity kecil)</p>
+                                                            <div id="high-frequency-products">
+                                                                <div class="text-muted">Loading...</div>
+                                                            </div>
+                                                        </div>
+                                                        <div class="col-md-6">
+                                                            <h6 class="text-success">Produk dengan Volume Tinggi</h6>
+                                                            <p class="small text-muted mb-2">Produk dengan quantity besar
+                                                                per transaksi</p>
+                                                            <div id="high-volume-products">
+                                                                <div class="text-muted">Loading...</div>
+                                                            </div>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
@@ -512,17 +688,17 @@
                 dom: 'Bfrtip',
                 buttons: [{
                         extend: 'copy',
-                        text: '<i class="fas fa-copy"></i> Copy',
+                        text: 'Copy',
                         className: 'btn btn-secondary'
                     },
                     {
                         extend: 'excel',
-                        text: '<i class="fas fa-file-excel"></i> Excel',
+                        text: 'Excel',
                         className: 'btn btn-success'
                     },
                     {
                         extend: 'print',
-                        text: '<i class="fas fa-print"></i> Print',
+                        text: 'Print',
                         className: 'btn btn-info'
                     }
                 ],
@@ -803,35 +979,84 @@
             function updateSummaryDisplay() {
                 if (!summaryData) return;
 
+                const totalQty = summaryData.total_stats.total_qty;
+                const totalTxn = summaryData.total_stats.total_transactions;
+
+                // Check for unknown products and show warning
+                checkUnknownProducts();
+
                 // Update summary statistics
-                $('#summary-total-qty').text(summaryData.total_stats.total_qty.toLocaleString('id-ID'));
+                $('#summary-total-qty').text(totalQty.toLocaleString('id-ID'));
                 $('#summary-unique-skus').text(summaryData.total_stats.unique_skus.toLocaleString('id-ID'));
                 $('#summary-unique-categories').text(summaryData.total_stats.unique_categories.toLocaleString(
                     'id-ID'));
                 $('#summary-unique-labels').text(summaryData.total_stats.unique_labels.toLocaleString('id-ID'));
-                $('#summary-total-transactions').text(summaryData.total_stats.total_transactions.toLocaleString(
-                    'id-ID'));
+                $('#summary-total-transactions').text(totalTxn.toLocaleString('id-ID'));
 
-                // Update SKU summary table
+                // Update performance metrics
+                if (summaryData.sku_summary.length > 0) {
+                    const topPerformer = summaryData.sku_summary[0];
+                    const mostFrequent = summaryData.sku_summary.reduce((prev, current) =>
+                        (prev.transactions > current.transactions) ? prev : current
+                    );
+
+                    $('#top-performer-qty').text(topPerformer.qty.toLocaleString('id-ID'));
+                    $('#top-performer-name').text(topPerformer.name_product.substring(0, 20) + '...');
+                    $('#most-frequent-txn').text(mostFrequent.transactions.toLocaleString('id-ID'));
+                    $('#most-frequent-name').text(mostFrequent.name_product.substring(0, 20) + '...');
+                    $('#avg-qty-per-txn').text(Math.round(totalQty / totalTxn * 100) / 100);
+
+                    // Calculate category diversity
+                    const categoryCount = summaryData.total_stats.unique_categories;
+                    const diversity = Math.min(100, Math.round((categoryCount / 10) *
+                        100)); // Assume max 10 categories for 100%
+                    $('#category-diversity').text(diversity + '%');
+                }
+
+                // Update SKU summary table with ranking
                 let skuHtml = '';
                 if (summaryData.sku_summary.length === 0) {
                     skuHtml =
-                        '<tr><td colspan="3" class="text-center text-muted py-3">Tidak ada data SKU</td></tr>';
+                        '<tr><td colspan="5" class="text-center text-muted py-3">Tidak ada data SKU</td></tr>';
                 } else {
-                    summaryData.sku_summary.forEach(function(item) {
+                    summaryData.sku_summary.slice(0, 10).forEach(function(item, index) {
+                        const rankBadge = index < 3 ?
+                            `<span class="badge bg-warning text-dark">#${index + 1}</span>` :
+                            `<span class="badge bg-light text-dark">#${index + 1}</span>`;
+
+                        // Check if this is an unknown product
+                        const isUnknown = item.category === 'Unknown Category' ||
+                            item.category === 'Unknown' ||
+                            item.category === '' ||
+                            item.category === null ||
+                            item.name_product === 'Unknown Product' ||
+                            item.name_product === 'Unknown' ||
+                            item.name_product === '' ||
+                            item.name_product === null;
+
+                        const rowClass = isUnknown ? 'table-warning' : '';
+                        const unknownIndicator = isUnknown ?
+                            '<span class="badge bg-danger text-white ms-1" title="SKU tidak terdefinisi di tabel Product">!</span>' :
+                            '';
+
+                        const avgPerTxn = Math.round((item.qty / item.transactions) * 100) / 100;
+
                         skuHtml += `
-                            <tr>
+                            <tr class="${rowClass}">
+                                <td class="text-center">${rankBadge}</td>
                                 <td>
-                                    <small class="fw-bold">${item.sku}</small>
-                                    <br><small class="text-muted">${item.category}</small>
-                                </td>
-                                <td>
-                                    <small>${item.name_product}</small>
-                                    <br><small class="text-muted">${item.packaging}</small>
+                                    <div class="fw-bold small">${item.name_product}${unknownIndicator}</div>
+                                    <small class="text-muted">${item.sku} • ${item.category}</small>
+                                    ${isUnknown ? '<div class="small text-danger">⚠️ Perlu ditambahkan ke tabel Product</div>' : ''}
                                 </td>
                                 <td class="text-center">
                                     <span class="badge bg-primary">${item.qty.toLocaleString('id-ID')}</span>
-                                    <br><small class="text-muted">${item.transactions} trans</small>
+                                </td>
+                                <td class="text-center">
+                                    <span class="badge bg-secondary">${item.transactions}</span>
+                                </td>
+                                <td class="text-center">
+                                    <small class="text-muted">${avgPerTxn}</small>
                                 </td>
                             </tr>
                         `;
@@ -839,24 +1064,30 @@
                 }
                 $('#sku-summary-table tbody').html(skuHtml);
 
-                // Update Category summary table
+                // Update Category summary table with percentages
                 let categoryHtml = '';
                 if (summaryData.category_summary.length === 0) {
                     categoryHtml =
-                        '<tr><td colspan="3" class="text-center text-muted py-3">Tidak ada data kategori</td></tr>';
+                        '<tr><td colspan="4" class="text-center text-muted py-3">Tidak ada data kategori</td></tr>';
                 } else {
                     summaryData.category_summary.forEach(function(item) {
+                        const percentage = Math.round((item.qty / totalQty) * 100);
                         categoryHtml += `
                             <tr>
                                 <td>
-                                    <span class="fw-bold">${item.category}</span>
-                                    <br><small class="text-muted">${item.transactions} transactions</small>
+                                    <div class="fw-bold">${item.category}</div>
+                                    <small class="text-muted">${item.transactions} transaksi</small>
                                 </td>
                                 <td class="text-center">
                                     <span class="badge bg-success">${item.unique_skus}</span>
                                 </td>
                                 <td class="text-center">
-                                    <span class="badge bg-warning">${item.qty.toLocaleString('id-ID')}</span>
+                                    <span class="badge bg-primary">${item.qty.toLocaleString('id-ID')}</span>
+                                </td>
+                                <td class="text-center">
+                                    <div class="progress" style="height: 20px;">
+                                        <div class="progress-bar bg-success" style="width: ${percentage}%">${percentage}%</div>
+                                    </div>
                                 </td>
                             </tr>
                         `;
@@ -864,30 +1095,91 @@
                 }
                 $('#category-summary-table tbody').html(categoryHtml);
 
-                // Update Label summary table
+                // Update Label summary table with percentages
                 let labelHtml = '';
                 if (summaryData.label_summary.length === 0) {
                     labelHtml =
-                        '<tr><td colspan="3" class="text-center text-muted py-3">Tidak ada data label</td></tr>';
+                        '<tr><td colspan="4" class="text-center text-muted py-3">Tidak ada data label</td></tr>';
                 } else {
                     summaryData.label_summary.forEach(function(item) {
+                        const percentage = Math.round((item.qty / totalQty) * 100);
                         labelHtml += `
                             <tr>
                                 <td>
-                                    <span class="fw-bold">${item.label}</span>
-                                    <br><small class="text-muted">${item.transactions} transactions</small>
+                                    <div class="fw-bold">${item.label}</div>
+                                    <small class="text-muted">${item.transactions} transaksi</small>
                                 </td>
                                 <td class="text-center">
                                     <span class="badge bg-info">${item.unique_skus}</span>
                                 </td>
                                 <td class="text-center">
-                                    <span class="badge bg-secondary">${item.qty.toLocaleString('id-ID')}</span>
+                                    <span class="badge bg-primary">${item.qty.toLocaleString('id-ID')}</span>
+                                </td>
+                                <td class="text-center">
+                                    <div class="progress" style="height: 20px;">
+                                        <div class="progress-bar bg-info" style="width: ${percentage}%">${percentage}%</div>
+                                    </div>
                                 </td>
                             </tr>
                         `;
                     });
                 }
                 $('#label-summary-table tbody').html(labelHtml);
+
+                // Update additional insights
+                updateAdditionalInsights();
+            }
+
+            // Function to update additional insights
+            function updateAdditionalInsights() {
+                if (!summaryData || summaryData.sku_summary.length === 0) return;
+
+                // High frequency products (sorted by transaction count)
+                const highFrequency = [...summaryData.sku_summary]
+                    .sort((a, b) => b.transactions - a.transactions)
+                    .slice(0, 5);
+
+                let frequencyHtml = '';
+                highFrequency.forEach(function(item, index) {
+                    const avgQtyPerTxn = Math.round(item.qty / item.transactions * 100) / 100;
+                    frequencyHtml += `
+                        <div class="d-flex justify-content-between align-items-center mb-2 p-2 bg-light rounded">
+                            <div>
+                                <div class="fw-bold small">${item.name_product.substring(0, 25)}...</div>
+                                <small class="text-muted">${item.transactions} transaksi</small>
+                            </div>
+                            <div class="text-end">
+                                <small class="text-primary">${avgQtyPerTxn} qty/txn</small>
+                            </div>
+                        </div>
+                    `;
+                });
+                $('#high-frequency-products').html(frequencyHtml);
+
+                // High volume products (sorted by average quantity per transaction)
+                const highVolume = [...summaryData.sku_summary]
+                    .map(item => ({
+                        ...item,
+                        avgQtyPerTxn: item.qty / item.transactions
+                    }))
+                    .sort((a, b) => b.avgQtyPerTxn - a.avgQtyPerTxn)
+                    .slice(0, 5);
+
+                let volumeHtml = '';
+                highVolume.forEach(function(item, index) {
+                    volumeHtml += `
+                        <div class="d-flex justify-content-between align-items-center mb-2 p-2 bg-light rounded">
+                            <div>
+                                <div class="fw-bold small">${item.name_product.substring(0, 25)}...</div>
+                                <small class="text-muted">${item.qty} total qty</small>
+                            </div>
+                            <div class="text-end">
+                                <small class="text-success">${Math.round(item.avgQtyPerTxn * 100) / 100} qty/txn</small>
+                            </div>
+                        </div>
+                    `;
+                });
+                $('#high-volume-products').html(volumeHtml);
             }
 
             // Update summary when filters are applied
@@ -1010,6 +1302,51 @@
                 });
             });
 
+            // Function to check for unknown products
+            function checkUnknownProducts() {
+                if (!summaryData || !summaryData.sku_summary) return;
+
+                // Find products with "Unknown" category or no category
+                const unknownProducts = summaryData.sku_summary.filter(item =>
+                    item.category === 'Unknown Category' ||
+                    item.category === 'Unknown' ||
+                    item.category === '' ||
+                    item.category === null ||
+                    item.name_product === 'Unknown Product' ||
+                    item.name_product === 'Unknown' ||
+                    item.name_product === '' ||
+                    item.name_product === null
+                );
+
+                if (unknownProducts.length > 0) {
+                    // Show warning alert
+                    $('#unknown-products-warning').show();
+
+                    // Create list of unknown SKUs
+                    let unknownSkusHtml = '';
+                    unknownProducts.forEach(function(item, index) {
+                        const badgeClass = index % 2 === 0 ? 'bg-warning' : 'bg-secondary';
+                        unknownSkusHtml += `
+                            <span class="badge ${badgeClass} me-2 mb-1">
+                                ${item.sku} (${item.qty.toLocaleString('id-ID')} qty, ${item.transactions} txn)
+                            </span>
+                        `;
+                    });
+                    $('#unknown-skus-list').html(unknownSkusHtml);
+
+                    // Add summary count to warning with better formatting
+                    const warningTitle = `Peringatan: ${unknownProducts.length} Produk Tidak Terdefinisi`;
+                    $('#unknown-products-title').html(`
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        ${warningTitle}
+                        <span class="badge bg-danger ms-2">${unknownProducts.length}</span>
+                    `);
+                } else {
+                    // Hide warning if no unknown products
+                    $('#unknown-products-warning').hide();
+                }
+            }
+
             // Helper function to get current date for filename
             function getCurrentDate() {
                 const now = new Date();
@@ -1018,6 +1355,17 @@
                 const day = String(now.getDate()).padStart(2, '0');
                 return `${year}${month}${day}`;
             }
+
+            // Handle collapse toggle for unknown products warning
+            $(document).on('show.bs.collapse', '#unknown-products-details', function() {
+                $('#toggle-icon').removeClass('fa-chevron-down').addClass('fa-chevron-up');
+                $('#toggle-unknown-details span').text('Sembunyikan');
+            });
+
+            $(document).on('hide.bs.collapse', '#unknown-products-details', function() {
+                $('#toggle-icon').removeClass('fa-chevron-up').addClass('fa-chevron-down');
+                $('#toggle-unknown-details span').text('Lihat Detail');
+            });
 
             // Function to export data to Excel
             function exportToExcel(data, fileName) {

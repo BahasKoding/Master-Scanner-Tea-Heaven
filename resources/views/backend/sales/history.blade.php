@@ -630,6 +630,46 @@
                 padding: 10px 15px;
             }
         }
+
+        /* Warning styles for unknown SKUs */
+        .unknown-sku-warning {
+            background-color: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+        }
+
+        .text-warning {
+            color: #f39c12 !important;
+        }
+
+        .fw-bold {
+            font-weight: bold !important;
+        }
+
+        /* Tooltip styling for warning badges */
+        .badge[data-bs-toggle="tooltip"] {
+            cursor: help;
+        }
+
+        .text-warning[data-bs-toggle="tooltip"] {
+            cursor: help;
+        }
+
+        /* Custom tooltip styling */
+        .tooltip {
+            font-size: 0.875rem;
+        }
+
+        .tooltip-inner {
+            max-width: 300px;
+            padding: 8px 12px;
+            background-color: #343a40;
+            border-radius: 6px;
+        }
+
+        .tooltip.bs-tooltip-top .tooltip-arrow::before {
+            border-top-color: #343a40;
+        }
     </style>
 @endsection
 
@@ -1494,8 +1534,15 @@
                     // Reset the form immediately to prepare for the next entry
                     resetForm();
 
-                    // Show success message
-                    showAlert('success', 'Berhasil!', response.message, 1000);
+                    // Show success message with warning if applicable
+                    if (response.warning) {
+                        // Show success with warning
+                        showAlert('warning', 'Berhasil dengan Peringatan!',
+                            response.message + '\n\n' + response.warning, 3000);
+                    } else {
+                        // Show normal success message
+                        showAlert('success', 'Berhasil!', response.message, 1000);
+                    }
 
                     // Auto focus to no_resi input after successful insert with 3-second countdown
                     ensureNoResiFocus(true);
@@ -1612,14 +1659,14 @@
                 if (showCountdown) {
                     // Show countdown for auto focus to SKU
                     let countdown =
-                    1.5; // COUNTDOWN DURATION: Change this value to modify countdown time (in seconds)
+                        1.5; // COUNTDOWN DURATION: Change this value to modify countdown time (in seconds)
                     const countdownElement = $('<div id="sku-focus-countdown">Auto focus ke No SKU dalam ' +
                         countdown + ' detik</div>');
                     $('body').append(countdownElement);
 
                     window.skuFocusCountdownInterval = setInterval(() => {
                         countdown -=
-                        0.1; // COUNTDOWN DECREMENT: Decrease by 0.1 seconds for smoother countdown
+                            0.1; // COUNTDOWN DECREMENT: Decrease by 0.1 seconds for smoother countdown
                         if (countdown > 0) {
                             countdownElement.text('Auto focus ke No SKU dalam ' + countdown.toFixed(1) +
                                 ' detik');
@@ -1913,6 +1960,25 @@
                     $('.table-scroll-indicator').fadeOut();
                 });
             });
+        });
+
+        // Initialize Bootstrap tooltips for warning badges
+        function initializeTooltips() {
+            $('[data-bs-toggle="tooltip"]').tooltip('dispose'); // Remove existing tooltips
+            $('[data-bs-toggle="tooltip"]').tooltip({
+                html: true,
+                trigger: 'hover focus'
+            });
+        }
+
+        // Initialize tooltips on page load
+        $(document).ready(function() {
+            setTimeout(initializeTooltips, 500);
+        });
+
+        // Reinitialize tooltips when table is reloaded
+        $(document).on('draw.dt', '#historyTable', function() {
+            setTimeout(initializeTooltips, 100);
         });
     </script>
 @endsection

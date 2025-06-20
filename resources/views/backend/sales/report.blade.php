@@ -313,6 +313,46 @@
                 max-width: 700px;
             }
         }
+
+        /* Warning styles for unknown SKUs */
+        .unknown-sku-warning {
+            background-color: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+        }
+
+        .text-warning {
+            color: #f39c12 !important;
+        }
+
+        .fw-bold {
+            font-weight: bold !important;
+        }
+
+        /* Tooltip styling for warning badges */
+        .badge[data-bs-toggle="tooltip"] {
+            cursor: help;
+        }
+
+        .text-warning[data-bs-toggle="tooltip"] {
+            cursor: help;
+        }
+
+        /* Custom tooltip styling */
+        .tooltip {
+            font-size: 0.875rem;
+        }
+
+        .tooltip-inner {
+            max-width: 300px;
+            padding: 8px 12px;
+            background-color: #343a40;
+            border-radius: 6px;
+        }
+
+        .tooltip.bs-tooltip-top .tooltip-arrow::before {
+            border-top-color: #343a40;
+        }
     </style>
 @endsection
 
@@ -338,35 +378,43 @@
                     <!-- Filter Section -->
                     <div class="filter-section">
                         <form id="reportForm" onsubmit="return false;">
-                            <div class="row g-3">
-                                <div class="col-lg-3 col-md-6">
+                            <div class="row mb-3">
+                                <div class="col-md-3">
                                     <label class="form-label">Start Date <span class="text-danger">*</span></label>
                                     <input type="date" class="form-control date-input" id="start_date" name="start_date">
                                     <div class="invalid-feedback" id="start_date_error">Mohon pilih tanggal mulai</div>
                                     <small class="help-text">First day of data range</small>
                                 </div>
-                                <div class="col-lg-3 col-md-6">
+                                <div class="col-md-3">
                                     <label class="form-label">End Date <span class="text-danger">*</span></label>
                                     <input type="date" class="form-control date-input" id="end_date" name="end_date">
                                     <div class="invalid-feedback" id="end_date_error">Mohon pilih tanggal akhir</div>
                                     <small class="help-text">Last day of data range</small>
                                 </div>
-                                <div class="col-lg-2 col-md-6">
-                                    <div class="entries-select-container">
-                                        <label class="form-label">Show Entries</label>
-                                        <select class="form-select" id="pageLength">
-                                            <option value="10">10 entries</option>
-                                            <option value="25" selected>25 entries</option>
-                                            <option value="50">50 entries</option>
-                                            <option value="100">100 entries</option>
-                                            <option value="-1">All entries</option>
-                                        </select>
-                                        <small class="help-text">Records per page</small>
-                                    </div>
+                                <div class="col-md-3">
+                                    <label class="form-label">Show Entries</label>
+                                    <select class="form-select" id="pageLength">
+                                        <option value="10">10 entries</option>
+                                        <option value="25" selected>25 entries</option>
+                                        <option value="50">50 entries</option>
+                                        <option value="100">100 entries</option>
+                                        <option value="-1">All entries</option>
+                                    </select>
+                                    <small class="help-text">Records per page</small>
                                 </div>
-                                <div class="col-lg-4 col-md-6">
-                                    <label class="form-label d-none d-md-block">&nbsp;</label>
-                                    <div class="d-flex flex-wrap gap-2">
+                                <div class="col-md-3">
+                                    <label class="form-label">Filter SKU</label>
+                                    <select class="form-select" id="skuFilter">
+                                        <option value="">Semua Data</option>
+                                        <option value="unknown">Unknown Products Only</option>
+                                        <option value="known">Known Products Only</option>
+                                    </select>
+                                    <small class="help-text">Filter by SKU status</small>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-12">
+                                    <div class="d-flex gap-2 justify-content-end">
                                         <button type="button" class="btn btn-primary" id="filterBtn">
                                             <i class="fas fa-filter"></i>
                                             <span class="d-none d-sm-inline">Filter</span>
@@ -385,7 +433,6 @@
                                             <span class="d-none d-sm-inline">Clear</span>
                                         </button>
                                     </div>
-                                    <small class="help-text d-md-none">Apply filters or export data</small>
                                 </div>
                             </div>
                         </form>
@@ -461,6 +508,7 @@
             const $startDate = $('#start_date');
             const $endDate = $('#end_date');
             const $pageLength = $('#pageLength');
+            const $skuFilter = $('#skuFilter');
             const $filterBtn = $('#filterBtn');
             const $exportBtn = $('#exportBtn');
             const $clearBtn = $('#clearBtn');
@@ -515,6 +563,7 @@
                         d._token = "{{ csrf_token() }}";
                         d.start_date = $startDate.val();
                         d.end_date = $endDate.val();
+                        d.sku_filter = $skuFilter.val();
                     },
                     beforeSend: function() {
                         $tableLoading.show();
@@ -528,6 +577,14 @@
 
                         // Update date filter info when data is loaded
                         updateDateFilterInfo($startDate.val(), $endDate.val());
+
+                        // Initialize tooltips after data is loaded
+                        setTimeout(function() {
+                            $('[data-bs-toggle="tooltip"]').tooltip({
+                                html: true,
+                                trigger: 'hover focus'
+                            });
+                        }, 100);
                     }
                 },
                 columns: [{
@@ -586,6 +643,12 @@
                     if ($(window).width() < 768) {
                         $('.table-scroll-indicator').show();
                     }
+
+                    // Initialize Bootstrap tooltips for warning badges
+                    $('[data-bs-toggle="tooltip"]').tooltip({
+                        html: true,
+                        trigger: 'hover focus'
+                    });
                 }
             });
 
@@ -680,17 +743,34 @@
             // Filter button with validation
             $filterBtn.on('click', function() {
                 isFilterAttempted = true;
-                // Make sure both dates are filled before filtering
-                if (!$startDate.val() || !$endDate.val()) {
+
+                // Check if SKU filter is set without date filter
+                if ($skuFilter.val() && (!$startDate.val() || !$endDate.val())) {
+                    // Allow SKU filter without date requirement - will show all dates
+                    table.ajax.url("{{ route('history-sales.data') }}").load();
+                    updateDateFilterInfo($startDate.val(), $endDate.val());
+                    showSuccess('Data berhasil difilter berdasarkan status SKU dari semua tanggal');
+                    isInitialLoad = false;
+                    return;
+                }
+
+                // Make sure both dates are filled before filtering by date
+                if (($startDate.val() || $endDate.val()) && (!$startDate.val() || !$endDate.val())) {
                     $startDate.addClass('is-invalid');
                     $endDate.addClass('is-invalid');
                     $('#start_date_error').show();
                     $('#end_date_error').show();
-                    showError('Mohon isi tanggal mulai dan tanggal akhir untuk melakukan filter');
+                    showError('Mohon isi tanggal mulai dan tanggal akhir untuk melakukan filter tanggal');
                     return;
                 }
 
-                if (validateDates()) {
+                if (!$startDate.val() && !$endDate.val() && !$skuFilter.val()) {
+                    showError('Mohon pilih minimal satu filter (tanggal atau status SKU)');
+                    return;
+                }
+
+                if (($startDate.val() && $endDate.val() && validateDates()) || (!$startDate.val() && !
+                        $endDate.val())) {
                     // Reset the URL to the standard endpoint without load_all parameter
                     table.ajax.url("{{ route('history-sales.data') }}").load();
                     updateDateFilterInfo($startDate.val(), $endDate.val());
@@ -703,6 +783,37 @@
             $exportBtn.on('click', function() {
                 isFilterAttempted = true;
 
+                // Check if SKU filter is active without date filter
+                if ($skuFilter.val() && (!$startDate.val() || !$endDate.val())) {
+                    // Allow export with SKU filter only
+                    const recordsTotal = table.page.info().recordsTotal;
+
+                    if (recordsTotal === 0) {
+                        showError('Tidak ada data untuk diekspor. Silakan ubah kriteria filter Anda.');
+                        return;
+                    }
+
+                    // Show confirmation for exporting all dates with SKU filter
+                    Swal.fire({
+                        title: 'Ekspor Data dengan Filter SKU',
+                        html: `<div class="text-left">
+                                <p>Anda akan mengekspor data <strong>${$skuFilter.find('option:selected').text()}</strong> dari <strong>semua tanggal</strong>.</p>
+                                <p>Total data yang akan diekspor: <strong>${recordsTotal} records</strong></p>
+                                <p>Apakah Anda ingin melanjutkan?</p>
+                               </div>`,
+                        icon: 'question',
+                        showCancelButton: true,
+                        confirmButtonText: 'Ya, Ekspor',
+                        cancelButtonText: 'Batal',
+                        confirmButtonColor: '#28a745'
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            performExport();
+                        }
+                    });
+                    return;
+                }
+
                 // Check if dates are empty - if so, show error message
                 if (!$startDate.val() || !$endDate.val()) {
                     $startDate.addClass('is-invalid');
@@ -714,56 +825,7 @@
                 }
 
                 if (validateDates()) {
-                    const recordsTotal = table.page.info().recordsTotal;
-
-                    if (recordsTotal === 0) {
-                        showError('Tidak ada data untuk diekspor. Silakan ubah kriteria filter Anda.');
-                        return;
-                    }
-
-                    // Update export status
-                    $exportStatus.show();
-                    $('#exportStatusText').text('Mempersiapkan data untuk ekspor...');
-
-                    // Perform the AJAX request to get data
-                    $.ajax({
-                        url: "{{ route('history-sales.export') }}",
-                        type: "POST",
-                        data: {
-                            _token: "{{ csrf_token() }}",
-                            start_date: $startDate.val(),
-                            end_date: $endDate.val()
-                        },
-                        success: function(response) {
-                            if (response.status === 'success') {
-                                // Show row count in status
-                                $('#exportStatusText').text(
-                                    `Mengekspor ${response.count} baris data...`);
-
-                                // Export data to Excel
-                                setTimeout(() => {
-                                    exportToExcel(response.data, 'Laporan_Penjualan_' +
-                                        formatDateForFileName($startDate.val()) +
-                                        '_to_' + formatDateForFileName($endDate
-                                            .val()));
-                                    showSuccess(
-                                        `${response.count} data berhasil diekspor ke Excel dengan format satu baris per No Resi dan nilai SKU/Quantity yang dipisahkan dengan koma`
-                                    );
-                                    $exportStatus.hide();
-                                }, 500);
-                            } else {
-                                showError(response.message ||
-                                    'Terjadi kesalahan saat mengekspor data');
-                                $exportStatus.hide();
-                            }
-                        },
-                        error: function(xhr) {
-                            $exportStatus.hide();
-                            showError('Terjadi kesalahan: ' + (xhr.responseJSON && xhr
-                                .responseJSON.message ? xhr.responseJSON.message :
-                                'Tidak dapat menghubungi server'));
-                        }
-                    });
+                    performExport();
                 }
                 isInitialLoad = false;
             });
@@ -772,6 +834,73 @@
             function formatDateForFileName(dateString) {
                 if (!dateString) return 'all';
                 return dateString.replace(/-/g, '');
+            }
+
+            // Function to perform export
+            function performExport() {
+                const recordsTotal = table.page.info().recordsTotal;
+
+                if (recordsTotal === 0) {
+                    showError('Tidak ada data untuk diekspor. Silakan ubah kriteria filter Anda.');
+                    return;
+                }
+
+                // Update export status
+                $exportStatus.show();
+                $('#exportStatusText').text('Mempersiapkan data untuk ekspor...');
+
+                // Perform the AJAX request to get data
+                $.ajax({
+                    url: "{{ route('history-sales.export') }}",
+                    type: "POST",
+                    data: {
+                        _token: "{{ csrf_token() }}",
+                        start_date: $startDate.val(),
+                        end_date: $endDate.val(),
+                        sku_filter: $skuFilter.val()
+                    },
+                    success: function(response) {
+                        if (response.status === 'success') {
+                            // Show row count in status
+                            $('#exportStatusText').text(
+                                `Mengekspor ${response.count} baris data...`);
+
+                            // Generate filename based on filters
+                            let fileName = 'Laporan_Penjualan_';
+                            if ($startDate.val() && $endDate.val()) {
+                                fileName += formatDateForFileName($startDate.val()) + '_to_' +
+                                    formatDateForFileName($endDate.val());
+                            } else if ($skuFilter.val()) {
+                                fileName += $skuFilter.val() + '_products_' + getCurrentDate();
+                            } else {
+                                fileName += 'all_' + getCurrentDate();
+                            }
+
+                            // Export data to Excel
+                            setTimeout(() => {
+                                exportToExcel(response.data, fileName);
+                                let successMsg =
+                                    `${response.count} data berhasil diekspor ke Excel`;
+                                if ($skuFilter.val() && !$startDate.val()) {
+                                    successMsg +=
+                                        ` (${$skuFilter.find('option:selected').text()} dari semua tanggal)`;
+                                }
+                                showSuccess(successMsg);
+                                $exportStatus.hide();
+                            }, 500);
+                        } else {
+                            showError(response.message ||
+                                'Terjadi kesalahan saat mengekspor data');
+                            $exportStatus.hide();
+                        }
+                    },
+                    error: function(xhr) {
+                        $exportStatus.hide();
+                        showError('Terjadi kesalahan: ' + (xhr.responseJSON && xhr
+                            .responseJSON.message ? xhr.responseJSON.message :
+                            'Tidak dapat menghubungi server'));
+                    }
+                });
             }
 
             // Function to export data to Excel
@@ -852,6 +981,7 @@
             $clearBtn.on('click', function() {
                 $startDate.val('');
                 $endDate.val('');
+                $skuFilter.val('');
                 $('.date-input').removeClass('is-invalid');
                 $('.invalid-feedback').hide();
                 $pageLength.val(25);
@@ -903,6 +1033,17 @@
                     '<strong>Menampilkan semua data</strong>. Gunakan filter tanggal untuk membatasi hasil.');
             }
 
+            // Initialize tooltips on page load
+            $(document).ready(function() {
+                // Initialize tooltips with a slight delay to ensure DOM is ready
+                setTimeout(function() {
+                    $('[data-bs-toggle="tooltip"]').tooltip({
+                        html: true,
+                        trigger: 'hover focus'
+                    });
+                }, 500);
+            });
+
             // Export All button with confirmation
             $('#exportAllBtn').on('click', function() {
                 Swal.fire({
@@ -938,7 +1079,8 @@
                             type: "POST",
                             data: {
                                 _token: "{{ csrf_token() }}",
-                                export_all: true
+                                export_all: true,
+                                sku_filter: $skuFilter.val()
                                 // No date filters for exporting all data
                             },
                             success: function(response) {
@@ -991,32 +1133,56 @@
             // Function to update the date filter info display
             function updateDateFilterInfo(startDate, endDate) {
                 const $dateFilterInfo = $('#date-filter-info');
+                const skuFilter = $skuFilter.val();
 
-                if (!startDate || !endDate) {
-                    $dateFilterInfo.html(
-                        '<strong>Menampilkan semua data</strong>. Gunakan filter tanggal untuk membatasi hasil.'
-                    );
-                    return;
+                let filterInfo = '';
+
+                // Build filter info based on active filters
+                if (startDate && endDate) {
+                    // Format the dates to Indonesian format
+                    const formatDate = (dateString) => {
+                        const date = new Date(dateString);
+                        const options = {
+                            day: 'numeric',
+                            month: 'long',
+                            year: 'numeric',
+                            timeZone: 'Asia/Jakarta'
+                        };
+                        return date.toLocaleDateString('id-ID', options);
+                    };
+
+                    const formattedStartDate = formatDate(startDate);
+                    const formattedEndDate = formatDate(endDate);
+                    filterInfo =
+                        `Menampilkan data: <strong>${formattedStartDate}</strong> s/d <strong>${formattedEndDate}</strong>`;
+                } else {
+                    filterInfo = '<strong>Menampilkan semua data</strong>';
                 }
 
-                // Format the dates to Indonesian format
-                const formatDate = (dateString) => {
-                    const date = new Date(dateString);
-                    const options = {
-                        day: 'numeric',
-                        month: 'long',
-                        year: 'numeric',
-                        timeZone: 'Asia/Jakarta'
-                    };
-                    return date.toLocaleDateString('id-ID', options);
-                };
+                // Add SKU filter info if active
+                if (skuFilter) {
+                    if (skuFilter === 'unknown') {
+                        if (!startDate && !endDate) {
+                            filterInfo = '<strong>Menampilkan Unknown Products dari semua tanggal</strong>';
+                        } else {
+                            filterInfo +=
+                                ' - <span class="text-warning"><strong>Hanya Unknown Products</strong></span>';
+                        }
+                    } else if (skuFilter === 'known') {
+                        if (!startDate && !endDate) {
+                            filterInfo = '<strong>Menampilkan Known Products dari semua tanggal</strong>';
+                        } else {
+                            filterInfo +=
+                                ' - <span class="text-success"><strong>Hanya Known Products</strong></span>';
+                        }
+                    }
+                }
 
-                const formattedStartDate = formatDate(startDate);
-                const formattedEndDate = formatDate(endDate);
+                if (!startDate && !endDate && !skuFilter) {
+                    filterInfo += '. Gunakan filter untuk membatasi hasil.';
+                }
 
-                $dateFilterInfo.html(
-                    `Menampilkan data: <strong>${formattedStartDate}</strong> s/d <strong>${formattedEndDate}</strong>`
-                );
+                $dateFilterInfo.html(filterInfo);
             }
         });
     </script>

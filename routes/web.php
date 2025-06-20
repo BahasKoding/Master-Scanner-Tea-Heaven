@@ -224,11 +224,9 @@ Route::middleware(['auth'])->group(function () {
     |--------------------------------------------------------------------------
     */
 
-    // Activity routes grouped by feature
+    // Activity routes - simplified
     Route::prefix('activity')->name('activity')->group(function () {
         Route::get('/', [ActivityController::class, 'index']);
-        Route::get('/load-more', [ActivityController::class, 'loadMoreActivities'])->name('.load.more');
-        Route::get('/auth', [ActivityController::class, 'getAuthActivities'])->name('.auth');
         Route::get('/user/{userId}', [ActivityController::class, 'getUserActivities'])->name('.user');
         Route::get('/user/{userId}/details', [ActivityController::class, 'showUserActivities'])->name('.user.show');
     });

@@ -192,7 +192,14 @@ $(document).ready(function () {
                     if (historyTable) {
                         historyTable.ajax.reload(null, false);
                     }
-                    Swal.fire('Success!', response.message, 'success');
+
+                    // Show success message with warning if applicable
+                    if (response.warning) {
+                        Swal.fire('Berhasil dengan Peringatan!',
+                            response.message + '\n\n' + response.warning, 'warning');
+                    } else {
+                        Swal.fire('Success!', response.message, 'success');
+                    }
                 }
             },
             error: function (xhr) {
