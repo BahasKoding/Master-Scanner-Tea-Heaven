@@ -25,31 +25,32 @@ class DatabaseSeeder extends Seeder
         $this->createDefaultUsers();
 
         // 4. Buat data jenis product
-        $this->call([
-            ArtisanTeaProductSeeder::class,
-            ChineseTeaProductSeeder::class,
-            ClassicTeaCollectionSeeder::class,
-            CraftedTeasSeeder::class,
-            JapaneseTeaProductSeeder::class,
-            JapaneseTeabagsSeeder::class,
-            TinCanisterSeeder::class,
-            JapaneseTeabagsT2Seeder::class,
-            LattePowderSeeder::class,
-            PurePowderSeeder::class,
-            PureTisaneSeeder::class,
-            SweetPowderSeeder::class,
-            TeaWareSeeder::class,
-        ]);
+        // $this->call([
+        //     ArtisanTeaProductSeeder::class,
+        //     ChineseTeaProductSeeder::class,
+        //     ClassicTeaCollectionSeeder::class,
+        //     CraftedTeasSeeder::class,
+        //     JapaneseTeaProductSeeder::class,
+        //     JapaneseTeabagsSeeder::class,
+        //     TinCanisterSeeder::class,
+        //     JapaneseTeabagsT2Seeder::class,
+        //     LattePowderSeeder::class,
+        //     PurePowderSeeder::class,
+        //     PureTisaneSeeder::class,
+        //     SweetPowderSeeder::class,
+        //     TeaWareSeeder::class,
+        // ]);
 
         // 5. Buat data stickers untuk produk
-        $this->call([
-            StickerSeeder::class,
-        ]);
+        // $this->call([
+        //     StickerSeeder::class,
+        // ]);
 
         // 6. Panggil seeder lainnya
         $this->call([
             BahanBakuSeeder::class,
-            HistorySaleSeeder::class,
+            ProductSeeder::class,
+            // HistorySaleSeeder::class,
         ]);
     }
 

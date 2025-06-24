@@ -550,6 +550,37 @@
             transition: background 0.3s;
         }
 
+        /* Error field styling */
+        .is-invalid {
+            border-color: var(--danger-color) !important;
+            box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25) !important;
+            background-color: #fff5f5 !important;
+            animation: shake 0.5s ease-in-out;
+        }
+
+        /* Valid field styling */
+        .is-valid {
+            border-color: var(--primary-color) !important;
+            box-shadow: 0 0 0 0.2rem rgba(76, 175, 80, 0.25) !important;
+            background-color: #f8fff8 !important;
+        }
+
+        @keyframes shake {
+
+            0%,
+            100% {
+                transform: translateX(0);
+            }
+
+            25% {
+                transform: translateX(-5px);
+            }
+
+            75% {
+                transform: translateX(5px);
+            }
+        }
+
         /* Table loading state */
         .table-loading {
             position: relative;
@@ -629,46 +660,6 @@
                 font-size: 13px;
                 padding: 10px 15px;
             }
-        }
-
-        /* Warning styles for unknown SKUs */
-        .unknown-sku-warning {
-            background-color: #fff3cd;
-            border: 1px solid #ffeaa7;
-            color: #856404;
-        }
-
-        .text-warning {
-            color: #f39c12 !important;
-        }
-
-        .fw-bold {
-            font-weight: bold !important;
-        }
-
-        /* Tooltip styling for warning badges */
-        .badge[data-bs-toggle="tooltip"] {
-            cursor: help;
-        }
-
-        .text-warning[data-bs-toggle="tooltip"] {
-            cursor: help;
-        }
-
-        /* Custom tooltip styling */
-        .tooltip {
-            font-size: 0.875rem;
-        }
-
-        .tooltip-inner {
-            max-width: 300px;
-            padding: 8px 12px;
-            background-color: #343a40;
-            border-radius: 6px;
-        }
-
-        .tooltip.bs-tooltip-top .tooltip-arrow::before {
-            border-top-color: #343a40;
         }
     </style>
 @endsection
@@ -1281,10 +1272,19 @@
                 if (currentSku.length >= CONFIG.MIN_SKU_LENGTH) {
                     // Check for duplicates
                     if (isDuplicateSkuInForm(currentSku, input)) {
-                        showError('skuError', 'SKU duplikat terdeteksi: ' + currentSku);
-                        setTimeout(() => resetSkuForm(), CONFIG.RESET_TIMEOUT);
+                        // Mark this specific input as invalid
+                        input.addClass('is-invalid');
+                        showAlert('error', 'SKU Duplikat!', 'SKU duplikat terdeteksi: ' + currentSku);
+
+                        // Remove invalid class and clear field after delay
+                        setTimeout(() => {
+                            input.removeClass('is-invalid').val('').focus();
+                        }, 2000);
                         return;
                     }
+
+                    // Validate SKU exists in database (real-time validation)
+                    validateSkuRealTime(input, currentSku);
 
                     // Only add new field if we're not already in the process
                     if (!STATE.isAddingNewField && input.closest('.sku-input-container').is(':last-child')) {
@@ -1300,6 +1300,60 @@
                     setupAutoSubmit();
                     $('#skuScanningIndicator').removeClass('active');
                 }
+            }
+
+            /**
+             * Real-time SKU validation function
+             */
+            function validateSkuRealTime(input, sku) {
+                // Add loading indicator
+                input.addClass('is-validating');
+
+                $.ajax({
+                    url: "{{ route('history-sales.validate-sku') }}",
+                    method: 'POST',
+                    data: {
+                        sku: sku,
+                        _token: $('meta[name="csrf-token"]').attr('content')
+                    },
+                    timeout: 3000,
+                    success: function(response) {
+                        input.removeClass('is-validating');
+
+                        if (response.valid) {
+                            // SKU is valid, show success briefly
+                            input.removeClass('is-invalid').addClass('is-valid');
+
+                            // Remove success class after 2 seconds
+                            setTimeout(() => {
+                                input.removeClass('is-valid');
+                            }, 2000);
+                        } else {
+                            // SKU is invalid, mark as error
+                            input.removeClass('is-valid').addClass('is-invalid');
+                            showAlert('error', 'SKU Tidak Valid!', response.message);
+
+                            // Clear the invalid SKU after delay
+                            setTimeout(() => {
+                                input.removeClass('is-invalid').val('').focus();
+                            }, 3000);
+                        }
+                    },
+                    error: function(xhr) {
+                        input.removeClass('is-validating');
+
+                        // Handle validation error
+                        const errorData = xhr.responseJSON;
+                        if (errorData && errorData.message) {
+                            input.addClass('is-invalid');
+                            showAlert('error', 'SKU Error!', errorData.message);
+
+                            setTimeout(() => {
+                                input.removeClass('is-invalid').val('').focus();
+                            }, 3000);
+                        }
+                    }
+                });
             }
 
             function isDuplicateSkuInForm(sku, currentInput) {
@@ -1534,15 +1588,8 @@
                     // Reset the form immediately to prepare for the next entry
                     resetForm();
 
-                    // Show success message with warning if applicable
-                    if (response.warning) {
-                        // Show success with warning
-                        showAlert('warning', 'Berhasil dengan Peringatan!',
-                            response.message + '\n\n' + response.warning, 3000);
-                    } else {
-                        // Show normal success message
-                        showAlert('success', 'Berhasil!', response.message, 1000);
-                    }
+                    // Show success message
+                    showAlert('success', 'Berhasil!', response.message, 1000);
 
                     // Auto focus to no_resi input after successful insert with 3-second countdown
                     ensureNoResiFocus(true);
@@ -1567,7 +1614,40 @@
             }
 
             function handleSubmitError(error) {
-                showError('skuError', error.responseJSON?.message || error.message || 'Failed to save data');
+                const errorData = error.responseJSON;
+
+                // Check if this is a partial reset error (specific SKU issue)
+                if (errorData && errorData.partial_reset && errorData.sku_index !== undefined) {
+                    // Only reset the specific SKU field that has the error
+                    const errorIndex = errorData.sku_index;
+                    const skuContainers = $('.sku-input-container');
+
+                    if (skuContainers[errorIndex]) {
+                        const errorContainer = $(skuContainers[errorIndex]);
+                        const skuInput = errorContainer.find('.sku-input');
+                        const qtyInput = errorContainer.find('.qty-input');
+
+                        // Clear only the problematic SKU field
+                        skuInput.val('').focus().addClass('is-invalid');
+                        qtyInput.val('1');
+
+                        // Show error message specific to this field
+                        showAlert('error', 'SKU Error!',
+                            `${errorData.message}\n\nField SKU ke-${errorIndex + 1} telah direset. Silakan perbaiki dan lanjutkan.`
+                        );
+
+                        // Remove invalid class after a few seconds
+                        setTimeout(() => {
+                            skuInput.removeClass('is-invalid');
+                        }, 3000);
+
+                        // Don't reset the entire form, keep other valid SKUs
+                        return;
+                    }
+                }
+
+                // Fallback to full error handling for other types of errors
+                showError('skuError', errorData?.message || error.message || 'Failed to save data');
                 setTimeout(() => {
                     resetForm();
                     // Ensure focus after error reset
@@ -1960,25 +2040,6 @@
                     $('.table-scroll-indicator').fadeOut();
                 });
             });
-        });
-
-        // Initialize Bootstrap tooltips for warning badges
-        function initializeTooltips() {
-            $('[data-bs-toggle="tooltip"]').tooltip('dispose'); // Remove existing tooltips
-            $('[data-bs-toggle="tooltip"]').tooltip({
-                html: true,
-                trigger: 'hover focus'
-            });
-        }
-
-        // Initialize tooltips on page load
-        $(document).ready(function() {
-            setTimeout(initializeTooltips, 500);
-        });
-
-        // Reinitialize tooltips when table is reloaded
-        $(document).on('draw.dt', '#historyTable', function() {
-            setTimeout(initializeTooltips, 100);
         });
     </script>
 @endsection

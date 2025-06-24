@@ -17,6 +17,7 @@ class Product extends Model
     public static function getCategoryOptions()
     {
         return [
+            0 => 'UNKNOWN CATEGORY',
             1 => 'CLASSIC TEA COLLECTION',
             2 => 'PURE TISANE',
             3 => 'ARTISAN TEA',
@@ -48,6 +49,7 @@ class Product extends Model
             8 => 'JAPANESE TEABAGS',
             9 => 'TEA WARE',
             10 => 'NON LABEL 500 GR-1000 GR',
+            11 => 'HERBATA NON LABEL 500 GR-1000 GR',
         ];
     }
     /**
