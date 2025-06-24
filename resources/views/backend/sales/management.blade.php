@@ -331,9 +331,6 @@
     <script src="{{ URL::asset('build/js/plugins/dataTables.min.js') }}"></script>
     <script src="{{ URL::asset('build/js/plugins/dataTables.bootstrap5.min.js') }}"></script>
 
-    <!-- Custom JS -->
-    <script src="{{ URL::asset('js/history-sales-edit.js') }}"></script>
-
     <script>
         // Declare table variable globally
         var table;
@@ -534,8 +531,8 @@
             $('#add-edit-sku-btn').on('click', function() {
                 const skuHtml = `
                     <div class="edit-sku-container d-flex mb-2">
-                        <input type="text" class="form-control me-2" name="edit_no_sku[]" placeholder="SKU">
-                        <input type="number" class="form-control me-2" name="edit_qty[]" value="1" min="1" style="width: 120px;">
+                        <input type="text" class="form-control me-2" name="no_sku[]" placeholder="SKU">
+                        <input type="number" class="form-control me-2" name="qty[]" value="1" min="1" style="width: 120px;">
                         <button type="button" class="btn btn-danger remove-edit-sku">
                             <i class="fas fa-minus"></i>
                         </button>
@@ -549,209 +546,217 @@
                 if ($('.edit-sku-container').length > 1) {
                     $(this).closest('.edit-sku-container').remove();
                 } else {
-                    $(this).closest('.edit-sku-container').find('input[name="edit_no_sku[]"]').val('');
-                    $(this).closest('.edit-sku-container').find('input[name="edit_qty[]"]').val('1');
+                    $(this).closest('.edit-sku-container').find('input[name="no_sku[]"]').val('');
+                    $(this).closest('.edit-sku-container').find('input[name="qty[]"]').val('1');
                 }
             });
 
-            // Initialize edit functionality
-            try {
-                // Override the edit functionality to use sales-management routes
-                window.editHistorySale = function(id) {
-                    $.get(`/sales-management/${id}/edit`)
-                        .done(function(response) {
-                            if (response.status === 'success') {
-                                const data = response.data;
-                                $('#edit_history_sale_id').val(data.id);
-                                $('#edit_no_resi').val(data.no_resi);
+            // Sales Management specific functionality
+            // Edit function for sales management
+            window.editHistorySale = function(id) {
+                $.get(`/sales-management/${id}/edit`)
+                    .done(function(response) {
+                        if (response.status === 'success') {
+                            const data = response.data;
+                            $('#edit_history_sale_id').val(data.id);
+                            $('#edit_no_resi').val(data.no_resi);
 
-                                // Clear existing SKU containers
-                                $('#edit-sku-container').empty();
+                            // Clear existing SKU containers
+                            $('#edit-sku-container').empty();
 
-                                // Add SKU data
-                                if (data.no_sku && data.no_sku.length > 0) {
-                                    data.no_sku.forEach((sku, index) => {
-                                        const qty = data.qty && data.qty[index] ? data.qty[index] :
-                                            1;
-                                        const skuHtml = `
-                                            <div class="edit-sku-container d-flex mb-2">
-                                                <input type="text" class="form-control me-2" name="edit_no_sku[]" value="${sku}" placeholder="SKU">
-                                                <input type="number" class="form-control me-2" name="edit_qty[]" value="${qty}" min="1" style="width: 120px;">
-                                                <button type="button" class="btn btn-danger remove-edit-sku">
-                                                    <i class="fas fa-minus"></i>
-                                                </button>
-                                            </div>`;
-                                        $('#edit-sku-container').append(skuHtml);
-                                    });
-                                } else {
-                                    // Add one empty container if no SKUs
+                            // Add SKU data
+                            if (data.no_sku && data.no_sku.length > 0) {
+                                data.no_sku.forEach((sku, index) => {
+                                    const qty = data.qty && data.qty[index] ? data.qty[index] : 1;
                                     const skuHtml = `
                                         <div class="edit-sku-container d-flex mb-2">
-                                            <input type="text" class="form-control me-2" name="edit_no_sku[]" placeholder="SKU">
-                                            <input type="number" class="form-control me-2" name="edit_qty[]" value="1" min="1" style="width: 120px;">
+                                            <input type="text" class="form-control me-2" name="no_sku[]" value="${sku}" placeholder="SKU">
+                                            <input type="number" class="form-control me-2" name="qty[]" value="${qty}" min="1" style="width: 120px;">
                                             <button type="button" class="btn btn-danger remove-edit-sku">
                                                 <i class="fas fa-minus"></i>
                                             </button>
                                         </div>`;
                                     $('#edit-sku-container').append(skuHtml);
-                                }
-
-                                $('#editHistorySaleModal').modal('show');
-                            }
-                        })
-                        .fail(function() {
-                            Swal.fire('Error!', 'Failed to load data for editing.', 'error');
-                        });
-                };
-
-                window.deleteHistorySale = function(id) {
-                    Swal.fire({
-                        title: 'Are you sure?',
-                        text: "This record will be moved to trash!",
-                        icon: 'warning',
-                        showCancelButton: true,
-                        confirmButtonColor: '#d33',
-                        cancelButtonColor: '#3085d6',
-                        confirmButtonText: 'Yes, delete it!'
-                    }).then((result) => {
-                        if (result.isConfirmed) {
-                            $.ajax({
-                                url: `/sales-management/${id}`,
-                                type: 'DELETE',
-                                data: {
-                                    _token: $('meta[name="csrf-token"]').attr('content')
-                                },
-                                success: function(response) {
-                                    if (response.status === 'success') {
-                                        Swal.fire('Deleted!', response.message, 'success');
-                                        table.ajax.reload();
-                                    }
-                                },
-                                error: function() {
-                                    Swal.fire('Error!', 'Failed to delete record.',
-                                        'error');
-                                }
-                            });
-                        }
-                    });
-                };
-
-                window.restoreHistorySale = function(id) {
-                    Swal.fire({
-                        title: 'Restore Record?',
-                        text: "This will restore the deleted record.",
-                        icon: 'question',
-                        showCancelButton: true,
-                        confirmButtonColor: '#28a745',
-                        cancelButtonColor: '#6c757d',
-                        confirmButtonText: 'Yes, restore it!'
-                    }).then((result) => {
-                        if (result.isConfirmed) {
-                            $.ajax({
-                                url: `/sales-management/${id}/restore`,
-                                type: 'POST',
-                                data: {
-                                    _token: $('meta[name="csrf-token"]').attr('content')
-                                },
-                                success: function(response) {
-                                    if (response.status === 'success') {
-                                        Swal.fire('Restored!', response.message, 'success');
-                                        table.ajax.reload();
-                                    }
-                                },
-                                error: function() {
-                                    Swal.fire('Error!', 'Failed to restore record.',
-                                        'error');
-                                }
-                            });
-                        }
-                    });
-                };
-
-                window.forceDeleteHistorySale = function(id) {
-                    Swal.fire({
-                        title: 'Permanently Delete?',
-                        text: "This action cannot be undone!",
-                        icon: 'warning',
-                        showCancelButton: true,
-                        confirmButtonColor: '#dc3545',
-                        cancelButtonColor: '#6c757d',
-                        confirmButtonText: 'Yes, delete permanently!'
-                    }).then((result) => {
-                        if (result.isConfirmed) {
-                            $.ajax({
-                                url: `/sales-management/${id}/force`,
-                                type: 'DELETE',
-                                data: {
-                                    _token: $('meta[name="csrf-token"]').attr('content')
-                                },
-                                success: function(response) {
-                                    if (response.status === 'success') {
-                                        Swal.fire('Deleted!', response.message, 'success');
-                                        table.ajax.reload();
-                                    }
-                                },
-                                error: function() {
-                                    Swal.fire('Error!',
-                                        'Failed to permanently delete record.', 'error');
-                                }
-                            });
-                        }
-                    });
-                };
-
-                // Handle edit form submission
-                $('#editHistorySaleForm').on('submit', function(e) {
-                    e.preventDefault();
-                    const id = $('#edit_history_sale_id').val();
-                    const formData = new FormData(this);
-
-                    // Convert FormData to regular object for easier manipulation
-                    const data = {};
-                    for (let [key, value] of formData.entries()) {
-                        if (data[key]) {
-                            if (Array.isArray(data[key])) {
-                                data[key].push(value);
+                                });
                             } else {
-                                data[key] = [data[key], value];
+                                // Add one empty container if no SKUs
+                                const skuHtml = `
+                                    <div class="edit-sku-container d-flex mb-2">
+                                        <input type="text" class="form-control me-2" name="no_sku[]" placeholder="SKU">
+                                        <input type="number" class="form-control me-2" name="qty[]" value="1" min="1" style="width: 120px;">
+                                        <button type="button" class="btn btn-danger remove-edit-sku">
+                                            <i class="fas fa-minus"></i>
+                                        </button>
+                                    </div>`;
+                                $('#edit-sku-container').append(skuHtml);
                             }
-                        } else {
-                            data[key] = value;
+
+                            $('#editHistorySaleModal').modal('show');
                         }
-                    }
-
-                    $.ajax({
-                        url: `/sales-management/${id}`,
-                        type: 'PUT',
-                        data: data,
-                        success: function(response) {
-                            if (response.status === 'success') {
-                                $('#editHistorySaleModal').modal('hide');
-
-                                // Show success message with warning if applicable
-                                if (response.warning) {
-                                    Swal.fire('Berhasil dengan Peringatan!',
-                                        response.message + '\n\n' + response.warning,
-                                        'warning');
-                                } else {
-                                    Swal.fire('Success!', response.message, 'success');
-                                }
-
-                                table.ajax.reload();
-                            }
-                        },
-                        error: function(xhr) {
-                            const message = xhr.responseJSON?.message ||
-                                'Failed to update record.';
-                            Swal.fire('Error!', message, 'error');
-                        }
+                    })
+                    .fail(function(xhr) {
+                        console.error('Edit request failed:', xhr);
+                        Swal.fire('Error!',
+                            'Failed to load data for editing. Please check console for details.',
+                            'error');
                     });
-                });
+            };
 
-                initializeHistoryEdit(table);
-            } catch (e) {
-                console.warn('Edit functionality initialization error:', e);
-            }
+            // Delete function for sales management
+            window.deleteHistorySale = function(id) {
+                Swal.fire({
+                    title: 'Hapus Data?',
+                    text: "Data akan dipindahkan ke arsip!",
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#d33',
+                    cancelButtonColor: '#3085d6',
+                    confirmButtonText: 'Ya, Hapus!'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        $.ajax({
+                            url: `/sales-management/${id}`,
+                            type: 'DELETE',
+                            data: {
+                                _token: $('meta[name="csrf-token"]').attr('content')
+                            },
+                            success: function(response) {
+                                if (response.status === 'success') {
+                                    Swal.fire('Terhapus!', response.message, 'success');
+                                    table.ajax.reload();
+                                }
+                            },
+                            error: function(xhr) {
+                                console.error('Delete request failed:', xhr);
+                                Swal.fire('Error!',
+                                    'Failed to delete record. Please check console for details.',
+                                    'error');
+                            }
+                        });
+                    }
+                });
+            };
+
+            // Restore function for sales management
+            window.restoreHistorySale = function(id) {
+                Swal.fire({
+                    title: 'Pulihkan Data?',
+                    text: "Data akan dikembalikan ke daftar aktif.",
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonColor: '#28a745',
+                    cancelButtonColor: '#6c757d',
+                    confirmButtonText: 'Ya, Pulihkan!'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        $.ajax({
+                            url: `/sales-management/${id}/restore`,
+                            type: 'POST',
+                            data: {
+                                _token: $('meta[name="csrf-token"]').attr('content')
+                            },
+                            success: function(response) {
+                                if (response.status === 'success') {
+                                    Swal.fire('Dipulihkan!', response.message, 'success');
+                                    table.ajax.reload();
+                                }
+                            },
+                            error: function(xhr) {
+                                console.error('Restore request failed:', xhr);
+                                Swal.fire('Error!',
+                                    'Failed to restore record. Please check console for details.',
+                                    'error');
+                            }
+                        });
+                    }
+                });
+            };
+
+            // Force delete function for sales management
+            window.forceDeleteHistorySale = function(id) {
+                Swal.fire({
+                    title: 'Hapus Permanen?',
+                    text: "Data akan dihapus permanen dan tidak dapat dikembalikan!",
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#dc3545',
+                    cancelButtonColor: '#6c757d',
+                    confirmButtonText: 'Ya, Hapus Permanen!'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        $.ajax({
+                            url: `/sales-management/${id}/force`,
+                            type: 'DELETE',
+                            data: {
+                                _token: $('meta[name="csrf-token"]').attr('content')
+                            },
+                            success: function(response) {
+                                if (response.status === 'success') {
+                                    Swal.fire('Terhapus Permanen!', response.message,
+                                        'success');
+                                    table.ajax.reload();
+                                }
+                            },
+                            error: function(xhr) {
+                                console.error('Force delete request failed:', xhr);
+                                Swal.fire('Error!',
+                                    'Failed to permanently delete record. Please check console for details.',
+                                    'error');
+                            }
+                        });
+                    }
+                });
+            };
+
+            // Handle edit form submission
+            $('#editHistorySaleForm').on('submit', function(e) {
+                e.preventDefault();
+                const id = $('#edit_history_sale_id').val();
+                const formData = new FormData(this);
+
+                // Convert FormData to regular object for easier manipulation
+                const data = {};
+                for (let [key, value] of formData.entries()) {
+                    if (data[key]) {
+                        if (Array.isArray(data[key])) {
+                            data[key].push(value);
+                        } else {
+                            data[key] = [data[key], value];
+                        }
+                    } else {
+                        data[key] = value;
+                    }
+                }
+
+                console.log('Submitting form data:', data); // Debug log
+
+                $.ajax({
+                    url: `/sales-management/${id}`,
+                    type: 'PUT',
+                    data: data,
+                    success: function(response) {
+                        if (response.status === 'success') {
+                            $('#editHistorySaleModal').modal('hide');
+
+                            // Show success message with warning if applicable
+                            if (response.warning) {
+                                Swal.fire('Berhasil dengan Peringatan!',
+                                    response.message + '\n\n' + response.warning,
+                                    'warning');
+                            } else {
+                                Swal.fire('Berhasil!', response.message, 'success');
+                            }
+
+                            table.ajax.reload();
+                        }
+                    },
+                    error: function(xhr) {
+                        console.error('Update request failed:', xhr);
+                        const message = xhr.responseJSON?.message || 'Failed to update record.';
+                        Swal.fire('Error!', message, 'error');
+                    }
+                });
+            });
 
             // Add touch scroll indicator behavior
             const tableWrapper = $('.table-wrapper');
