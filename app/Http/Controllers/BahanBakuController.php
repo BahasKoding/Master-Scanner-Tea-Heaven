@@ -83,7 +83,7 @@ class BahanBakuController extends Controller
                     return $row->created_at ? $row->created_at->format('Y-m-d H:i:s') : '';
                 })
                 ->editColumn('kategori', function ($row) {
-                    return $this->getKategoriName($row->kategori);
+                    return $row->category_name;
                 })
                 ->filterColumn('kategori', function ($query, $keyword) {
                     $query->where('kategori', 'like', "%{$keyword}%");
@@ -108,28 +108,8 @@ class BahanBakuController extends Controller
             'Daftar Bahan Baku' => route('bahan-baku.index'),
         ];
 
-        // Define kategori options for dropdown with integer keys
-        $kategoriOptions = [
-            1 => 'CRAFTED TEAS',
-            2 => 'LOOSE LEAF TEA',
-            3 => 'PURE TISANE',
-            4 => 'DRIED FRUIT & SPICES',
-            5 => 'PURE POWDER',
-            6 => 'SWEET POWDER',
-            7 => 'LATTE POWDER',
-            8 => 'JAPANESE TEA BAGS',
-            9 => 'TEAWARE',
-            10 => 'ESSENCE',
-            11 => 'PACKAGING- TEA HEAVEN POUCH',
-            12 => 'PACKAGING- FOIL FLAT BOTTOM',
-            13 => 'PACKAGING- FOIL GUSSET / SACHET',
-            14 => 'PACKAGING- TRANSMETZ ZIPPER',
-            15 => 'PACKAGING- VACCUM',
-            16 => 'PACKAGING- TIN CANISTER',
-            17 => 'BOX',
-            18 => 'PRINTING & LABELLING',
-            19 => 'OUTER PACKAGING',
-        ];
+        // Use kategori options from the model
+        $kategoriOptions = BahanBaku::getCategoryOptions();
 
         // Log activity
         addActivity('bahan-baku', 'view', 'Pengguna melihat daftar bahan baku', null);
@@ -142,28 +122,7 @@ class BahanBakuController extends Controller
      */
     private function getKategoriName($kategoriId)
     {
-        $kategoriOptions = [
-            1 => 'CRAFTED TEAS',
-            2 => 'LOOSE LEAF TEA',
-            3 => 'PURE TISANE',
-            4 => 'DRIED FRUIT & SPICES',
-            5 => 'PURE POWDER',
-            6 => 'SWEET POWDER',
-            7 => 'LATTE POWDER',
-            8 => 'JAPANESE TEA BAGS',
-            9 => 'TEAWARE',
-            10 => 'ESSENCE',
-            11 => 'PACKAGING- TEA HEAVEN POUCH',
-            12 => 'PACKAGING- FOIL FLAT BOTTOM',
-            13 => 'PACKAGING- FOIL GUSSET / SACHET',
-            14 => 'PACKAGING- TRANSMETZ ZIPPER',
-            15 => 'PACKAGING- VACCUM',
-            16 => 'PACKAGING- TIN CANISTER',
-            17 => 'BOX',
-            18 => 'PRINTING & LABELLING',
-            19 => 'OUTER PACKAGING',
-        ];
-
+        $kategoriOptions = BahanBaku::getCategoryOptions();
         return $kategoriOptions[$kategoriId] ?? 'Unknown';
     }
 

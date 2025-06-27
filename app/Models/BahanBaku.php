@@ -32,7 +32,7 @@ class BahanBaku extends Model
     public function purchases()
     {
         return $this->hasMany(Purchase::class, 'bahan_baku_id')
-                    ->where('kategori', 'bahan_baku');
+            ->where('kategori', 'bahan_baku');
     }
 
     /**
@@ -41,12 +41,25 @@ class BahanBaku extends Model
     public static function getCategoryOptions()
     {
         return [
-            1 => 'Tea Leaves & Herbs',
-            2 => 'Powder & Blends',
-            3 => 'Flavoring & Additives',
-            4 => 'Packaging Materials',
-            5 => 'Sweeteners',
-            6 => 'Others'
+            1 => 'CRAFTED TEAS',
+            2 => 'LOOSE LEAF TEA',
+            3 => 'PURE TISANE',
+            4 => 'DRIED FRUIT & SPICES',
+            5 => 'PURE POWDER',
+            6 => 'SWEET POWDER',
+            7 => 'LATTE POWDER',
+            8 => 'JAPANESE TEA BAGS',
+            9 => 'TEAWARE',
+            10 => 'ESSENCE',
+            11 => 'PACKAGING- TEA HEAVEN POUCH',
+            12 => 'PACKAGING- FOIL FLAT BOTTOM',
+            13 => 'PACKAGING- FOIL GUSSET / SACHET',
+            14 => 'PACKAGING- TRANSMETZ ZIPPER',
+            15 => 'PACKAGING- VACCUM',
+            16 => 'PACKAGING- TIN CANISTER',
+            17 => 'BOX',
+            18 => 'PRINTING & LABELLING',
+            19 => 'OUTER PACKAGING',
         ];
     }
 

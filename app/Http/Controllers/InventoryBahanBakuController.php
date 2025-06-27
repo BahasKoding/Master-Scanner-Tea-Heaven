@@ -94,7 +94,7 @@ class InventoryBahanBakuController extends Controller
                     })
                     ->addColumn('kategori_name', function ($row) {
                         $categories = BahanBaku::getCategoryOptions();
-                        return $categories[$row->kategori] ?? 'Unknown';
+                        return $categories[$row->kategori] ?? 'Unknown Category';
                     })
                     ->editColumn('stok_awal', function ($row) {
                         return $row->stok_awal ?? 0;

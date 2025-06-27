@@ -12,6 +12,8 @@
     <!-- [Page specific CSS] start -->
     <!-- data tables css -->
     <link rel="stylesheet" href="{{ URL::asset('build/css/plugins/datatables/dataTables.bootstrap5.min.css') }}">
+    <!-- Choices css for Select2-like functionality -->
+    <link rel="stylesheet" href="{{ URL::asset('build/css/plugins/choices.min.css') }}">
     <!-- [Page specific CSS] end -->
     <style>
         /* ========== VARIABEL & ROOT ========== */
@@ -40,6 +42,126 @@
             font-size: 0.85rem;
             color: var(--secondary-color);
             margin-top: 0.25rem;
+        }
+
+        /* ========== CHOICES.JS CUSTOM STYLING ========== */
+        .choices__inner {
+            min-height: var(--form-element-height);
+            padding: 4px 8px;
+            border: 1px solid var(--border-color);
+            border-radius: var(--border-radius-normal);
+            background-color: #fff;
+            transition: var(--transition-normal);
+            width: 100%;
+        }
+
+        .choices__inner:focus-within {
+            border-color: var(--primary-color);
+            box-shadow: var(--focus-shadow);
+        }
+
+        .choices__list--dropdown .choices__item {
+            padding: 8px 12px;
+            font-size: 14px;
+            line-height: 1.4;
+        }
+
+        .choices__list--dropdown .choices__item--highlighted {
+            background-color: var(--primary-color);
+            color: #fff;
+        }
+
+        .is-open .choices__inner {
+            border-radius: var(--border-radius-normal) var(--border-radius-normal) 0 0;
+        }
+
+        .choices[data-type*="select-one"] .choices__inner {
+            padding-bottom: 4px;
+        }
+
+        .choices__list--single .choices__item {
+            display: flex;
+            align-items: center;
+            line-height: 1.4;
+        }
+
+        /* SKU select container styling */
+        .sku-select-container {
+            width: 100%;
+            position: relative;
+        }
+
+        .choices.sku-choices {
+            width: 100%;
+            min-width: 300px;
+        }
+
+        .choices.sku-choices .choices__inner {
+            min-height: var(--form-element-height);
+            width: 100%;
+        }
+
+        /* Enhanced dropdown styling for better product info display */
+        .choices__list--dropdown {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .choices__item--choice {
+            padding: 10px 12px !important;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .choices__item--choice:last-child {
+            border-bottom: none;
+        }
+
+        .product-choice-item {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .product-choice-sku {
+            font-weight: bold;
+            color: var(--primary-color);
+            font-size: 14px;
+        }
+
+        .product-choice-name {
+            color: #333;
+            font-size: 13px;
+            margin-bottom: 2px;
+        }
+
+        .product-choice-meta {
+            color: #666;
+            font-size: 11px;
+        }
+
+        /* Mode toggle styling for SKU input */
+        .sku-input-mode-toggle {
+            position: absolute;
+            top: -25px;
+            right: 0;
+            font-size: 0.75rem;
+            z-index: 10;
+        }
+
+        .sku-mode-indicator {
+            font-size: 0.75rem;
+            color: var(--secondary-color);
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 5px 0;
+        }
+
+        .sku-mode-indicator .mode-text {
+            display: flex;
+            align-items: center;
+            gap: 5px;
         }
 
         /* ========== COMMON ELEMENTS ========== */
@@ -113,6 +235,7 @@
 
         /* Remove SKU button styling */
         .btn-remove-sku {
+            grid-column: 3;
             width: 40px;
             height: var(--form-element-height);
             padding: 0;
@@ -168,10 +291,18 @@
 
         .sku-input {
             min-width: 300px;
+            flex: 1;
         }
 
+        .sku-select {
+            min-width: 300px;
+            flex: 1;
+        }
+
+        /* ========== SKU INPUT CONTAINER GRID SYSTEM ========== */
         .sku-input-container {
-            display: grid;
+            display: flex;
+            flex-direction: column;
             gap: 10px;
             margin-bottom: 15px;
             padding: 15px;
@@ -180,9 +311,36 @@
             border: 1px solid var(--border-color);
         }
 
+        .sku-input-row {
+            display: grid;
+            grid-template-columns: 1fr auto auto;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .sku-input-field {
+            grid-column: 1;
+            min-width: 0;
+            /* Allow flexbox to shrink */
+        }
+
         .qty-input {
+            grid-column: 2;
+            width: 80px;
             text-align: center;
             font-weight: bold;
+        }
+
+        .scanning-indicator {
+            display: none;
+            color: var(--primary-color);
+            text-align: center;
+            padding: 5px;
+            font-size: 14px;
+        }
+
+        .scanning-indicator.active {
+            display: block;
         }
 
         /* ========== INDICATORS & HELPERS ========== */
@@ -239,15 +397,7 @@
             opacity: 0.8;
         }
 
-        .countdown-timer {
-            color: var(--secondary-color);
-            font-size: 1em;
-            margin-left: 10px;
-            background-color: var(--light-bg);
-            padding: 5px 15px;
-            border-radius: 20px;
-            font-weight: 500;
-        }
+
 
         .table-scroll-indicator {
             display: none;
@@ -371,13 +521,7 @@
                 width: 100%;
             }
 
-            .countdown-timer {
-                margin-left: 0;
-                width: 100%;
-                text-align: center;
-                margin-top: 10px;
-                font-size: 0.9rem;
-            }
+
 
             .scanner-mode-hint {
                 display: inline-block !important;
@@ -385,24 +529,22 @@
             }
 
             .sku-input-container {
-                grid-template-columns: 1fr 80px 40px;
-                padding: 10px;
+                padding: 8px;
+                border-radius: 6px;
             }
 
-            .sku-input {
-                min-width: 100%;
+            .sku-mode-indicator {
+                font-size: 0.6rem;
             }
 
-            .sku-input,
-            .qty-input {
-                width: 100%;
+            .sku-mode-indicator .btn {
+                font-size: 0.7rem;
+                padding: 2px 6px;
             }
 
             .scanning-indicator {
-                width: 100%;
-                grid-column: span 3;
-                text-align: center;
-                margin: 5px 0;
+                margin-top: 5px;
+                font-size: 13px;
             }
 
             /* Button responsiveness on mobile */
@@ -454,6 +596,20 @@
                 justify-content: center !important;
                 gap: 8px;
             }
+
+            /* Choices.js responsive adjustments */
+            .choices {
+                width: 100% !important;
+            }
+
+            .choices__inner {
+                min-height: 40px !important;
+                padding: 6px 8px !important;
+            }
+
+            .sku-mode-indicator {
+                font-size: 0.7rem;
+            }
         }
 
         /* Tablet styles */
@@ -466,17 +622,31 @@
                 margin-right: 15px;
             }
 
-            .countdown-timer {
-                font-size: 0.9rem;
-                padding: 5px 10px;
-            }
+
 
             .sku-input-container {
-                grid-template-columns: 2fr 80px 40px;
+                padding: 12px;
+            }
+
+            .sku-input-row {
+                grid-template-columns: 1fr 80px 40px;
+                gap: 10px;
+            }
+
+            .choices.sku-choices {
+                min-width: 280px;
             }
 
             .sku-input {
-                min-width: 100%;
+                min-width: 280px;
+            }
+
+            .qty-input {
+                width: 80px;
+            }
+
+            .sku-mode-indicator {
+                font-size: 0.7rem;
             }
 
             .scanning-indicator {
@@ -661,6 +831,262 @@
                 padding: 10px 15px;
             }
         }
+
+        /* Large Desktop (≥1400px) - With sidebar */
+        @media (min-width: 1400px) {
+            .sku-input-row {
+                grid-template-columns: 1fr 100px 45px;
+                gap: 15px;
+            }
+
+            .choices.sku-choices {
+                min-width: 400px;
+            }
+
+            .sku-input {
+                min-width: 400px;
+            }
+
+            .qty-input {
+                width: 100px;
+            }
+        }
+
+        /* Desktop (992px-1399px) - With sidebar */
+        @media (min-width: 992px) and (max-width: 1399px) {
+            .sku-input-row {
+                grid-template-columns: 1fr 90px 42px;
+                gap: 12px;
+            }
+
+            .choices.sku-choices {
+                min-width: 350px;
+            }
+
+            .sku-input {
+                min-width: 350px;
+            }
+
+            .qty-input {
+                width: 90px;
+            }
+        }
+
+        /* Tablet landscape (768px-991px) - Sidebar collapsed or overlay */
+        @media (min-width: 768px) and (max-width: 991px) {
+            .sku-input-container {
+                padding: 12px;
+            }
+
+            .sku-input-row {
+                grid-template-columns: 1fr 80px 40px;
+                gap: 10px;
+            }
+
+            .choices.sku-choices {
+                min-width: 280px;
+            }
+
+            .sku-input {
+                min-width: 280px;
+            }
+
+            .qty-input {
+                width: 80px;
+            }
+
+            .sku-mode-indicator {
+                font-size: 0.7rem;
+            }
+        }
+
+        /* Tablet portrait and mobile (≤767px) - No sidebar, full width */
+        @media (max-width: 767px) {
+            .sku-input-container {
+                padding: 10px;
+                margin-bottom: 10px;
+            }
+
+            .sku-input-row {
+                grid-template-columns: 1fr;
+                gap: 8px;
+            }
+
+            .sku-input-field,
+            .qty-input,
+            .btn-remove-sku {
+                grid-column: 1;
+            }
+
+            .qty-input {
+                width: 100%;
+                max-width: 120px;
+                justify-self: start;
+            }
+
+            .btn-remove-sku {
+                width: 100%;
+                max-width: 120px;
+                justify-self: start;
+            }
+
+            .choices.sku-choices {
+                min-width: 100%;
+                width: 100%;
+            }
+
+            .sku-input {
+                min-width: 100%;
+                width: 100%;
+            }
+
+            .sku-mode-indicator {
+                font-size: 0.65rem;
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 5px;
+            }
+
+            .scanning-indicator {
+                margin-top: 5px;
+                font-size: 13px;
+            }
+        }
+
+        /* Small mobile (≤576px) */
+        @media (max-width: 576px) {
+            .card-body {
+                padding: 15px;
+            }
+
+            .sku-input-container {
+                padding: 8px;
+                border-radius: 6px;
+            }
+
+            .sku-mode-indicator {
+                font-size: 0.6rem;
+            }
+
+            .sku-mode-indicator .btn {
+                font-size: 0.7rem;
+                padding: 2px 6px;
+            }
+        }
+
+        /* ========== SIDEBAR-AWARE RESPONSIVE ADJUSTMENTS ========== */
+
+        /* When sidebar is collapsed on desktop */
+        body.pc-sidebar-collapse .sku-input-row {
+            grid-template-columns: 1fr 100px 45px;
+            gap: 15px;
+        }
+
+        body.pc-sidebar-collapse .choices.sku-choices,
+        body.pc-sidebar-collapse .sku-input {
+            min-width: 450px;
+        }
+
+        /* Mobile sidebar active state */
+        body.mob-sidebar-active .sku-input-container {
+            margin-right: 0;
+        }
+
+        /* ========== FORM SECTION RESPONSIVE ========== */
+        .scanner-section {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: var(--border-radius-large);
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.05);
+        }
+
+        @media (max-width: 767px) {
+            .scanner-section {
+                padding: 15px;
+            }
+        }
+
+        @media (max-width: 576px) {
+            .scanner-section {
+                padding: 10px;
+            }
+        }
+
+        /* ========== CHOICES.JS RESPONSIVE FIXES ========== */
+
+        /* Ensure Choices.js container takes full width */
+        .choices {
+            width: 100% !important;
+            max-width: 100% !important;
+        }
+
+        .choices__inner {
+            width: 100% !important;
+            max-width: 100% !important;
+            box-sizing: border-box;
+        }
+
+        /* Improve dropdown positioning on mobile */
+        @media (max-width: 767px) {
+            .choices__list--dropdown {
+                position: absolute;
+                top: 100%;
+                left: 0;
+                right: 0;
+                z-index: 1050;
+                max-height: 250px;
+                overflow-y: auto;
+                background: white;
+                border: 1px solid var(--border-color);
+                border-top: none;
+                border-radius: 0 0 var(--border-radius-normal) var(--border-radius-normal);
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+            }
+
+            .choices.is-open .choices__inner {
+                border-radius: var(--border-radius-normal) var(--border-radius-normal) 0 0;
+            }
+        }
+
+        /* Ensure proper spacing in choice items */
+        .choices__item--choice .product-choice-item {
+            padding: 2px 0;
+        }
+
+        .choices__item--choice .product-choice-sku {
+            font-size: 14px;
+            line-height: 1.2;
+        }
+
+        .choices__item--choice .product-choice-name {
+            font-size: 13px;
+            line-height: 1.2;
+            margin: 2px 0;
+        }
+
+        .choices__item--choice .product-choice-meta {
+            font-size: 11px;
+            line-height: 1.1;
+        }
+
+        /* Mobile-specific improvements */
+        @media (max-width: 576px) {
+            .choices__item--choice .product-choice-sku {
+                font-size: 13px;
+            }
+
+            .choices__item--choice .product-choice-name {
+                font-size: 12px;
+            }
+
+            .choices__item--choice .product-choice-meta {
+                font-size: 10px;
+            }
+
+            .choices__list--dropdown {
+                max-height: 200px;
+            }
+        }
     </style>
 @endsection
 
@@ -684,11 +1110,7 @@
                                     <small class="d-block text-muted scanner-mode-hint">Mode pindai otomatis</small>
                                 </label>
                             </div>
-                            <div class="countdown-timer" id="autoSubmitTimer" style="display: none;">
-                                <i class="fas fa-clock me-1"></i> Menyimpan dalam <span id="submitCountdown">10</span> detik
-                                <br><small class="text-muted">(atau klik "Simpan Data" / tekan CTRL+ENTER untuk menyimpan
-                                    sekarang)</small>
-                            </div>
+
                         </div>
                     </div>
                 </div>
@@ -724,18 +1146,45 @@
                                     </label>
                                     <div id="sku-container">
                                         <div class="sku-input-container">
-                                            <input type="text" class="form-control scanner-input sku-input"
-                                                name="no_sku[]" required disabled
-                                                placeholder="Ketik atau pindai nomor SKU di sini...">
-                                            <input type="number" class="form-control qty-input" name="qty[]"
-                                                value="1" min="1" title="Jumlah barang">
-                                            <button type="button" class="btn btn-danger btn-remove-sku"
-                                                title="Hapus SKU" disabled>
-                                                <i class="fas fa-minus"></i>
-                                            </button>
-                                            <span class="scanning-indicator" id="skuScanningIndicator">
+                                            <div class="sku-mode-indicator">
+                                                <div class="mode-text">
+                                                    <i class="fas fa-keyboard"></i> Mode Input: <span
+                                                        id="skuModeText">Scanner/Manual</span>
+                                                </div>
+                                                <button type="button" class="btn btn-sm btn-outline-secondary"
+                                                    id="toggleSkuMode" title="Toggle antara Scanner dan Select">
+                                                    <i class="fas fa-exchange-alt"></i> Toggle
+                                                </button>
+                                            </div>
+
+                                            <div class="sku-input-row">
+                                                <div class="sku-input-field">
+                                                    <!-- Text Input (default) -->
+                                                    <input type="text" class="form-control scanner-input sku-input"
+                                                        name="no_sku[]" required disabled id="sku-text-input-0"
+                                                        placeholder="Ketik atau pindai nomor SKU di sini...">
+
+                                                    <!-- Select2 Input (hidden by default) -->
+                                                    <div class="sku-select-container" style="display: none;">
+                                                        <select class="form-control sku-select" name="no_sku_select[]"
+                                                            id="sku-select-input-0" disabled>
+                                                            <option value="">-- Pilih atau cari SKU --</option>
+                                                        </select>
+                                                    </div>
+                                                </div>
+
+                                                <input type="number" class="form-control qty-input" name="qty[]"
+                                                    value="1" min="1" title="Jumlah barang">
+
+                                                <button type="button" class="btn btn-danger btn-remove-sku"
+                                                    title="Hapus SKU" disabled>
+                                                    <i class="fas fa-minus"></i>
+                                                </button>
+                                            </div>
+
+                                            <div class="scanning-indicator" id="skuScanningIndicator">
                                                 <i class="fas fa-circle-notch fa-spin"></i> Memindai...
-                                            </span>
+                                            </div>
                                         </div>
                                     </div>
                                     <div class="error-feedback" id="skuError"></div>
@@ -744,8 +1193,12 @@
                                         baru akan muncul otomatis.
                                     </small>
                                     <small class="text-muted d-block mt-1">
-                                        <i class="fas fa-keyboard"></i> Tekan tombol <kbd>CTRL</kbd>+<kbd>ENTER</kbd> untuk
-                                        menyimpan data secara cepat.
+                                        <i class="fas fa-keyboard"></i> Klik tombol "Simpan Data" atau tekan
+                                        <kbd>CTRL</kbd>+<kbd>ENTER</kbd> untuk menyimpan.
+                                    </small>
+                                    <small class="text-muted d-block mt-1">
+                                        <i class="fas fa-exchange-alt"></i> Klik tombol "Toggle" untuk beralih antara mode
+                                        Scanner dan Select dropdown.
                                     </small>
                                 </div>
 
@@ -862,6 +1315,9 @@
     <script src="{{ URL::asset('build/js/plugins/dataTables.min.js') }}"></script>
     <script src="{{ URL::asset('build/js/plugins/dataTables.bootstrap5.min.js') }}"></script>
 
+    <!-- Choices JS for Select2-like functionality -->
+    <script src="{{ URL::asset('build/js/plugins/choices.min.js') }}"></script>
+
     <!-- Custom JS -->
     <script src="{{ URL::asset('js/history-sales-edit.js') }}"></script>
 
@@ -881,15 +1337,15 @@
          * 
          * 2. SKU Scanning Process:
          *    - Shows "Scanning..." indicator
-         *    - Validates minimum length (3 chars)
+         *    - Waits 2.5 seconds before validation
+         *    - Validates SKU exists in Product database
          *    - Checks for duplicate SKUs within form
-         *    - On duplicate: shows error, resets form after 3s
+         *    - On error: shows error, resets SKU field after 3s
          *    - On valid: adds ONE new input field
-         *    - Starts 10s countdown for auto-submit
          * 
-         * 3. Auto-Submit Process:
-         *    - Triggers after 10s countdown
-         *    - Or when reset button clicked
+         * 3. Manual Submit Process:
+         *    - User must manually click "Simpan Data" button
+         *    - Or press CTRL+ENTER keyboard shortcut
          *    - Only non-empty SKUs will be processed
          *    - Shows success/error message
          *    - Resets form on completion
@@ -904,29 +1360,28 @@
 
             // Constants for timing and validation - consolidated in one place
             const CONFIG = {
-                SUBMIT_TIMEOUT: 10000, // 10s auto-submit delay
                 RESET_TIMEOUT: 3000, // 3s reset delay
                 SCAN_DELAY: 100, // 100ms between scans
                 MIN_SKU_LENGTH: 3, // Minimum SKU length
                 NEW_FIELD_DELAY: 100, // 100ms wait before adding new SKU field
-                COUNTDOWN_SECONDS: 10, // Initial countdown value
                 TABLE_CHUNK_SIZE: 500, // Chunk size for loading large datasets
                 EXPORT_LIMIT: 10000, // Maximum number of records for export
                 FOCUS_DELAY_RESI: 3000, // 3s delay for auto focus to no_resi after successful insert
-                FOCUS_DELAY_SKU: 3000 // 3s delay for auto focus to no_sku after valid resi
+                FOCUS_DELAY_SKU: 3000, // 3s delay for auto focus to no_sku after valid resi
+                SKU_VALIDATION_DELAY: 2500 // 2.5s delay before SKU validation (as requested by user)
             };
 
             // State tracking variables - consolidated and organized
             const STATE = {
-                submitTimer: null,
                 newFieldTimer: null,
-                countdownInterval: null,
-                countdownSeconds: CONFIG.COUNTDOWN_SECONDS,
                 isProcessing: false,
                 hasValidResi: false,
                 isScannerActive: true,
                 isAddingNewField: false,
-                resiValidationTimer: null
+                resiValidationTimer: null,
+                skuInputMode: 'text', // 'text' or 'select'
+                choicesInstances: {}, // Store Choices.js instances
+                skuCounter: 0 // Counter for unique IDs
             };
 
             // Initialize scanner toggle
@@ -946,6 +1401,461 @@
                         $('#no_resi').removeClass('scanner-active');
                     }
                 }).trigger('change'); // Initialize the state
+            }
+
+            // Initialize SKU mode toggle
+            function initSkuModeToggle() {
+                // Main toggle button (outside containers)
+                $(document).on('click', '#toggleSkuMode', function() {
+                    toggleSkuInputMode();
+                });
+
+                // Individual toggle buttons (inside containers) - handled in bindSkuFieldEvents
+                $(document).on('click', '.toggle-sku-mode', function() {
+                    toggleSkuInputMode();
+                });
+
+                // Initialize with text mode
+                updateSkuModeDisplay();
+
+                // Bind events to the initial SKU container
+                const initialContainer = $('.sku-input-container:first');
+                if (initialContainer.length) {
+                    // Set initial index if not set
+                    if (!initialContainer.data('sku-index')) {
+                        initialContainer.attr('data-sku-index', '0');
+                    }
+                    bindSkuFieldEvents(initialContainer);
+                    updateRemoveButtonStates();
+                }
+            }
+
+            // Toggle between text input and select dropdown for SKU
+            function toggleSkuInputMode() {
+                STATE.skuInputMode = STATE.skuInputMode === 'text' ? 'select' : 'text';
+
+                // Update all existing SKU containers
+                $('.sku-input-container').each(function() {
+                    const container = $(this);
+                    const index = container.data('sku-index') || 0;
+                    const textInput = container.find('.sku-input');
+                    const selectContainer = container.find('.sku-select-container');
+                    const selectInput = container.find('.sku-select');
+
+                    if (STATE.skuInputMode === 'select') {
+                        // Switch to select mode
+                        textInput.hide().prop('disabled', true);
+                        selectContainer.show();
+                        selectInput.prop('disabled', !STATE.hasValidResi);
+
+                        // Initialize Choices.js if not already initialized
+                        if (!STATE.choicesInstances[index]) {
+                            initializeChoicesForSelect(selectInput[0], index);
+                        }
+                    } else {
+                        // Switch to text mode
+                        selectContainer.hide();
+                        selectInput.prop('disabled', true);
+                        textInput.show().prop('disabled', !STATE.hasValidResi);
+
+                        // Destroy Choices.js instance if it exists
+                        if (STATE.choicesInstances[index]) {
+                            try {
+                                STATE.choicesInstances[index].destroy();
+                                delete STATE.choicesInstances[index];
+                            } catch (e) {
+                                console.warn('Error destroying Choices instance:', e);
+                            }
+                        }
+                    }
+                });
+
+                updateSkuModeDisplay();
+            }
+
+            // Update SKU mode display text
+            function updateSkuModeDisplay() {
+                const modeText = STATE.skuInputMode === 'text' ? 'Scanner/Manual' : 'Select Dropdown';
+                $('.sku-mode-text').text(modeText);
+                $('#skuModeText').text(modeText); // Fallback for existing elements
+
+                // Update icon
+                const icon = STATE.skuInputMode === 'text' ? 'fas fa-keyboard' : 'fas fa-list';
+                $('.mode-text i').attr('class', icon);
+            }
+
+            // Initialize Choices.js for a select element
+            function initializeChoicesForSelect(selectElement, index) {
+                if (!selectElement) return;
+
+                try {
+                    const choices = new Choices(selectElement, {
+                        searchEnabled: true,
+                        searchPlaceholderValue: "Cari SKU atau nama produk...",
+                        itemSelectText: '',
+                        placeholder: true,
+                        placeholderValue: "-- Pilih atau cari SKU --",
+                        noResultsText: 'Tidak ada SKU yang ditemukan',
+                        noChoicesText: 'Ketik untuk mencari SKU...',
+                        allowHTML: false,
+                        shouldSort: false,
+                        searchResultLimit: 10,
+                        searchFloor: 2, // Minimum 2 characters to search
+                        classNames: {
+                            containerOuter: 'choices sku-choices',
+                        },
+                        callbackOnCreateTemplates: function(template) {
+                            return {
+                                item: (classNames, data) => {
+                                    if (data.value === '') {
+                                        return template(`
+                                            <div class="${classNames.item} ${classNames.placeholder}">${data.label}</div>
+                                        `);
+                                    }
+                                    return template(`
+                                        <div class="${classNames.item} ${data.highlighted ? classNames.highlightedState : classNames.itemSelectable}" data-item data-id="${data.id}" data-value="${data.value}" ${data.active ? 'aria-selected="true"' : ''} ${data.disabled ? 'aria-disabled="true"' : ''}>
+                                            <div class="product-choice-item">
+                                                <div class="product-choice-sku">${data.customProperties?.sku || data.value}</div>
+                                                <div class="product-choice-name">${data.customProperties?.name || ''}</div>
+                                            </div>
+                                        </div>
+                                    `);
+                                },
+                                choice: (classNames, data) => {
+                                    if (data.value === '') {
+                                        return template(`
+                                            <div class="${classNames.item} ${classNames.itemChoice} ${classNames.placeholder}" data-choice data-id="${data.id}" data-value="${data.value}" role="option">
+                                                ${data.label}
+                                            </div>
+                                        `);
+                                    }
+                                    return template(`
+                                        <div class="${classNames.item} ${classNames.itemChoice} ${data.disabled ? classNames.itemDisabled : classNames.itemSelectable}" data-select-text="${this.config.itemSelectText}" data-choice ${data.disabled ? 'data-choice-disabled aria-disabled="true"' : 'data-choice-selectable'} data-id="${data.id}" data-value="${data.value}" ${data.groupId > 0 ? 'role="treeitem"' : 'role="option"'}>
+                                            <div class="product-choice-item">
+                                                <div class="product-choice-sku">${data.customProperties?.sku || data.value}</div>
+                                                <div class="product-choice-name">${data.customProperties?.name || ''}</div>
+                                                <div class="product-choice-meta">${data.customProperties?.category || ''} | ${data.customProperties?.packaging || ''}</div>
+                                            </div>
+                                        </div>
+                                    `);
+                                }
+                            };
+                        }
+                    });
+
+                    // Store the instance
+                    STATE.choicesInstances[index] = choices;
+
+                    // Add search functionality
+                    let searchTimeout;
+                    selectElement.addEventListener('search', function(event) {
+                        const searchTerm = event.detail.value;
+
+                        if (searchTerm.length < 2) {
+                            choices.clearChoices();
+                            return;
+                        }
+
+                        clearTimeout(searchTimeout);
+                        searchTimeout = setTimeout(() => {
+                            searchProducts(searchTerm, choices);
+                        }, 300);
+                    });
+
+                    // Handle selection
+                    selectElement.addEventListener('choice', function(event) {
+                        const selectedValue = event.detail.choice.value;
+                        const selectedSku = event.detail.choice.customProperties?.sku || selectedValue;
+
+                        // Validate the selected SKU
+                        if (selectedSku && selectedValue !== '') {
+                            // Update the actual value to be the SKU
+                            $(selectElement).attr('data-selected-sku', selectedSku);
+
+                            // Trigger validation and new field creation immediately (like scanner)
+                            setTimeout(() => {
+                                handleSkuSelectionLikeScanner($(selectElement), selectedSku, index);
+                            }, 100);
+                        }
+                    });
+
+                } catch (error) {
+                    console.error('Error initializing Choices.js:', error);
+                }
+            }
+
+            // Handle SKU selection from dropdown - LIKE SCANNER (auto-add new field)
+            function handleSkuSelectionLikeScanner(selectElement, sku, index) {
+                if (!sku || !STATE.hasValidResi) return;
+
+                // Check for duplicates
+                if (isDuplicateSkuInForm(sku, selectElement)) {
+                    selectElement.addClass('is-invalid');
+                    showAlert('error', 'SKU Duplikat!', 'SKU duplikat terdeteksi: ' + sku);
+
+                    // Reset only this select
+                    setTimeout(() => {
+                        if (STATE.choicesInstances[index]) {
+                            STATE.choicesInstances[index].removeActiveItems();
+                        }
+                        selectElement.removeClass('is-invalid');
+                    }, 2000);
+                    return;
+                }
+
+                // Check against No Resi
+                const noResi = $('#no_resi').val().trim();
+                if (sku === noResi && noResi !== '') {
+                    selectElement.addClass('is-invalid');
+                    showAlert('warning', 'Perhatian!', 'Nilai No Resi tidak boleh sama dengan No SKU');
+
+                    // Reset only this select
+                    setTimeout(() => {
+                        if (STATE.choicesInstances[index]) {
+                            STATE.choicesInstances[index].removeActiveItems();
+                        }
+                        selectElement.removeClass('is-invalid');
+                    }, 2000);
+                    return;
+                }
+
+                // Validate SKU exists in database
+                validateSkuAndCreateNewField(sku, selectElement, index, true); // true = from select mode
+            }
+
+            // Handle SKU selection from dropdown - LEGACY (for backward compatibility)
+            function handleSkuSelection(selectElement, sku, index) {
+                if (!sku || !STATE.hasValidResi) return;
+
+                // Check for duplicates
+                if (isDuplicateSkuInForm(sku, selectElement)) {
+                    selectElement.addClass('is-invalid');
+                    showAlert('error', 'SKU Duplikat!', 'SKU duplikat terdeteksi: ' + sku);
+
+                    // Reset the select
+                    setTimeout(() => {
+                        if (STATE.choicesInstances[index]) {
+                            STATE.choicesInstances[index].removeActiveItems();
+                        }
+                        selectElement.removeClass('is-invalid');
+                    }, 2000);
+                    return;
+                }
+
+                // Check against No Resi
+                const noResi = $('#no_resi').val().trim();
+                if (sku === noResi && noResi !== '') {
+                    selectElement.addClass('is-invalid');
+                    showAlert('warning', 'Perhatian!', 'Nilai No Resi tidak boleh sama dengan No SKU');
+
+                    // Reset the select
+                    setTimeout(() => {
+                        if (STATE.choicesInstances[index]) {
+                            STATE.choicesInstances[index].removeActiveItems();
+                        }
+                        selectElement.removeClass('is-invalid');
+                    }, 2000);
+                    return;
+                }
+
+                // Validate SKU exists in database
+                validateSkuFromSelect(selectElement, sku, index);
+            }
+
+            // Validate SKU selected from dropdown
+            function validateSkuFromSelect(selectElement, sku, index) {
+                selectElement.addClass('is-validating');
+
+                $.ajax({
+                    url: "{{ route('history-sales.validate-sku') }}",
+                    method: 'POST',
+                    data: {
+                        sku: sku,
+                        _token: $('meta[name="csrf-token"]').attr('content')
+                    },
+                    timeout: 3000,
+                    success: function(response) {
+                        selectElement.removeClass('is-validating');
+
+                        if (response.valid) {
+                            selectElement.removeClass('is-invalid').addClass('is-valid');
+
+                            // Remove success class after 2 seconds
+                            setTimeout(() => {
+                                selectElement.removeClass('is-valid');
+                            }, 2000);
+
+                            // Add new field if this is the last container
+                            if (!STATE.isAddingNewField && selectElement.closest('.sku-input-container')
+                                .is(':last-child')) {
+                                STATE.isAddingNewField = true;
+                                setTimeout(() => {
+                                    addNewSkuField();
+                                    STATE.isAddingNewField = false;
+                                }, CONFIG.NEW_FIELD_DELAY);
+                            }
+                        } else {
+                            selectElement.removeClass('is-valid').addClass('is-invalid');
+                            showAlert('error', 'SKU Tidak Valid!', response.message);
+
+                            setTimeout(() => {
+                                if (STATE.choicesInstances[index]) {
+                                    STATE.choicesInstances[index].removeActiveItems();
+                                }
+                                selectElement.removeClass('is-invalid');
+                            }, 3000);
+                        }
+                    },
+                    error: function(xhr) {
+                        selectElement.removeClass('is-validating');
+
+                        const errorData = xhr.responseJSON;
+                        if (errorData && errorData.message) {
+                            selectElement.addClass('is-invalid');
+                            showAlert('error', 'SKU Error!', errorData.message);
+
+                            setTimeout(() => {
+                                if (STATE.choicesInstances[index]) {
+                                    STATE.choicesInstances[index].removeActiveItems();
+                                }
+                                selectElement.removeClass('is-invalid');
+                            }, 3000);
+                        }
+                    }
+                });
+            }
+
+            // Validate SKU and create new field (unified function for both text and select modes)
+            function validateSkuAndCreateNewField(sku, inputElement, index, isFromSelectMode = false) {
+                if (!sku || !STATE.hasValidResi) return;
+
+                // Show validation indicator
+                const container = inputElement.closest('.sku-input-container');
+                const indicator = container.find('.scanning-indicator');
+                indicator.addClass('active').html('<i class="fas fa-circle-notch fa-spin"></i> Memvalidasi SKU...');
+
+                // AJAX validation
+                $.ajax({
+                    url: "{{ route('history-sales.validate-sku') }}",
+                    method: 'POST',
+                    data: {
+                        sku: sku,
+                        _token: $('meta[name="csrf-token"]').attr('content')
+                    },
+                    success: function(response) {
+                        indicator.removeClass('active');
+
+                        if (response.valid) {
+                            // SKU is valid - mark as valid
+                            inputElement.addClass('is-valid').removeClass('is-invalid');
+
+                            // Show success feedback
+                            showAlert('success', 'SKU Valid!', response.message, 1000);
+
+                            // Auto-add new field (like scanner behavior)
+                            setTimeout(() => {
+                                addNewSkuField();
+
+                                // Focus the new field
+                                setTimeout(() => {
+                                    if (STATE.skuInputMode === 'text') {
+                                        $('.sku-input:last').focus();
+                                    } else {
+                                        // Focus the Choices.js input in the new field
+                                        const lastChoicesInput = $(
+                                            '.sku-input-container:last .choices__input--cloned'
+                                        );
+                                        if (lastChoicesInput.length) {
+                                            lastChoicesInput.focus();
+                                        }
+                                    }
+                                }, 200);
+                            }, 500);
+
+                        } else {
+                            // SKU is invalid - show error and reset only this field
+                            inputElement.addClass('is-invalid').removeClass('is-valid');
+                            showAlert('error', 'SKU Error!', response.message);
+
+                            // Reset only this specific field after 3 seconds
+                            setTimeout(() => {
+                                if (isFromSelectMode && STATE.choicesInstances[index]) {
+                                    // Reset Choices.js select
+                                    STATE.choicesInstances[index].removeActiveItems();
+                                } else {
+                                    // Reset text input
+                                    inputElement.val('');
+                                }
+                                inputElement.removeClass('is-invalid');
+
+                                // Focus back to the same field
+                                setTimeout(() => {
+                                    if (isFromSelectMode) {
+                                        const choicesInput = container.find(
+                                            '.choices__input--cloned');
+                                        if (choicesInput.length) {
+                                            choicesInput.focus();
+                                        }
+                                    } else {
+                                        inputElement.focus();
+                                    }
+                                }, 100);
+                            }, 3000);
+                        }
+                    },
+                    error: function(xhr) {
+                        indicator.removeClass('active');
+                        inputElement.addClass('is-invalid').removeClass('is-valid');
+
+                        const errorMessage = xhr.responseJSON?.message ||
+                            'Terjadi kesalahan saat validasi SKU';
+                        showAlert('error', 'Error Validasi!', errorMessage);
+
+                        // Reset only this specific field
+                        setTimeout(() => {
+                            if (isFromSelectMode && STATE.choicesInstances[index]) {
+                                STATE.choicesInstances[index].removeActiveItems();
+                            } else {
+                                inputElement.val('');
+                            }
+                            inputElement.removeClass('is-invalid');
+                        }, 3000);
+                    }
+                });
+            }
+
+            // Search products for Choices.js dropdown
+            function searchProducts(searchTerm, choicesInstance) {
+                $.ajax({
+                    url: "{{ route('history-sales.search-products') }}",
+                    method: 'GET',
+                    data: {
+                        term: searchTerm
+                    },
+                    success: function(response) {
+                        if (response.results && response.results.length > 0) {
+                            const choices = response.results.map(product => ({
+                                value: product.sku,
+                                label: `${product.sku} - ${product.name}`,
+                                customProperties: {
+                                    sku: product.sku,
+                                    name: product.name,
+                                    category: product.category,
+                                    packaging: product.packaging,
+                                    label: product.label
+                                }
+                            }));
+
+                            choicesInstance.setChoices(choices, 'value', 'label', true);
+                        } else {
+                            choicesInstance.setChoices([], 'value', 'label', true);
+                        }
+                    },
+                    error: function(xhr) {
+                        console.error('Error searching products:', xhr);
+                        choicesInstance.setChoices([], 'value', 'label', true);
+                    }
+                });
             }
 
             /**
@@ -981,7 +1891,7 @@
             }
 
             /**
-             * SKU Input Handler - refactored for clarity
+             * SKU Input Handler - refactored for clarity with delayed validation
              */
             function initSkuHandler() {
                 $(document).on('input', '.sku-input', function() {
@@ -998,36 +1908,80 @@
                         return; // Stop processing
                     }
 
-                    handleSkuInput(input, currentSku);
+                    handleSkuInputWithDelay(input, currentSku);
                 });
 
                 // Quantity Input Handler
                 $(document).on('input', '.qty-input', function() {
                     if (STATE.isProcessing || !STATE.hasValidResi) return;
-
-                    if ($(this).closest('.sku-input-container').find('.sku-input').val().trim().length >=
-                        CONFIG.MIN_SKU_LENGTH) {
-                        startCountdown();
-                        setupAutoSubmit();
-                    }
+                    // No auto-submit functionality - user must manually save
                 });
 
                 // Remove SKU Button Handler
                 $(document).on('click', '.btn-remove-sku', function() {
                     const container = $(this).closest('.sku-input-container');
-                    // Don't remove the last container, just clear it
-                    if ($('.sku-input-container').length > 1) {
+                    const containerCount = $('.sku-input-container').length;
+
+                    // Always maintain at least 1 SKU container
+                    if (containerCount > 1) {
+                        const index = container.data('sku-index');
+
+                        // Destroy Choices.js instance if exists
+                        if (STATE.choicesInstances[index]) {
+                            try {
+                                STATE.choicesInstances[index].destroy();
+                                delete STATE.choicesInstances[index];
+                            } catch (e) {
+                                console.warn('Error destroying Choices instance:', e);
+                            }
+                        }
+
                         container.fadeOut(200, function() {
                             $(this).remove();
-                            // If at least one SKU has content, restart countdown
-                            if (hasSKUsWithContent()) {
-                                startCountdown();
-                                setupAutoSubmit();
-                            }
+                            updateRemoveButtonStates();
                         });
                     } else {
-                        container.find('.sku-input').val('');
+                        // If this is the last container, just clear it but don't remove
+                        container.find('.sku-input').val('').removeClass('is-valid is-invalid');
                         container.find('.qty-input').val('1');
+
+                        // Clear select and reset Choices.js if in select mode
+                        const selectElement = container.find('.sku-select');
+                        const index = container.data('sku-index') || 0;
+
+                        if (STATE.choicesInstances[index]) {
+                            try {
+                                STATE.choicesInstances[index].removeActiveItems();
+                            } catch (e) {
+                                console.warn('Error clearing Choices instance:', e);
+                            }
+                        }
+                        selectElement.val('').removeAttr('data-selected-sku');
+
+                        // Show tooltip near the button instead of popup alert
+                        const removeBtn = $(this);
+                        removeBtn.attr('data-bs-original-title',
+                                'Field telah dibersihkan. Minimal harus ada 1 field SKU.')
+                            .tooltip('show');
+
+                        // Hide tooltip after 3 seconds
+                        setTimeout(() => {
+                            removeBtn.attr('data-bs-original-title',
+                                    'Minimal harus ada 1 field SKU')
+                                .tooltip('hide');
+                        }, 3000);
+
+                        // Focus the appropriate input
+                        setTimeout(() => {
+                            if (STATE.skuInputMode === 'text') {
+                                container.find('.sku-input').focus();
+                            } else {
+                                const choicesInput = container.find('.choices__input--cloned');
+                                if (choicesInput.length) {
+                                    choicesInput.focus();
+                                }
+                            }
+                        }, 100);
                     }
                 });
 
@@ -1087,11 +2041,6 @@
                             // This is an explicit submission request, not part of scanning
                             e.preventDefault();
 
-                            // Stop countdown and clear timers
-                            clearInterval(STATE.countdownInterval);
-                            clearTimeout(STATE.submitTimer);
-                            $('#autoSubmitTimer').hide();
-
                             // Show a brief flash notification
                             showAlert('info', 'Menyimpan Data', 'Menyimpan dengan tombol ENTER', 800);
 
@@ -1105,14 +2054,28 @@
             // Check if any SKU inputs have content
             function hasSKUsWithContent() {
                 let hasContent = false;
-                $('.sku-input').each(function() {
-                    if ($(this).val().trim().length >= CONFIG.MIN_SKU_LENGTH) {
+                $('.sku-input-container').each(function() {
+                    const container = $(this);
+                    let sku = '';
+
+                    // Get SKU value based on current input mode
+                    if (STATE.skuInputMode === 'text') {
+                        sku = container.find('.sku-input').val().trim();
+                    } else {
+                        const selectElement = container.find('.sku-select');
+                        sku = selectElement.val() || selectElement.attr('data-selected-sku') || '';
+                        sku = sku.trim();
+                    }
+
+                    if (sku.length >= CONFIG.MIN_SKU_LENGTH) {
                         hasContent = true;
                         return false; // break the loop
                     }
                 });
                 return hasContent;
             }
+
+
 
             /**
              * Initialize form buttons
@@ -1131,12 +2094,7 @@
                 $('#submitManualBtn').on('click', function() {
                     // Only submit if we have a valid resi and at least one SKU field has content
                     if (STATE.hasValidResi) {
-                        let hasContent = hasSKUsWithContent();
-
-                        if (hasContent) {
-                            clearInterval(STATE.countdownInterval);
-                            clearTimeout(STATE.submitTimer);
-                            $('#autoSubmitTimer').hide();
+                        if (hasSKUsWithContent()) {
                             submitForm();
                         } else {
                             showAlert('warning', 'Perhatian!',
@@ -1217,13 +2175,30 @@
                 STATE.hasValidResi = true;
                 $('#resiError').hide();
 
-                // Enable the SKU input and remove button
-                $('.sku-input:first').prop('disabled', false);
-                $('.btn-remove-sku:first').prop('disabled', false);
+                // Enable the appropriate SKU input based on current mode
+                const firstContainer = $('.sku-input-container:first');
+                if (STATE.skuInputMode === 'text') {
+                    firstContainer.find('.sku-input').prop('disabled', false);
+                } else {
+                    firstContainer.find('.sku-select').prop('disabled', false);
+                    // Initialize Choices.js for the first select if not already initialized
+                    const firstSelectElement = firstContainer.find('.sku-select')[0];
+                    if (firstSelectElement && !STATE.choicesInstances[0]) {
+                        initializeChoicesForSelect(firstSelectElement, 0);
+                    }
+                }
+
+                // Enable remove button
+                firstContainer.find('.btn-remove-sku').prop('disabled', false);
 
                 // Add a visual indicator showing scan direction
                 $('#no_resi').removeClass('scanner-active');
-                $('.sku-input:first').addClass('scanner-active');
+                if (STATE.skuInputMode === 'text') {
+                    firstContainer.find('.sku-input').addClass('scanner-active');
+                } else {
+                    // For select mode, add focus to the Choices.js container
+                    firstContainer.find('.choices').addClass('scanner-active');
+                }
 
                 // Add a visual hint that we're now scanning SKUs
                 showAlert('success', 'No Resi Valid', 'Silakan pindai No SKU', 1000);
@@ -1261,6 +2236,75 @@
                 }, CONFIG.RESET_TIMEOUT);
             }
 
+            /**
+             * Handle SKU input with 2-3 second delay before validation
+             * NEW FLOW IMPLEMENTATION:
+             * 1. User inputs Resi -> moves to SKU input
+             * 2. User inputs SKU -> waits 2-3 seconds 
+             * 3. System validates SKU against Product.php
+             * 4. If SKU error: reset SKU field
+             * 5. If SKU valid: add new field for next SKU
+             * 6. User must manually save with button or CTRL+ENTER
+             */
+            function handleSkuInputWithDelay(input, currentSku) {
+                if (!currentSku) return;
+
+                // Clear any existing timers
+                clearTimeout(STATE.newFieldTimer);
+
+                // Clear any existing validation timer for this input
+                if (input.data('validationTimer')) {
+                    clearTimeout(input.data('validationTimer'));
+                }
+
+                const container = input.closest('.sku-input-container');
+                const indicator = container.find('.scanning-indicator');
+                indicator.addClass('active');
+
+                if (currentSku.length >= CONFIG.MIN_SKU_LENGTH) {
+                    // Check for duplicates immediately (no delay needed for this)
+                    if (isDuplicateSkuInForm(currentSku, input)) {
+                        // Mark this specific input as invalid
+                        input.addClass('is-invalid');
+                        showAlert('error', 'SKU Duplikat!', 'SKU duplikat terdeteksi: ' + currentSku);
+
+                        // Remove invalid class and clear field after delay
+                        setTimeout(() => {
+                            input.removeClass('is-invalid').val('').focus();
+                        }, 2000);
+                        indicator.removeClass('active');
+                        return;
+                    }
+
+                    // Show waiting message for validation delay
+                    indicator.html('<i class="fas fa-clock"></i> Menunggu validasi...');
+
+                    // Set delay for validation (2-3 seconds as requested)
+                    const validationTimer = setTimeout(() => {
+                        const index = container.data('sku-index') || 0;
+                        validateSkuAndCreateNewField(currentSku, input, index,
+                            false); // false = from text mode
+                    }, CONFIG.SKU_VALIDATION_DELAY); // Use config constant
+
+                    // Store timer reference in input element
+                    input.data('validationTimer', validationTimer);
+
+                } else {
+                    indicator.removeClass('active');
+                }
+            }
+
+            /**
+             * Helper function to reset scanning indicator to default state
+             */
+            function resetScanningIndicator() {
+                $('#skuScanningIndicator').removeClass('active').html(
+                    '<i class="fas fa-circle-notch fa-spin"></i> Memindai...');
+            }
+
+            /**
+             * Original SKU handler (kept for compatibility if needed)
+             */
             function handleSkuInput(input, currentSku) {
                 if (!currentSku) return;
 
@@ -1295,11 +2339,78 @@
                         }, CONFIG.NEW_FIELD_DELAY);
                     }
 
-                    // Reset and restart countdown for each valid SKU input
-                    startCountdown();
-                    setupAutoSubmit();
+                    // No auto-submit - user must manually save
                     $('#skuScanningIndicator').removeClass('active');
                 }
+            }
+
+            /**
+             * Real-time SKU validation function with smart countdown logic
+             */
+            function validateSkuRealTimeWithSmartCountdown(input, sku) {
+                // Add loading indicator
+                input.addClass('is-validating');
+
+                $.ajax({
+                    url: "{{ route('history-sales.validate-sku') }}",
+                    method: 'POST',
+                    data: {
+                        sku: sku,
+                        _token: $('meta[name="csrf-token"]').attr('content')
+                    },
+                    timeout: 3000,
+                    success: function(response) {
+                        input.removeClass('is-validating');
+                        $('#skuScanningIndicator').removeClass('active');
+
+                        if (response.valid) {
+                            // SKU is valid, show success briefly
+                            input.removeClass('is-invalid').addClass('is-valid');
+
+                            // Remove success class after 2 seconds
+                            setTimeout(() => {
+                                input.removeClass('is-valid');
+                            }, 2000);
+
+                            // Add new field if we're not already in the process
+                            if (!STATE.isAddingNewField && input.closest('.sku-input-container').is(
+                                    ':last-child')) {
+                                STATE.isAddingNewField = true;
+                                setTimeout(() => {
+                                    addNewSkuField();
+                                    STATE.isAddingNewField = false;
+                                }, CONFIG.NEW_FIELD_DELAY);
+                            }
+
+                            // No auto-submit - user must manually save
+
+                        } else {
+                            // SKU is invalid, mark as error but DON'T start countdown
+                            input.removeClass('is-valid').addClass('is-invalid');
+                            showAlert('error', 'SKU Tidak Valid!', response.message);
+
+                            // Clear the invalid SKU after delay - NO COUNTDOWN if this was the only SKU
+                            setTimeout(() => {
+                                input.removeClass('is-invalid').val('').focus();
+                            }, 3000);
+                        }
+                    },
+                    error: function(xhr) {
+                        input.removeClass('is-validating');
+                        $('#skuScanningIndicator').removeClass('active');
+
+                        // Handle validation error - NO COUNTDOWN on error
+                        const errorData = xhr.responseJSON;
+                        if (errorData && errorData.message) {
+                            input.addClass('is-invalid');
+                            showAlert('error', 'SKU Error!', errorData.message);
+
+                            setTimeout(() => {
+                                input.removeClass('is-invalid').val('').focus();
+                            }, 3000);
+                        }
+                    }
+                });
             }
 
             /**
@@ -1358,8 +2469,23 @@
 
             function isDuplicateSkuInForm(sku, currentInput) {
                 let duplicate = false;
-                $('.sku-input').not(currentInput).each(function() {
-                    const existingSku = $(this).val().trim();
+                const currentContainer = currentInput.closest('.sku-input-container');
+
+                $('.sku-input-container').not(currentContainer).each(function() {
+                    const container = $(this);
+                    let existingSku = '';
+
+                    // Get SKU value based on input type in this container
+                    const textInput = container.find('.sku-input');
+                    const selectInput = container.find('.sku-select');
+
+                    if (textInput.is(':visible') && !textInput.prop('disabled')) {
+                        existingSku = textInput.val().trim();
+                    } else if (selectInput.is(':visible') && !selectInput.prop('disabled')) {
+                        existingSku = selectInput.val() || selectInput.attr('data-selected-sku') || '';
+                        existingSku = existingSku.trim();
+                    }
+
                     if (existingSku && existingSku === sku) {
                         duplicate = true;
                         return false;
@@ -1368,12 +2494,7 @@
                 return duplicate;
             }
 
-            function setupAutoSubmit() {
-                clearTimeout(STATE.submitTimer);
-                STATE.submitTimer = setTimeout(() => {
-                    submitForm();
-                }, CONFIG.SUBMIT_TIMEOUT);
-            }
+
 
             function showAlert(icon, title, message, timer = 2000) {
                 const titles = {
@@ -1398,54 +2519,273 @@
             }
 
             function addNewSkuField() {
-                // Only add new field if the last field has content
-                const lastSkuInput = $('.sku-input:last');
-                if (lastSkuInput.val().trim().length >= CONFIG.MIN_SKU_LENGTH) {
-                    const newSkuContainer = `
-                        <div class="sku-input-container">
-                            <input type="text" class="form-control scanner-input sku-input" 
-                                name="no_sku[]" required placeholder="Scan SKU...">
-                            <input type="number" class="form-control qty-input" 
-                                name="qty[]" value="1" min="1">
-                            <button type="button" class="btn btn-danger btn-remove-sku" title="Hapus SKU">
-                                <i class="fas fa-minus"></i>
-                            </button>
-                            <span class="scanning-indicator">
-                                <i class="fas fa-circle-notch fa-spin"></i> Scanning...
-                            </span>
+                // Always add new field when called (validation is done before calling this function)
+                // This simplifies the logic and makes it work like a scanner
+
+                if (STATE.isAddingNewField) return; // Prevent double addition
+                STATE.isAddingNewField = true;
+                STATE.skuCounter++;
+                const newIndex = STATE.skuCounter;
+                const textDisplay = STATE.skuInputMode === 'text' ? 'block' : 'none';
+                const selectDisplay = STATE.skuInputMode === 'select' ? 'block' : 'none';
+                const textDisabled = STATE.skuInputMode === 'text' ? '' : 'disabled';
+                const selectDisabled = STATE.skuInputMode === 'select' ? '' : 'disabled';
+
+                const newSkuContainer = `
+                        <div class="sku-input-container" data-sku-index="${newIndex}">
+                            <div class="sku-mode-indicator">
+                                <div class="mode-text">
+                                    <i class="fas fa-keyboard"></i> Mode Input: <span class="sku-mode-text">${STATE.skuInputMode === 'text' ? 'Scanner/Manual' : 'Select Dropdown'}</span>
+                                </div>
+                                <button type="button" class="btn btn-sm btn-outline-secondary toggle-sku-mode" title="Toggle antara Scanner dan Select">
+                                    <i class="fas fa-exchange-alt"></i> Toggle
+                                </button>
+                            </div>
+
+                            <div class="sku-input-row">
+                                <div class="sku-input-field">
+                                    <!-- Text Input -->
+                                    <input type="text" class="form-control scanner-input sku-input" 
+                                        name="no_sku[]" required placeholder="Ketik atau pindai nomor SKU di sini..." 
+                                        id="sku-text-input-${newIndex}" style="display: ${textDisplay};" ${textDisabled}>
+                                    
+                                    <!-- Select Input -->
+                                    <div class="sku-select-container" style="display: ${selectDisplay};">
+                                        <select class="form-control sku-select" name="no_sku_select[]" 
+                                            id="sku-select-input-${newIndex}" ${selectDisabled}>
+                                            <option value="">-- Pilih atau cari SKU --</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <input type="number" class="form-control qty-input" 
+                                    name="qty[]" value="1" min="1" title="Jumlah barang">
+                                
+                                <button type="button" class="btn btn-danger btn-remove-sku" title="Hapus SKU">
+                                    <i class="fas fa-minus"></i>
+                                </button>
+                            </div>
+                            
+                            <div class="scanning-indicator" id="skuScanningIndicator-${newIndex}">
+                                <i class="fas fa-circle-notch fa-spin"></i> Memindai...
+                            </div>
                         </div>
                     `;
-                    $('#sku-container').append(newSkuContainer);
-                    $('.sku-input:last').focus();
+                $('#sku-container').append(newSkuContainer);
+
+                // Initialize Choices.js for the new select if in select mode
+                if (STATE.skuInputMode === 'select') {
+                    const newSelectElement = document.getElementById(`sku-select-input-${newIndex}`);
+                    if (newSelectElement) {
+                        initializeChoicesForSelect(newSelectElement, newIndex);
+                    }
+                }
+
+                // Bind events to the new container
+                bindSkuFieldEvents($('.sku-input-container:last'));
+
+                // Update remove button states
+                updateRemoveButtonStates();
+
+                // Focus the appropriate input
+                if (STATE.skuInputMode === 'text') {
+                    $(`#sku-text-input-${newIndex}`).focus();
+                } else {
+                    // For Choices.js, we need to focus the search input
+                    setTimeout(() => {
+                        const choicesInput = $(`.sku-input-container:last .choices__input--cloned`);
+                        if (choicesInput.length) {
+                            choicesInput.focus();
+                        }
+                    }, 100);
+                }
+
+                STATE.isAddingNewField = false;
+            }
+
+            // Bind events to SKU field container
+            function bindSkuFieldEvents(container) {
+                // Bind remove button click
+                container.find('.btn-remove-sku').on('click', function() {
+                    const containerToRemove = $(this).closest('.sku-input-container');
+                    const containerCount = $('.sku-input-container').length;
+                    const index = containerToRemove.data('sku-index');
+
+                    // Always maintain at least 1 SKU container
+                    if (containerCount > 1) {
+                        // Destroy Choices.js instance if exists
+                        if (STATE.choicesInstances[index]) {
+                            try {
+                                STATE.choicesInstances[index].destroy();
+                                delete STATE.choicesInstances[index];
+                            } catch (e) {
+                                console.warn('Error destroying Choices instance:', e);
+                            }
+                        }
+
+                        containerToRemove.remove();
+                        updateRemoveButtonStates();
+                    } else {
+                        // If this is the last container, just clear it but don't remove
+                        containerToRemove.find('.sku-input').val('').removeClass('is-valid is-invalid');
+                        containerToRemove.find('.qty-input').val('1');
+
+                        // Clear select and reset Choices.js if in select mode
+                        const selectElement = containerToRemove.find('.sku-select');
+
+                        if (STATE.choicesInstances[index]) {
+                            try {
+                                STATE.choicesInstances[index].removeActiveItems();
+                            } catch (e) {
+                                console.warn('Error clearing Choices instance:', e);
+                            }
+                        }
+                        selectElement.val('').removeAttr('data-selected-sku');
+
+                        // Show tooltip near the button instead of popup alert
+                        const removeBtn = $(this);
+                        removeBtn.attr('data-bs-original-title',
+                                'Field telah dibersihkan. Minimal harus ada 1 field SKU.')
+                            .tooltip('show');
+
+                        // Hide tooltip after 3 seconds
+                        setTimeout(() => {
+                            removeBtn.attr('data-bs-original-title',
+                                    'Minimal harus ada 1 field SKU')
+                                .tooltip('hide');
+                        }, 3000);
+
+                        // Focus the appropriate input
+                        setTimeout(() => {
+                            if (STATE.skuInputMode === 'text') {
+                                containerToRemove.find('.sku-input').focus();
+                            } else {
+                                const choicesInput = containerToRemove.find(
+                                    '.choices__input--cloned');
+                                if (choicesInput.length) {
+                                    choicesInput.focus();
+                                }
+                            }
+                        }, 100);
+                    }
+                });
+
+                // Bind toggle mode button for individual containers
+                container.find('.toggle-sku-mode').on('click', function() {
+                    toggleSkuInputMode();
+                });
+
+                // Bind SKU input events
+                const skuInput = container.find('.sku-input');
+                skuInput.on('input', function() {
+                    handleSkuInputWithDelay($(this));
+                });
+
+                skuInput.on('keydown', function(e) {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleSkuInputWithDelay($(this));
+                    }
+                });
+
+                // Bind quantity input events
+                const qtyInput = container.find('.qty-input');
+                qtyInput.on('change', function() {
+                    const value = parseInt($(this).val());
+                    if (value < 1) {
+                        $(this).val(1);
+                    }
+                });
+            }
+
+            // Update remove button states
+            function updateRemoveButtonStates() {
+                const containers = $('.sku-input-container');
+                const removeButtons = containers.find('.btn-remove-sku');
+
+                if (containers.length <= 1) {
+                    // Disable remove button if only one container - but keep it visible
+                    removeButtons.prop('disabled', true).attr('title', 'Minimal harus ada 1 field SKU');
+                } else {
+                    // Enable all remove buttons if more than one container
+                    removeButtons.prop('disabled', false).attr('title', 'Hapus SKU');
                 }
             }
 
             function resetSkuForm() {
-                clearTimeout(STATE.submitTimer);
                 clearTimeout(STATE.newFieldTimer);
-                clearInterval(STATE.countdownInterval);
 
-                // Only reset SKU-related elements
+                // Destroy all Choices.js instances except the first one
+                Object.keys(STATE.choicesInstances).forEach(index => {
+                    if (index !== '0') {
+                        try {
+                            STATE.choicesInstances[index].destroy();
+                            delete STATE.choicesInstances[index];
+                        } catch (e) {
+                            console.warn('Error destroying Choices instance:', e);
+                        }
+                    }
+                });
+
+                // Remove all SKU containers except the first one (always maintain at least 1)
                 $('.sku-input-container:not(:first)').remove();
-                $('.sku-input:first').val('');
-                $('.qty-input:first').val('1');
-                $('#skuError').hide();
-                $('#skuScanningIndicator').removeClass('active');
-                $('#autoSubmitTimer').hide();
 
-                // Auto focus back to first SKU input after reset
+                // Reset first container values but keep the container
+                const firstContainer = $('.sku-input-container:first');
+                firstContainer.find('.sku-input').val('').removeClass('is-valid is-invalid');
+                firstContainer.find('.qty-input').val('1');
+
+                // Reset select and destroy/recreate Choices.js instance if exists
+                const firstSelect = firstContainer.find('.sku-select');
+                if (STATE.choicesInstances[0]) {
+                    try {
+                        STATE.choicesInstances[0].destroy();
+                        delete STATE.choicesInstances[0];
+                    } catch (e) {
+                        console.warn('Error destroying Choices instance:', e);
+                    }
+                }
+                firstSelect.val('').removeAttr('data-selected-sku');
+
+                $('#skuError').hide();
+                resetScanningIndicator();
+
+                // Reset counter but ensure we always have the first container
+                STATE.skuCounter = 0;
+                firstContainer.attr('data-sku-index', '0');
+
+                // Update remove button states (will disable the button since only 1 container remains)
+                updateRemoveButtonStates();
+
+                // Auto focus back to first appropriate input after reset
                 setTimeout(() => {
-                    $('.sku-input:first').focus().select();
+                    if (STATE.skuInputMode === 'text') {
+                        $('.sku-input:first').focus().select();
+                    } else {
+                        // Re-initialize Choices.js for the first select
+                        const firstSelectElement = firstContainer.find('.sku-select')[0];
+                        if (firstSelectElement && STATE.hasValidResi) {
+                            initializeChoicesForSelect(firstSelectElement, 0);
+                        }
+                    }
                 }, 100);
             }
 
             function resetForm() {
-                clearTimeout(STATE.submitTimer);
                 clearTimeout(STATE.newFieldTimer);
-                clearInterval(STATE.countdownInterval);
 
                 // Clear any existing focus countdowns
                 clearFocusCountdowns();
+
+                // Destroy all Choices.js instances
+                Object.keys(STATE.choicesInstances).forEach(index => {
+                    try {
+                        STATE.choicesInstances[index].destroy();
+                        delete STATE.choicesInstances[index];
+                    } catch (e) {
+                        console.warn('Error destroying Choices instance:', e);
+                    }
+                });
 
                 $('#no_resi').val('').prop('disabled', false);
                 // Reset scanner active indicator
@@ -1453,13 +2793,23 @@
                 $('.sku-input').removeClass('scanner-active');
 
                 $('.sku-input-container:not(:first)').remove();
-                $('.sku-input:first').val('').prop('disabled', true);
-                $('.qty-input:first').val('1');
-                $('.btn-remove-sku:first').prop('disabled', true);
+
+                // Reset first container
+                const firstContainer = $('.sku-input-container:first');
+                firstContainer.find('.sku-input').val('').prop('disabled', true);
+                firstContainer.find('.sku-select').val('').removeAttr('data-selected-sku').prop('disabled', true);
+                firstContainer.find('.qty-input').val('1');
+                firstContainer.find('.btn-remove-sku').prop('disabled', true);
 
                 $('.error-feedback').hide();
-                $('.scanning-indicator').removeClass('active');
-                $('#autoSubmitTimer').hide();
+                resetScanningIndicator();
+
+                // Reset counter and index
+                STATE.skuCounter = 0;
+                firstContainer.attr('data-sku-index', '0');
+
+                // Update remove button states
+                updateRemoveButtonStates();
 
                 STATE.isProcessing = false;
                 STATE.hasValidResi = false;
@@ -1468,34 +2818,7 @@
                 ensureNoResiFocus(false);
             }
 
-            function startCountdown() {
-                clearInterval(STATE.countdownInterval);
-                clearTimeout(STATE.submitTimer);
-                STATE.countdownSeconds = CONFIG.COUNTDOWN_SECONDS;
-                $('#submitCountdown').text(STATE.countdownSeconds);
-                $('#autoSubmitTimer').show().css({
-                    'background-color': '#f8f9fa',
-                    'border-radius': '5px',
-                    'padding': '8px 15px',
-                    'margin-top': '10px',
-                    'border': '1px solid #dee2e6'
-                });
 
-                STATE.countdownInterval = setInterval(() => {
-                    STATE.countdownSeconds--;
-                    $('#submitCountdown').text(STATE.countdownSeconds);
-
-                    // Add visual indication as time gets lower
-                    if (STATE.countdownSeconds <= 3) {
-                        $('#autoSubmitTimer').css('background-color', '#fff3cd');
-                    }
-
-                    if (STATE.countdownSeconds <= 0) {
-                        clearInterval(STATE.countdownInterval);
-                        submitForm(); // Auto-submit when countdown reaches 0
-                    }
-                }, 1000);
-            }
 
             async function submitForm() {
                 if (STATE.isProcessing || !STATE.hasValidResi) return;
@@ -1526,19 +2849,43 @@
                 // Check for duplicate values between No Resi and SKUs
                 let hasDuplicateWithResi = false;
 
-                $('.sku-input').each(function(index) {
-                    const sku = $(this).val().trim();
-                    if (sku.length >= CONFIG.MIN_SKU_LENGTH) {
+                $('.sku-input-container').each(function(index) {
+                    const container = $(this);
+                    let sku = '';
+
+                    // Get SKU value based on current input mode
+                    if (STATE.skuInputMode === 'text') {
+                        sku = container.find('.sku-input').val().trim();
+                    } else {
+                        const selectElement = container.find('.sku-select');
+                        sku = selectElement.val() || selectElement.attr('data-selected-sku') || '';
+                        sku = sku.trim();
+                    }
+
+                    // Only process SKUs that have valid content and are not empty
+                    if (sku.length >= CONFIG.MIN_SKU_LENGTH && sku !== '') {
                         // Check if SKU matches No Resi
                         if (sku === noResi) {
                             hasDuplicateWithResi = true;
                             return false; // break the loop
                         }
 
-                        skus.push(sku);
-                        quantities.push($('.qty-input').eq(index).val() || 1);
+                        // Additional validation: ensure SKU is not just whitespace
+                        if (sku.replace(/\s/g, '').length > 0) {
+                            skus.push(sku);
+                            quantities.push(container.find('.qty-input').val() || 1);
+                        }
                     }
                 });
+
+                // Check if we have at least one valid SKU
+                if (skus.length === 0) {
+                    loadingIndicator.close();
+                    showAlert('warning', 'Perhatian!',
+                        'Minimal satu SKU harus diisi dengan benar sebelum menyimpan.');
+                    STATE.isProcessing = false;
+                    return;
+                }
 
                 // If duplicate found between No Resi and No SKU, show warning and stop submission
                 if (hasDuplicateWithResi) {
@@ -1580,11 +2927,6 @@
 
             function handleSubmitResponse(response) {
                 if (response.status === 'success') {
-                    // First clear timers and update UI
-                    clearTimeout(STATE.submitTimer);
-                    clearInterval(STATE.countdownInterval);
-                    $('#autoSubmitTimer').hide();
-
                     // Reset the form immediately to prepare for the next entry
                     resetForm();
 
@@ -1794,7 +3136,41 @@
                 clearInterval(window.skuFocusCountdownInterval);
             }
 
-            // Initialize all components
+            // Initialize scanner, SKU handlers, and form buttons when DOM is ready
+            $(document).ready(function() {
+                // Initialize scanner toggle
+                initScannerToggle();
+
+                // Initialize SKU mode toggle
+                initSkuModeToggle();
+
+                // Initialize handlers
+                initNoResiHandler();
+                initSkuHandler();
+                initFormButtons();
+
+                // Initialize edit modal
+                initEditModal();
+
+                // Initialize current date display
+                updateCurrentDateInfo();
+
+                // Auto focus to No Resi field on page load
+                setTimeout(() => {
+                    $('#no_resi').focus();
+                }, 300);
+
+                // Initialize state
+                STATE.skuCounter = 0;
+
+                // Ensure first container has proper data attribute
+                const firstContainer = $('.sku-input-container:first');
+                if (firstContainer.length && !firstContainer.data('sku-index')) {
+                    firstContainer.attr('data-sku-index', '0');
+                }
+            });
+
+            // Initialize DataTable components
             $(document).ready(function() {
                 // Prevent DataTables from showing error messages in console
                 $.fn.dataTable.ext.errMode = 'none';
@@ -2019,11 +3395,7 @@
                     console.warn('Edit functionality initialization error:', e);
                 }
 
-                // Initialize UI components
-                initScannerToggle();
-                initNoResiHandler();
-                initSkuHandler();
-                initFormButtons();
+                // Initialize UI components (DataTable specific)
                 initFilterButtons();
 
                 // Initialize focus on No Resi input with helper function (immediate, no countdown for initial load)
