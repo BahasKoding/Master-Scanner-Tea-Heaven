@@ -782,7 +782,8 @@
 
         /* Focus countdown styling */
         #focus-countdown,
-        #sku-focus-countdown {
+        #sku-focus-countdown,
+        #new-sku-focus-countdown {
             position: fixed;
             top: 20px;
             right: 20px;
@@ -806,6 +807,13 @@
             color: white;
         }
 
+        #new-sku-focus-countdown {
+            background: linear-gradient(135deg, #FF9800, #F57C00);
+            color: white;
+            top: 60px;
+            /* Position below other countdowns */
+        }
+
         @keyframes slideInRight {
             from {
                 transform: translateX(100%);
@@ -822,13 +830,26 @@
         @media (max-width: 576px) {
 
             #focus-countdown,
-            #sku-focus-countdown {
-                top: 10px;
+            #sku-focus-countdown,
+            #new-sku-focus-countdown {
                 right: 10px;
                 left: 10px;
                 text-align: center;
                 font-size: 13px;
                 padding: 10px 15px;
+            }
+
+            #focus-countdown {
+                top: 10px;
+            }
+
+            #sku-focus-countdown {
+                top: 60px;
+            }
+
+            #new-sku-focus-countdown {
+                top: 110px;
+                /* Position below sku-focus-countdown on mobile */
             }
         }
 
@@ -2545,7 +2566,7 @@
                             <div class="sku-input-row">
                                 <div class="sku-input-field">
                                     <!-- Text Input -->
-                                    <input type="text" class="form-control scanner-input sku-input" 
+                            <input type="text" class="form-control scanner-input sku-input" 
                                         name="no_sku[]" required placeholder="Ketik atau pindai nomor SKU di sini..." 
                                         id="sku-text-input-${newIndex}" style="display: ${textDisplay};" ${textDisabled}>
                                     
@@ -2558,12 +2579,12 @@
                                     </div>
                                 </div>
 
-                                <input type="number" class="form-control qty-input" 
+                            <input type="number" class="form-control qty-input" 
                                     name="qty[]" value="1" min="1" title="Jumlah barang">
                                 
-                                <button type="button" class="btn btn-danger btn-remove-sku" title="Hapus SKU">
-                                    <i class="fas fa-minus"></i>
-                                </button>
+                            <button type="button" class="btn btn-danger btn-remove-sku" title="Hapus SKU">
+                                <i class="fas fa-minus"></i>
+                            </button>
                             </div>
                             
                             <div class="scanning-indicator" id="skuScanningIndicator-${newIndex}">
@@ -2587,18 +2608,8 @@
                 // Update remove button states
                 updateRemoveButtonStates();
 
-                // Focus the appropriate input
-                if (STATE.skuInputMode === 'text') {
-                    $(`#sku-text-input-${newIndex}`).focus();
-                } else {
-                    // For Choices.js, we need to focus the search input
-                    setTimeout(() => {
-                        const choicesInput = $(`.sku-input-container:last .choices__input--cloned`);
-                        if (choicesInput.length) {
-                            choicesInput.focus();
-                        }
-                    }, 100);
-                }
+                // Auto focus to new SKU input with 2-second countdown
+                ensureNewSkuFocus(newIndex);
 
                 STATE.isAddingNewField = false;
             }
@@ -3125,15 +3136,98 @@
             }
 
             /**
+             * Helper function for auto focus to new SKU input with 2-second delay and countdown
+             */
+            function ensureNewSkuFocus(newIndex) {
+                // Clear any existing countdowns first
+                clearFocusCountdowns();
+
+                // Show countdown for auto focus to new SKU field
+                let countdown = 2.0; // 2-second delay as requested
+                const countdownElement = $('<div id="new-sku-focus-countdown">Auto focus ke field SKU baru dalam ' +
+                    countdown + ' detik</div>');
+
+                // Add specific styling for new SKU focus countdown
+                countdownElement.css({
+                    'position': 'fixed',
+                    'top': '60px', // Position below other countdowns
+                    'right': '20px',
+                    'padding': '12px 18px',
+                    'border-radius': '8px',
+                    'z-index': '9999',
+                    'font-weight': 'bold',
+                    'font-size': '14px',
+                    'box-shadow': '0 4px 12px rgba(0, 0, 0, 0.15)',
+                    'animation': 'slideInRight 0.3s ease-out',
+                    'transition': 'all 0.3s ease',
+                    'background': 'linear-gradient(135deg, #FF9800, #F57C00)',
+                    'color': 'white'
+                });
+
+                $('body').append(countdownElement);
+
+                window.newSkuFocusCountdownInterval = setInterval(() => {
+                    countdown -= 0.1; // Decrease by 0.1 seconds for smooth countdown
+                    if (countdown > 0) {
+                        countdownElement.text('Auto focus ke field SKU baru dalam ' + countdown.toFixed(1) +
+                            ' detik');
+                    } else {
+                        clearInterval(window.newSkuFocusCountdownInterval);
+                        countdownElement.fadeOut(300, function() {
+                            $(this).remove();
+                        });
+
+                        // Focus after countdown based on current input mode
+                        setTimeout(() => {
+                            if (STATE.skuInputMode === 'text') {
+                                const newTextInput = $(`#sku-text-input-${newIndex}`);
+                                newTextInput.focus();
+
+                                setTimeout(() => {
+                                    newTextInput.select();
+                                    newTextInput.addClass('scanner-active');
+
+                                    // Brief flash to indicate focus
+                                    newTextInput.css('box-shadow', '0 0 10px #FF9800');
+                                    setTimeout(() => {
+                                        newTextInput.css('box-shadow', '');
+                                    }, 1000);
+                                }, 50);
+                            } else {
+                                // For Choices.js, focus the search input
+                                const choicesInput = $(
+                                    `.sku-input-container[data-sku-index="${newIndex}"] .choices__input--cloned`
+                                );
+                                if (choicesInput.length) {
+                                    choicesInput.focus();
+
+                                    // Add visual indicator for the Choices.js container
+                                    const choicesContainer = $(
+                                        `.sku-input-container[data-sku-index="${newIndex}"] .choices`
+                                    );
+                                    choicesContainer.addClass('scanner-active');
+                                    choicesContainer.css('box-shadow', '0 0 10px #FF9800');
+                                    setTimeout(() => {
+                                        choicesContainer.css('box-shadow', '');
+                                    }, 1000);
+                                }
+                            }
+                        }, 100);
+                    }
+                }, 100); // Update every 100ms for smooth countdown
+            }
+
+            /**
              * Helper function to clear any existing countdown timers and elements
              */
             function clearFocusCountdowns() {
                 // Clear any existing countdown elements
-                $('#focus-countdown, #sku-focus-countdown').remove();
+                $('#focus-countdown, #sku-focus-countdown, #new-sku-focus-countdown').remove();
 
                 // Clear any running intervals (this is handled by the functions themselves, but good to be safe)
                 clearInterval(window.focusCountdownInterval);
                 clearInterval(window.skuFocusCountdownInterval);
+                clearInterval(window.newSkuFocusCountdownInterval);
             }
 
             // Initialize scanner, SKU handlers, and form buttons when DOM is ready
