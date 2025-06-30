@@ -237,7 +237,16 @@ class CatatanProduksiController extends Controller
         // Define the specific labels we want to include
         $allowedLabels = [
             1, // EXTRA SMALL PACK (15-100 GRAM)
+            2, // SMALL PACK (50-250 GRAM)
+            3, // MEDIUM PACK (500 GRAM)
+            4, // BIG PACK (1 Kg)
             5, // TIN CANISTER SERIES
+            6, // REFILL PACK, SAMPLE & GIFT
+            7, // CRAFTED TEAS
+            8, // JAPANESE TEABAGS
+            9, // TEA WARE
+            10, // NON LABEL 500 GR-1000 GR
+            11, // HERBATA NON LABEL 500 GR-1000 GR
         ];
 
         $products = Product::whereIn('label', $allowedLabels)

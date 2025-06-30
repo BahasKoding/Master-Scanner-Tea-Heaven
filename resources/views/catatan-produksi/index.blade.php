@@ -419,7 +419,15 @@
                                     <option value="">Semua Label</option>
                                     <option value="1">EXTRA SMALL PACK (15-100 GRAM)</option>
                                     <option value="2">SMALL PACK (50-250 GRAM)</option>
+                                    <option value="3">MEDIUM PACK (500 GRAM)</option>
+                                    <option value="4">BIG PACK (1 Kg)</option>
                                     <option value="5">TIN CANISTER SERIES</option>
+                                    <option value="6">REFILL PACK, SAMPLE & GIFT</option>
+                                    <option value="7">CRAFTED TEAS</option>
+                                    <option value="8">JAPANESE TEABAGS</option>
+                                    <option value="9">TEA WARE</option>
+                                    <option value="10">NON LABEL 500 GR-1000 GR</option>
+                                    <option value="11">HERBATA NON LABEL 500 GR-1000 GR</option>
                                 </select>
                             </div>
                         </div>
@@ -527,8 +535,8 @@
                                         </option>
                                     @endforeach
                                 </select>
-                                <small class="text-muted">Pilih produk yang akan dicatat produksinya (hanya menampilkan
-                                    produk dengan label: EXTRA SMALL PACK dan TIN CANISTER SERIES)</small>
+                                <small class="text-muted">Pilih produk yang akan dicatat produksinya (menampilkan semua
+                                    produk dengan label yang relevan)</small>
 
                             </div>
                         </div>
@@ -660,8 +668,8 @@
                                         </option>
                                     @endforeach
                                 </select>
-                                <small class="text-muted">Pilih produk yang akan dicatat produksinya (hanya menampilkan
-                                    produk dengan label: EXTRA SMALL PACK dan TIN CANISTER SERIES)</small>
+                                <small class="text-muted">Pilih produk yang akan dicatat produksinya (menampilkan semua
+                                    produk dengan label yang relevan)</small>
                             </div>
                         </div>
 
@@ -2332,6 +2340,7 @@
             var table = $('#produksi-table').DataTable({
                 processing: true,
                 serverSide: true,
+                responsive: true,
                 ajax: {
                     url: "{{ route('catatan-produksi.index') }}",
                     type: "GET",
@@ -2348,47 +2357,67 @@
                     },
                     error: function(xhr, error, thrown) {
                         debugLog('Error loading data:', error, thrown, xhr.responseText);
+
+                        // Show user-friendly error message
+                        Swal.fire({
+                            title: 'Gagal Memuat Data',
+                            text: 'Terjadi kesalahan saat mengambil data. Silakan refresh halaman.',
+                            icon: 'error',
+                            confirmButtonText: 'OK'
+                        });
                     }
                 },
                 columns: [{
                         data: 'DT_RowIndex',
                         name: 'DT_RowIndex',
                         orderable: false,
-                        searchable: false
+                        searchable: false,
+                        width: "5%"
                     },
                     {
                         data: 'sku_product',
-                        name: 'sku_product'
+                        name: 'sku_product',
+                        width: "10%"
                     },
                     {
                         data: 'nama_product',
-                        name: 'nama_product'
+                        name: 'nama_product',
+                        width: "15%"
                     },
                     {
                         data: 'packaging',
-                        name: 'packaging'
+                        name: 'packaging',
+                        width: "10%"
                     },
                     {
                         data: 'quantity',
-                        name: 'quantity'
+                        name: 'quantity',
+                        width: "8%"
                     },
                     {
                         data: 'sku_induk',
-                        name: 'sku_induk'
+                        name: 'sku_induk',
+                        width: "15%",
+                        orderable: false
                     },
                     {
                         data: 'gramasi',
-                        name: 'gramasi'
+                        name: 'gramasi',
+                        width: "17%",
+                        orderable: false
                     },
                     {
                         data: 'total_terpakai',
-                        name: 'total_terpakai'
+                        name: 'total_terpakai',
+                        width: "12%",
+                        orderable: false
                     },
                     {
                         data: 'action',
                         name: 'action',
                         orderable: false,
                         searchable: false,
+                        width: "8%",
                         render: function(data, type, row) {
                             return `
                                 <button type="button" class="btn btn-sm btn-warning edit-btn" data-id="${row.id}">
@@ -2399,16 +2428,10 @@
                                 </button>
                             `;
                         }
-                    },
-                    {
-                        data: 'created_at',
-                        name: 'created_at',
-                        visible: false, // Hidden column for sorting
-                        searchable: false
                     }
                 ],
                 order: [
-                    [9, 'desc'] // Order by created_at (newest first) so new data appears at top
+                    [0, 'asc'] // Order by row number (index column)
                 ],
                 pageLength: 25,
                 dom: 'Bfrtip',
@@ -2506,24 +2529,9 @@
                 // Show loading indicator
                 showTableLoading();
 
-                // Add cache busting parameter to force fresh data
-                const originalAjaxData = table.settings()[0].ajax.data;
-
-                // Temporarily modify ajax data to include cache buster
-                table.settings()[0].ajax.data = function(d) {
-                    // Call original data function
-                    const result = originalAjaxData.call(this, d);
-
-                    // Add cache buster to force fresh request
-                    result._t = Date.now();
-                    result._refresh = 'force';
-
-                    return result;
-                };
-
                 // Use requestAnimationFrame for smooth DOM operations
                 requestAnimationFrame(function() {
-                    // Force reload with cache busting
+                    // Simple reload without modifying ajax data function
                     table.ajax.reload(function(json) {
                         debugLog('Force reload selesai dengan', json?.recordsTotal || 0, 'data');
 
@@ -2533,13 +2541,10 @@
                         // Show refresh success notification
                         showRefreshNotification(json?.recordsTotal || 0);
 
-                        // Restore original ajax data function
-                        table.settings()[0].ajax.data = originalAjaxData;
-
                         if (typeof callback === 'function') {
                             callback(json);
                         }
-                    }, true); // true = reset paging to first page
+                    }, false); // false = don't reset paging
                 });
             }
 
