@@ -890,7 +890,7 @@ class HistorySaleController extends Controller
     }
 
     /**
-     * Restore a soft-deleted record.
+     * Restore a soft-deleted record with proper stock integration.
      */
     public function restore($id)
     {
@@ -898,27 +898,28 @@ class HistorySaleController extends Controller
             $historySale = HistorySale::withTrashed()->findOrFail($id);
             $resiNumber = $historySale->no_resi;
 
-            /**
-             * FUTURE INTEGRATION FEATURES
-             * =========================
-             * When implementing inventory integration:
-             * 
-             * 1. Get all SKUs and quantities from the restored sales record
-             * 2. Deduct stock levels again for each product based on the quantities
-             * 3. Log the re-application of inventory changes with appropriate context
-             * 4. Update any affected reports or analytics
-             */
+            // Use SalesService for proper stock integration with DB transaction
+            $salesService = app(SalesService::class);
 
+            // Restore the record
             $historySale->restore();
 
+            // Re-apply stock deduction (since the sale is now active again)
+            $salesService->stockService->updateStockFromSales($historySale);
+
             // Log activity
-            addActivity('sales', 'restore', 'Pengguna memulihkan catatan penjualan yang terhapus dengan resi: ' . $resiNumber, $id);
+            addActivity('sales', 'restore', 'Pengguna memulihkan catatan penjualan yang terhapus dengan resi: ' . $resiNumber . ' dan stock telah diperbarui', $id);
 
             return response()->json([
                 'status' => 'success',
-                'message' => 'Riwayat penjualan berhasil dipulihkan'
+                'message' => 'Riwayat penjualan berhasil dipulihkan dan stock telah diperbarui'
             ]);
         } catch (\Exception $e) {
+            Log::error('Error in restore method: ' . $e->getMessage(), [
+                'id' => $id,
+                'trace' => $e->getTraceAsString()
+            ]);
+
             return response()->json([
                 'status' => 'error',
                 'message' => 'Terjadi kesalahan: ' . $e->getMessage()
@@ -927,35 +928,52 @@ class HistorySaleController extends Controller
     }
 
     /**
-     * Permanently delete a record.
+     * Permanently delete a record with proper stock consideration.
      */
     public function forceDelete($id)
     {
         try {
             $historySale = HistorySale::withTrashed()->findOrFail($id);
             $resiNumber = $historySale->no_resi;
+            $skuArray = is_string($historySale->no_sku) ? json_decode($historySale->no_sku, true) : $historySale->no_sku;
 
-            /**
-             * FUTURE INTEGRATION FEATURES
-             * =========================
-             * For permanent deletion with inventory integration:
-             * 
-             * 1. Consider whether to restore stock or maintain current levels
-             * 2. Log the permanent deletion in inventory history with appropriate context
-             * 3. Remove any related records in integration tables
-             * 4. Update analytics to exclude this record from future calculations
-             */
+            // Use SalesService for proper stock integration with DB transaction
+            $salesService = app(SalesService::class);
 
+            // If the record is currently soft-deleted (not affecting stock), we don't need to restore stock
+            // If the record is active (not trashed), we need to restore stock before permanent deletion
+            if (!$historySale->trashed()) {
+                // Record is active, restore stock before permanent deletion
+                $salesService->stockService->restoreStockFromSales($historySale);
+                $stockMessage = ' dan stock telah dikembalikan';
+            } else {
+                // Record is already soft-deleted (stock already restored), no stock changes needed
+                $stockMessage = ' (stock sudah dikembalikan sebelumnya)';
+            }
+
+            // Permanently delete the record
             $historySale->forceDelete();
 
-            // Log activity
-            addActivity('sales', 'permanent_delete', 'Pengguna menghapus permanen catatan penjualan dengan resi: ' . $resiNumber, $id);
+            // Log activity with detailed information
+            $skuCount = is_array($skuArray) ? count($skuArray) : 0;
+            addActivity(
+                'sales',
+                'permanent_delete',
+                'Pengguna menghapus permanen catatan penjualan dengan resi: ' . $resiNumber .
+                    ' (SKU count: ' . $skuCount . ')' . $stockMessage,
+                $id
+            );
 
             return response()->json([
                 'status' => 'success',
-                'message' => 'Riwayat penjualan berhasil dihapus permanen'
+                'message' => 'Riwayat penjualan berhasil dihapus permanen' . $stockMessage
             ]);
         } catch (\Exception $e) {
+            Log::error('Error in forceDelete method: ' . $e->getMessage(), [
+                'id' => $id,
+                'trace' => $e->getTraceAsString()
+            ]);
+
             return response()->json([
                 'status' => 'error',
                 'message' => 'Terjadi kesalahan: ' . $e->getMessage()
