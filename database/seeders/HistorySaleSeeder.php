@@ -22,7 +22,7 @@ class HistorySaleSeeder extends Seeder
 
         $this->command->info('🚀 Memulai konversi data history sales dari file Excel terbaru...');
 
-        // PROSES FILE EXCEL TERBARU (file_excel_14mei_14june.md) - Data Mei-Juni 2025
+        // PROSES FILE EXCEL TERBARU (file_juli_tgl1.md) - Data Mei-Juni 2025
         $this->processExcelFile();
 
         $totalRecords = HistorySale::count();
@@ -31,13 +31,13 @@ class HistorySaleSeeder extends Seeder
     }
 
     /**
-     * Process Excel file data from file_excel_14mei_14june.md
+     * Process Excel file data from file_juli_tgl1.md
      */
     private function processExcelFile()
     {
-        $this->command->info('📂 Memproses data history sales dari file_excel_14mei_14june.md...');
+        $this->command->info('📂 Memproses data history sales dari file_juli_tgl1.md...');
 
-        $filePath = base_path('file_excel_14mei_14june.md');
+        $filePath = base_path('file_juli_tgl1.md');
 
         if (!file_exists($filePath)) {
             $this->command->error("File {$filePath} tidak ditemukan!");
@@ -52,9 +52,12 @@ class HistorySaleSeeder extends Seeder
             return;
         }
 
-        // Lewati header (baris pertama) 
+        // Lewati header (baris pertama) jika ada
         // Header: ID	No Resi	SKU	Jumlah	Dibuat Pada	Diperbarui Pada
-        array_shift($lines);
+        if (!empty($lines) && !is_numeric(trim(explode("\t", $lines[0])[0]))) {
+            $this->command->info("📝 Mendeteksi header, melewati baris pertama: " . substr($lines[0], 0, 100));
+            array_shift($lines);
+        }
 
         $salesData = [];
         $batchSize = 50; // Reduce batch size for better error handling
@@ -70,8 +73,8 @@ class HistorySaleSeeder extends Seeder
             $lineNumber = $index + 2; // +2 karena index dimulai dari 0 dan ada header
 
             try {
-                // Parse each line dengan tab separator
-                $columns = explode("\t", trim($line));
+                // Parse each line dengan tab separator - dengan handling yang lebih robust
+                $columns = explode("\t", $line); // Tidak trim dulu, karena bisa menghilangkan tab
 
                 // Debug: tampilkan progress setiap 100 baris
                 if ($lineNumber % 100 == 0) {
@@ -83,9 +86,14 @@ class HistorySaleSeeder extends Seeder
                     $skippedLines++;
                     $reason = "Baris {$lineNumber} tidak valid (hanya " . count($columns) . " kolom): " . substr($line, 0, 100) . "...";
                     $skippedReasons[] = $reason;
+
+                    // Debug: tampilkan detail parsing untuk troubleshooting
+                    $this->command->warn("Debug baris {$lineNumber}: '" . $line . "'");
+                    $this->command->warn("Kolom yang diparsing: " . print_r($columns, true));
                     continue;
                 }
 
+                // Trim setiap kolom setelah dipisah
                 $id = intval(trim($columns[0]));
                 $trackingNumber = trim($columns[1]);
                 $skuData = trim($columns[2]);
@@ -101,32 +109,51 @@ class HistorySaleSeeder extends Seeder
                     continue;
                 }
 
-                // Validasi tracking number
-                if (empty($trackingNumber)) {
+                // Validasi tracking number - lebih permisif untuk nama panjang
+                if (empty($trackingNumber) || strlen($trackingNumber) < 2) {
                     $skippedLines++;
-                    $reason = "Baris {$lineNumber} tidak memiliki no resi";
+                    $reason = "Baris {$lineNumber} tidak memiliki no resi yang valid: '{$trackingNumber}'";
                     $skippedReasons[] = $reason;
                     continue;
                 }
 
                 // Parse multiple SKUs dan quantities dengan pembersihan yang lebih baik
-                $skus = array_filter(array_map('trim', explode(',', $skuData)), function ($sku) {
-                    return !empty($sku) && strlen($sku) >= 2;
-                });
-                $quantities = array_filter(array_map('intval', array_map('trim', explode(',', $quantityData))), function ($qty) {
-                    return $qty > 0;
-                });
+                $skus = [];
+                $quantities = [];
+
+                // Parse SKU dengan handling yang lebih robust
+                if (!empty($skuData)) {
+                    $skuArray = explode(',', $skuData);
+                    foreach ($skuArray as $sku) {
+                        $cleanSku = trim($sku);
+                        if (!empty($cleanSku) && strlen($cleanSku) >= 2) {
+                            $skus[] = $cleanSku;
+                        }
+                    }
+                }
+
+                // Parse Quantities dengan handling yang lebih robust
+                if (!empty($quantityData)) {
+                    $qtyArray = explode(',', $quantityData);
+                    foreach ($qtyArray as $qty) {
+                        $cleanQty = intval(trim($qty));
+                        if ($cleanQty > 0) {
+                            $quantities[] = $cleanQty;
+                        }
+                    }
+                }
 
                 // Jika tidak ada SKU valid, skip
                 if (empty($skus)) {
                     $skippedLines++;
-                    $reason = "Baris {$lineNumber} tidak memiliki SKU valid";
+                    $reason = "Baris {$lineNumber} tidak memiliki SKU valid. SKU Data: '{$skuData}'";
                     $skippedReasons[] = $reason;
                     continue;
                 }
 
                 // Jika jumlah quantity tidak sama dengan SKU, isi dengan 1
                 if (count($skus) !== count($quantities)) {
+                    $this->command->warn("Baris {$lineNumber}: Jumlah SKU (" . count($skus) . ") != Jumlah QTY (" . count($quantities) . "), menggunakan quantity = 1 untuk semua");
                     $quantities = array_fill(0, count($skus), 1);
                 }
 
@@ -138,15 +165,30 @@ class HistorySaleSeeder extends Seeder
                 $skus = array_values($skus);
                 $quantities = array_values($quantities);
 
+                // Validasi final sebelum insert
+                if (strlen($trackingNumber) > 255) {
+                    $this->command->warn("Baris {$lineNumber}: Tracking number terlalu panjang, memotong ke 255 karakter");
+                    $trackingNumber = substr($trackingNumber, 0, 255);
+                }
+
                 // Buat data untuk insert dengan format yang benar
                 $recordData = [
                     'id' => $id,
                     'no_resi' => $trackingNumber,
-                    'no_sku' => json_encode($skus),
+                    'no_sku' => json_encode($skus, JSON_UNESCAPED_UNICODE),
                     'qty' => json_encode($quantities),
                     'created_at' => $createdAtParsed,
                     'updated_at' => $updatedAtParsed,
                 ];
+
+                // Debug untuk ID tertentu (seperti ID 138)
+                if ($id == 138 || $id == 2) {
+                    $this->command->info("🔍 Debug ID {$id}:");
+                    $this->command->info("- Tracking: '{$trackingNumber}'");
+                    $this->command->info("- SKUs: " . implode(', ', $skus));
+                    $this->command->info("- Quantities: " . implode(', ', $quantities));
+                    $this->command->info("- Created: {$createdAtParsed}");
+                }
 
                 $salesData[] = $recordData;
                 $totalProcessed++;
@@ -176,6 +218,18 @@ class HistorySaleSeeder extends Seeder
         $this->command->info("✅ Berhasil diinsert: {$successfulInserts}");
         $this->command->info("⚠️  Baris dilewati: {$skippedLines}");
         $this->command->info("❌ Gagal diinsert: " . count($failedInserts));
+
+        // Cek database untuk memastikan ID 138 dan 2 berhasil
+        $this->command->info("🔍 VERIFIKASI ID KRITIS:");
+        $checkIds = [138, 2, 1];
+        foreach ($checkIds as $checkId) {
+            $record = \App\Models\HistorySale::find($checkId);
+            if ($record) {
+                $this->command->info("✅ ID {$checkId}: BERHASIL - Resi: {$record->no_resi}");
+            } else {
+                $this->command->error("❌ ID {$checkId}: TIDAK DITEMUKAN");
+            }
+        }
 
         if (!empty($skippedReasons)) {
             $this->command->warn("📋 ALASAN DATA DILEWATI (10 pertama):");
@@ -251,6 +305,7 @@ class HistorySaleSeeder extends Seeder
     private function insertBatch(&$salesData, &$successfulInserts, &$failedInserts, $lineNumber)
     {
         try {
+            // Coba insert batch dulu
             HistorySale::insert($salesData);
             $successfulInserts += count($salesData);
             $this->command->info("✅ Batch berhasil ({$salesData[0]['id']} - {$salesData[count($salesData) - 1]['id']}) = " . count($salesData) . " records");
@@ -258,18 +313,34 @@ class HistorySaleSeeder extends Seeder
             $this->command->error("❌ Gagal menyimpan batch pada sekitar baris {$lineNumber}: " . $e->getMessage());
 
             // Coba insert satu per satu untuk mengetahui data mana yang bermasalah
-            foreach ($salesData as $singleRecord) {
+            $this->command->info("🔄 Mencoba insert satu per satu untuk mengidentifikasi masalah...");
+
+            foreach ($salesData as $index => $singleRecord) {
                 try {
-                    HistorySale::create($singleRecord);
+                    // Cek apakah record dengan ID ini sudah ada
+                    $existingRecord = HistorySale::find($singleRecord['id']);
+                    if ($existingRecord) {
+                        $this->command->warn("⚠️ ID {$singleRecord['id']} sudah ada, melakukan update...");
+                        $existingRecord->update($singleRecord);
+                    } else {
+                        HistorySale::create($singleRecord);
+                    }
+
                     $successfulInserts++;
+                    $this->command->info("✅ Record ID {$singleRecord['id']} berhasil diproses");
                 } catch (\Exception $singleError) {
-                    $failedInserts[] = [
+                    $errorDetails = [
                         'line' => $lineNumber,
                         'id' => $singleRecord['id'],
                         'no_resi' => $singleRecord['no_resi'],
                         'error' => $singleError->getMessage(),
                         'data' => json_encode($singleRecord, JSON_UNESCAPED_UNICODE)
                     ];
+
+                    $failedInserts[] = $errorDetails;
+
+                    $this->command->error("❌ Gagal insert ID {$singleRecord['id']}: " . $singleError->getMessage());
+                    $this->command->error("   Data: " . substr($errorDetails['data'], 0, 200) . "...");
                 }
             }
         }

@@ -9,10 +9,9 @@
 
     <!-- [Page specific CSS] start -->
     <!-- data tables css -->
-    <link rel="stylesheet" href="{{ URL::asset('build/css/plugins/datatables/dataTables.bootstrap5.min.css') }}">
-    <link rel="stylesheet" href="{{ URL::asset('build/css/plugins/datatables/buttons.bootstrap5.min.css') }}">
-    <!-- Choices css -->
-    <link rel="stylesheet" href="{{ URL::asset('build/css/plugins/choices.min.css') }}">
+    <link rel="stylesheet" href="{{ URL::asset('build/css/plugins/dataTables.bootstrap5.min.css') }}">
+    <link rel="stylesheet" href="{{ URL::asset('build/css/plugins/buttons.bootstrap5.min.css') }}">
+    <!-- Choices css is already included in main style.css -->
     <!-- [Page specific CSS] end -->
     <style>
         .form-section {
@@ -190,7 +189,7 @@
                         </button>
                         <div id="filterControls" class="collapse show">
                             <div class="row">
-                                <div class="col-lg-4 col-md-6 col-sm-12 mb-2">
+                                <div class="col-lg-3 col-md-6 col-sm-12 mb-2">
                                     <label for="filter-product" class="form-label small filter-label">Produk</label>
                                     <select class="form-control form-control-sm" name="filter-product" id="filter-product">
                                         <option value="">Semua Produk</option>
@@ -201,7 +200,12 @@
                                         @endforeach
                                     </select>
                                 </div>
-                                <div class="col-lg-4 col-md-6 col-sm-12 mb-2">
+                                <div class="col-lg-3 col-md-6 col-sm-12 mb-2">
+                                    <label for="filter-sku" class="form-label small filter-label">SKU</label>
+                                    <input type="text" class="form-control form-control-sm" name="filter-sku"
+                                        id="filter-sku" placeholder="Cari berdasarkan SKU...">
+                                </div>
+                                <div class="col-lg-3 col-md-6 col-sm-12 mb-2">
                                     <label for="filter-category" class="form-label small filter-label">Kategori</label>
                                     <select class="form-control form-control-sm" name="filter-category"
                                         id="filter-category">
@@ -211,7 +215,7 @@
                                         @endforeach
                                     </select>
                                 </div>
-                                <div class="col-lg-4 col-md-6 col-sm-12 mb-2">
+                                <div class="col-lg-3 col-md-6 col-sm-12 mb-2">
                                     <label for="filter-label" class="form-label small filter-label">Label</label>
                                     <select class="form-control form-control-sm" name="filter-label" id="filter-label">
                                         <option value="">Semua Label</option>
@@ -323,6 +327,7 @@
                     type: "POST",
                     data: function(d) {
                         d.product_id = $('#filter-product').val();
+                        d.sku = $('#filter-sku').val();
                         d.category_product = $('#filter-category').val();
                         d.label = $('#filter-label').val();
                         d._token = "{{ csrf_token() }}";
@@ -434,10 +439,22 @@
                 table.ajax.reload();
             });
 
+            // Apply SKU filter with debounce to avoid too many requests
+            let skuTimeout;
+            $('#filter-sku').on('input', function() {
+                clearTimeout(skuTimeout);
+                skuTimeout = setTimeout(function() {
+                    table.ajax.reload();
+                }, 500); // 500ms delay
+            });
+
             // Clear filters function
             $('#clear-filters').on('click', function() {
                 // Reset product filter
                 filterProductChoices.setChoiceByValue('');
+
+                // Reset SKU filter
+                $('#filter-sku').val('');
 
                 // Reset category and label filters
                 $('#filter-category').val('').trigger('change');
@@ -584,25 +601,23 @@
             });
         });
 
-        // Load the enhanced auto-refresh script
-        $.getScript('{{ asset('js/finished-goods/auto-refresh.js') }}', function() {
-            console.log('Auto-refresh script loaded successfully');
-        }).fail(function(jqxhr, settings, exception) {
-            console.error('Error loading auto-refresh script:', exception);
+        // Auto-refresh functionality
+        console.log('Initializing auto-refresh for finished goods table');
 
-            // Fallback to basic auto-refresh if script fails to load
-            setInterval(function() {
-                if (table) {
-                    table.ajax.reload(null, false); // false = tidak reset pagination
-                }
-            }, 30000); // 30 detik
+        // Auto-refresh every 30 seconds
+        setInterval(function() {
+            if (table) {
+                table.ajax.reload(null, false); // false = tidak reset pagination
+                console.log('Table auto-refreshed');
+            }
+        }, 30000); // 30 detik
 
-            // Optional: Refresh saat tab menjadi aktif kembali
-            document.addEventListener('visibilitychange', function() {
-                if (!document.hidden && table) {
-                    table.ajax.reload(null, false);
-                }
-            });
+        // Refresh when tab becomes active again
+        document.addEventListener('visibilitychange', function() {
+            if (!document.hidden && table) {
+                table.ajax.reload(null, false);
+                console.log('Table refreshed on tab focus');
+            }
         });
     </script>
 

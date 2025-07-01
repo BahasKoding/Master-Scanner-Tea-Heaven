@@ -85,6 +85,11 @@ class FinishedGoodsController extends Controller
                     $query->where('products.label', $request->label);
                 }
 
+                // Filter by SKU if provided
+                if ($request->has('sku') && !empty($request->sku)) {
+                    $query->where('products.sku', 'like', '%' . $request->sku . '%');
+                }
+
                 $dataTable = DataTables::of($query)
                     ->addIndexColumn()
                     ->orderColumn('name_product', function ($query, $order) {
@@ -558,6 +563,11 @@ class FinishedGoodsController extends Controller
             // Filter by label if provided
             if ($request->has('label') && !empty($request->label)) {
                 $query->where('products.label', $request->label);
+            }
+
+            // Filter by SKU if provided
+            if ($request->has('sku') && !empty($request->sku)) {
+                $query->where('products.sku', 'like', '%' . $request->sku . '%');
             }
 
             $dataTable = DataTables::of($query)

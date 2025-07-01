@@ -50,7 +50,7 @@ class DatabaseSeeder extends Seeder
         $this->call([
             BahanBakuSeeder::class,
             ProductSeeder::class,
-            // HistorySaleSeeder::class,
+            HistorySaleSeeder::class, // data 1 juli 2025
         ]);
     }
 
