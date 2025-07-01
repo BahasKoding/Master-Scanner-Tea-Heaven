@@ -6,6 +6,7 @@ use App\Models\Purchase;
 use App\Models\BahanBaku;
 use App\Models\Product;
 use App\Models\InventoryBahanBaku;
+use App\Services\PurchaseService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
@@ -224,8 +225,6 @@ class PurchaseController extends Controller
     public function store(Request $request)
     {
         try {
-            DB::beginTransaction();
-
             // Validate kategori first to determine which table to check
             $request->validate([
                 'kategori' => 'required|in:bahan_baku,finished_goods',
@@ -256,33 +255,30 @@ class PurchaseController extends Controller
             $validated['barang_defect_tanpa_retur'] = $validated['barang_defect_tanpa_retur'] ?? 0;
             $validated['barang_diretur_ke_supplier'] = $validated['barang_diretur_ke_supplier'] ?? 0;
 
-            $purchase = Purchase::create($validated);
-
-            // Update inventory bahan baku jika kategori adalah bahan_baku
-            if ($validated['kategori'] === 'bahan_baku') {
-                InventoryBahanBaku::recalculateStokMasukFromPurchases($validated['bahan_baku_id']);
-            }
+            // Use PurchaseService for consistent stock integration
+            $purchaseService = app(PurchaseService::class);
+            $purchase = $purchaseService->createPurchase($validated);
 
             // Get item name for logging
             if ($validated['kategori'] === 'finished_goods') {
                 $product = Product::find($validated['bahan_baku_id']);
                 $itemName = $product ? $product->name_product : 'Unknown';
                 $satuan = $product ? $product->satuan : 'pcs';
+                $stockType = 'FinishedGoods';
             } else {
                 $bahanBaku = BahanBaku::find($validated['bahan_baku_id']);
                 $itemName = $bahanBaku ? $bahanBaku->full_name : 'Unknown';
                 $satuan = $bahanBaku ? $bahanBaku->satuan : '';
+                $stockType = 'InventoryBahanBaku';
             }
 
             // Log activity
-            addActivity('purchase', 'create', 'Pengguna membuat purchase baru untuk: ' . $itemName . ' sebanyak ' . $purchase->qty_pembelian . ' ' . $satuan, $purchase->id);
-
-            DB::commit();
+            addActivity('purchase', 'create', 'Pengguna membuat purchase baru untuk: ' . $itemName . ' sebanyak ' . $purchase->qty_pembelian . ' ' . $satuan . ' (Stock: ' . $stockType . ' updated)', $purchase->id);
 
             if ($request->ajax()) {
                 return response()->json([
                     'success' => true,
-                    'message' => 'Berhasil! Purchase item telah ditambahkan ke dalam sistem dan inventory telah diperbarui.',
+                    'message' => 'Berhasil! Purchase item telah ditambahkan ke dalam sistem dan inventory ' . strtolower($stockType) . ' telah diperbarui.',
                     'data' => $purchase
                 ]);
             }
@@ -290,7 +286,6 @@ class PurchaseController extends Controller
             return redirect()->route('purchase.index')
                 ->with('success', 'Purchase item berhasil ditambahkan dan inventory telah diperbarui.');
         } catch (ValidationException $e) {
-            DB::rollBack();
             if ($request->ajax()) {
                 return response()->json([
                     'success' => false,
@@ -303,7 +298,6 @@ class PurchaseController extends Controller
                 ->withErrors($e->errors())
                 ->withInput();
         } catch (\Exception $e) {
-            DB::rollBack();
             Log::error('Failed to store purchase', [
                 'error' => $e->getMessage(),
                 'data' => $request->all()
@@ -392,8 +386,6 @@ class PurchaseController extends Controller
     public function update(Request $request, $id)
     {
         try {
-            DB::beginTransaction();
-
             $purchase = Purchase::findOrFail($id);
             $oldBahanBakuId = $purchase->bahan_baku_id;
             $oldKategori = $purchase->kategori;
@@ -424,37 +416,33 @@ class PurchaseController extends Controller
             $validated['barang_diretur_ke_supplier'] = $validated['barang_diretur_ke_supplier'] ?? 0;
 
             $oldItemName = $purchase->item_name;
-            $purchase->update($validated);
 
-            // Update inventory bahan baku - recalculate for affected items
-            if ($oldKategori === 'bahan_baku') {
-                // Recalculate old bahan baku inventory
-                InventoryBahanBaku::recalculateStokMasukFromPurchases($oldBahanBakuId);
-            }
-
-            if ($validated['kategori'] === 'bahan_baku') {
-                // Recalculate new bahan baku inventory
-                InventoryBahanBaku::recalculateStokMasukFromPurchases($validated['bahan_baku_id']);
-            }
+            // Use PurchaseService for consistent stock integration
+            $purchaseService = app(PurchaseService::class);
+            $purchase = $purchaseService->updatePurchase($purchase, $validated);
 
             // Get new item name for logging
             if ($validated['kategori'] === 'finished_goods') {
                 $product = Product::find($validated['bahan_baku_id']);
                 $newItemName = $product ? $product->name_product : 'Unknown';
+                $stockType = 'FinishedGoods';
             } else {
                 $bahanBaku = BahanBaku::find($validated['bahan_baku_id']);
                 $newItemName = $bahanBaku ? $bahanBaku->full_name : 'Unknown';
+                $stockType = 'InventoryBahanBaku';
             }
 
-            // Log activity
-            addActivity('purchase', 'update', 'Pengguna mengubah purchase dari "' . $oldItemName . '" menjadi "' . $newItemName . '"', $purchase->id);
+            // Determine if category changed for logging
+            $categoryChanged = $oldKategori !== $validated['kategori'] ? ' (kategori berubah)' : '';
+            $itemChanged = $oldBahanBakuId !== $validated['bahan_baku_id'] ? ' (item berubah)' : '';
 
-            DB::commit();
+            // Log activity
+            addActivity('purchase', 'update', 'Pengguna mengubah purchase dari "' . $oldItemName . '" menjadi "' . $newItemName . '"' . $categoryChanged . $itemChanged . ' (Stock: ' . $stockType . ' updated)', $purchase->id);
 
             if ($request->ajax()) {
                 return response()->json([
                     'success' => true,
-                    'message' => 'Berhasil! Informasi purchase telah diperbarui dan inventory telah diperbarui.',
+                    'message' => 'Berhasil! Informasi purchase telah diperbarui dan inventory ' . strtolower($stockType) . ' telah diperbarui.',
                     'data' => $purchase
                 ]);
             }
@@ -462,7 +450,6 @@ class PurchaseController extends Controller
             return redirect()->route('purchase.index')
                 ->with('success', 'Purchase berhasil diperbarui dan inventory telah diperbarui.');
         } catch (ValidationException $e) {
-            DB::rollBack();
             if ($request->ajax()) {
                 return response()->json([
                     'success' => false,
@@ -475,7 +462,6 @@ class PurchaseController extends Controller
                 ->withErrors($e->errors())
                 ->withInput();
         } catch (\Exception $e) {
-            DB::rollBack();
             Log::error('Failed to update purchase', [
                 'id' => $id,
                 'error' => $e->getMessage(),
@@ -501,32 +487,26 @@ class PurchaseController extends Controller
     public function destroy($id)
     {
         try {
-            DB::beginTransaction();
-
             $purchase = Purchase::with(['bahanBaku', 'product'])->findOrFail($id);
             $itemName = $purchase->item_name;
             $purchaseId = $purchase->id;
-            $bahanBakuId = $purchase->bahan_baku_id;
             $kategori = $purchase->kategori;
 
-            $purchase->delete();
+            // Determine stock type for logging
+            $stockType = $kategori === 'finished_goods' ? 'FinishedGoods' : 'InventoryBahanBaku';
 
-            // Update inventory bahan baku jika kategori adalah bahan_baku
-            if ($kategori === 'bahan_baku') {
-                InventoryBahanBaku::recalculateStokMasukFromPurchases($bahanBakuId);
-            }
+            // Use PurchaseService for consistent stock integration
+            $purchaseService = app(PurchaseService::class);
+            $result = $purchaseService->deletePurchase($purchase);
 
             // Log activity
-            addActivity('purchase', 'delete', 'Pengguna menghapus purchase: ' . $itemName, $purchaseId);
-
-            DB::commit();
+            addActivity('purchase', 'delete', 'Pengguna menghapus purchase: ' . $itemName . ' (Stock: ' . $stockType . ' updated)', $purchaseId);
 
             return response()->json([
                 'success' => true,
-                'message' => 'Purchase telah berhasil dihapus dari sistem dan inventory telah diperbarui.'
+                'message' => 'Purchase telah berhasil dihapus dari sistem dan inventory ' . strtolower($stockType) . ' telah diperbarui.'
             ]);
         } catch (\Exception $e) {
-            DB::rollBack();
             Log::error('Failed to delete purchase', [
                 'id' => $id,
                 'error' => $e->getMessage()
@@ -545,5 +525,71 @@ class PurchaseController extends Controller
     public function data(Request $request)
     {
         return $this->index($request);
+    }
+
+    /**
+     * Sync purchase data for consistency check
+     */
+    public function syncPurchaseData(Request $request)
+    {
+        try {
+            $purchaseId = $request->get('purchase_id');
+
+            $purchaseService = app(PurchaseService::class);
+            $syncResults = $purchaseService->syncPurchaseData($purchaseId);
+
+            $successCount = collect($syncResults)->where('status', 'success')->count();
+            $errorCount = collect($syncResults)->where('status', 'error')->count();
+
+            // Log activity
+            addActivity('purchase', 'sync', 'Pengguna melakukan sync purchase data (Success: ' . $successCount . ', Error: ' . $errorCount . ')', null);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Sync selesai. Berhasil: ' . $successCount . ', Gagal: ' . $errorCount,
+                'results' => $syncResults
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Failed to sync purchase data', [
+                'error' => $e->getMessage(),
+                'request' => $request->all()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal melakukan sync data purchase.'
+            ], 500);
+        }
+    }
+
+    /**
+     * Get purchase statistics for a specific item
+     */
+    public function getStatistics(Request $request)
+    {
+        try {
+            $validated = $request->validate([
+                'kategori' => 'required|in:bahan_baku,finished_goods',
+                'item_id' => 'required|integer'
+            ]);
+
+            $purchaseService = app(PurchaseService::class);
+            $statistics = $purchaseService->getPurchaseStatistics($validated['kategori'], $validated['item_id']);
+
+            return response()->json([
+                'success' => true,
+                'data' => $statistics
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Failed to get purchase statistics', [
+                'error' => $e->getMessage(),
+                'request' => $request->all()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal mengambil statistik purchase.'
+            ], 500);
+        }
     }
 }

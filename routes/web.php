@@ -157,6 +157,9 @@ Route::middleware(['auth'])->group(function () {
     Route::resource('catatan-produksi', CatatanProduksiController::class);
     Route::get('get-bahan-baku-list', [CatatanProduksiController::class, 'getBahanBakuList'])->name('catatan-produksi.bahan-baku-list');
     Route::get('get-filtered-products-list', [CatatanProduksiController::class, 'getFilteredProductsList'])->name('catatan-produksi.filtered-products-list');
+    Route::post('catatan-produksi/sync', [CatatanProduksiController::class, 'sync'])->name('catatan-produksi.sync');
+    Route::post('catatan-produksi/statistics', [CatatanProduksiController::class, 'statistics'])->name('catatan-produksi.statistics');
+    Route::post('catatan-produksi/verify-consistency', [CatatanProduksiController::class, 'verifyConsistency'])->name('catatan-produksi.verify-consistency');
 
     // Finished Goods routes with custom parameter structure
     Route::prefix('finished-goods')->name('finished-goods.')->group(function () {
@@ -165,6 +168,10 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/{productId}/edit', [FinishedGoodsController::class, 'edit'])->name('edit');
         Route::put('/{productId}', [FinishedGoodsController::class, 'update'])->name('update');
         Route::post('/data', [FinishedGoodsController::class, 'data'])->name('data');
+        Route::post('/sync', [FinishedGoodsController::class, 'sync'])->name('sync');
+        Route::post('/statistics', [FinishedGoodsController::class, 'statistics'])->name('statistics');
+        Route::get('/low-stock', [FinishedGoodsController::class, 'lowStock'])->name('low-stock');
+        Route::post('/verify-consistency', [FinishedGoodsController::class, 'verifyConsistency'])->name('verify-consistency');
     });
 
     Route::resource('bahan-baku', BahanBakuController::class);
@@ -173,6 +180,8 @@ Route::middleware(['auth'])->group(function () {
     // Purchase routes - untuk pembelian bahan baku
     Route::resource('purchase', PurchaseController::class);
     Route::post('purchase/data', [PurchaseController::class, 'data'])->name('purchase.data');
+    Route::post('purchase/sync', [PurchaseController::class, 'syncPurchaseData'])->name('purchase.sync');
+    Route::post('purchase/statistics', [PurchaseController::class, 'getStatistics'])->name('purchase.statistics');
 
     // Purchase Sticker routes - untuk pembelian sticker
     Route::resource('purchase-sticker', PurchaseStickerController::class);
@@ -187,6 +196,8 @@ Route::middleware(['auth'])->group(function () {
         Route::put('/{bahanBakuId}', [InventoryBahanBakuController::class, 'update'])->name('update');
         Route::post('/data', [InventoryBahanBakuController::class, 'data'])->name('data');
         Route::post('/sync-all', [InventoryBahanBakuController::class, 'syncAll'])->name('sync-all');
+        Route::post('/force-sync', [InventoryBahanBakuController::class, 'forceSync'])->name('force-sync');
+        Route::post('/inventory-status', [InventoryBahanBakuController::class, 'getInventoryStatus'])->name('inventory-status');
         Route::get('/low-stock/{threshold?}', [InventoryBahanBakuController::class, 'getLowStock'])->name('low-stock');
     });
 

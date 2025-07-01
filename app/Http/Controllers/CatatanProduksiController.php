@@ -5,21 +5,23 @@ namespace App\Http\Controllers;
 use App\Models\CatatanProduksi;
 use App\Models\Product;
 use App\Models\BahanBaku;
-use App\Models\InventoryBahanBaku;
 use App\Services\ProductionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\DB;
 use Yajra\DataTables\Facades\DataTables;
 use Illuminate\Validation\ValidationException;
 
 class CatatanProduksiController extends Controller
 {
+    protected $productionService;
+
     /**
-     * Constructor to apply permissions middleware
+     * Constructor to apply permissions middleware and inject service
      */
-    public function __construct()
+    public function __construct(ProductionService $productionService)
     {
+        $this->productionService = $productionService;
+
         $this->middleware('permission:Catatan Produksi List', ['only' => ['index']]);
         $this->middleware('permission:Catatan Produksi Create', ['only' => ['store']]);
         $this->middleware('permission:Catatan Produksi Update', ['only' => ['edit', 'update']]);
@@ -277,9 +279,7 @@ class CatatanProduksiController extends Controller
     public function store(Request $request)
     {
         try {
-            DB::beginTransaction();
-
-            // Validate request data with less strict rules for testing
+            // Validate request data
             $validated = $request->validate([
                 'product_id' => 'required|exists:products,id',
                 'packaging' => 'required|string|max:255',
@@ -292,28 +292,15 @@ class CatatanProduksiController extends Controller
                 'total_terpakai.*' => 'required|numeric|min:0',
             ], $this->getValidationMessages());
 
-            // Skip duplicate bahan baku check for testing purposes
-
-            // Skip the total_terpakai calculation check for testing purposes
-
-            // Create catatan produksi using service (with DB transaction)
-            $productionService = app(ProductionService::class);
-            $catatanProduksi = $productionService->createProduction($validated);
-
-            // Update inventory bahan baku - recalculate terpakai for each bahan baku used
-            foreach ($validated['sku_induk'] as $bahanBakuId) {
-                InventoryBahanBaku::recalculateTerpakaiFromProduksi($bahanBakuId);
-            }
+            // Create catatan produksi using service (handles all inventory updates and transactions)
+            $catatanProduksi = $this->productionService->createProduction($validated);
 
             // Get product info for activity log
             $product = Product::find($validated['product_id']);
             $productName = $product ? $product->name_product : 'Unknown Product';
-            $productSku = $product ? $product->sku : 'Unknown SKU';
 
-            // Log activity (simplified)
+            // Log activity
             addActivity('catatan_produksi', 'create', 'Pengguna membuat catatan produksi baru: ' . $productName, $catatanProduksi->id);
-
-            DB::commit();
 
             return response()->json([
                 'success' => true,
@@ -321,14 +308,12 @@ class CatatanProduksiController extends Controller
                 'data' => $catatanProduksi
             ]);
         } catch (ValidationException $e) {
-            DB::rollBack();
             return response()->json([
                 'success' => false,
                 'message' => 'Terjadi Kesalahan',
                 'errors' => $e->errors()
             ], 422);
         } catch (\Exception $e) {
-            DB::rollBack();
             Log::error('Error saat membuat catatan produksi', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
@@ -404,12 +389,7 @@ class CatatanProduksiController extends Controller
     public function update(Request $request, CatatanProduksi $catatanProduksi)
     {
         try {
-            DB::beginTransaction();
-
-            // Store old bahan baku IDs for inventory update
-            $oldBahanBakuIds = $catatanProduksi->sku_induk ?? [];
-
-            // Validate request data with less strict rules for testing
+            // Validate request data
             $validated = $request->validate([
                 'product_id' => 'required|exists:products,id',
                 'packaging' => 'required|string|max:255',
@@ -422,19 +402,12 @@ class CatatanProduksiController extends Controller
                 'total_terpakai.*' => 'required|numeric|min:0',
             ], $this->getValidationMessages());
 
-            // Store old values for logging (simplified)
+            // Store old values for logging
             $oldProduct = Product::find($catatanProduksi->product_id);
             $oldProductName = $oldProduct ? $oldProduct->name_product : 'Unknown Product';
 
-            // Update catatan produksi using service (with DB transaction)
-            $productionService = app(ProductionService::class);
-            $catatanProduksi = $productionService->updateProduction($catatanProduksi, $validated);
-
-            // Update inventory bahan baku - recalculate for both old and new bahan baku
-            $allAffectedBahanBakuIds = array_unique(array_merge($oldBahanBakuIds, $validated['sku_induk']));
-            foreach ($allAffectedBahanBakuIds as $bahanBakuId) {
-                InventoryBahanBaku::recalculateTerpakaiFromProduksi($bahanBakuId);
-            }
+            // Update catatan produksi using service (handles all inventory updates and transactions)
+            $catatanProduksi = $this->productionService->updateProduction($catatanProduksi, $validated);
 
             // Get new product info for logging
             $newProduct = Product::find($validated['product_id']);
@@ -442,10 +415,7 @@ class CatatanProduksiController extends Controller
 
             // Log activity with simplified message
             $logMessage = 'Pengguna mengubah catatan produksi: ' . $oldProductName . ' menjadi ' . $newProductName;
-
             addActivity('catatan_produksi', 'update', $logMessage, $catatanProduksi->id);
-
-            DB::commit();
 
             return response()->json([
                 'success' => true,
@@ -453,14 +423,12 @@ class CatatanProduksiController extends Controller
                 'data' => $catatanProduksi
             ]);
         } catch (ValidationException $e) {
-            DB::rollBack();
             return response()->json([
                 'success' => false,
                 'message' => 'Terjadi Kesalahan',
                 'errors' => $e->errors()
             ], 422);
         } catch (\Exception $e) {
-            DB::rollBack();
             Log::error('Error saat memperbarui catatan produksi', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
@@ -482,11 +450,6 @@ class CatatanProduksiController extends Controller
     public function destroy(CatatanProduksi $catatanProduksi)
     {
         try {
-            DB::beginTransaction();
-
-            // Store bahan baku IDs for inventory update
-            $affectedBahanBakuIds = $catatanProduksi->sku_induk ?? [];
-
             // Get product info before deletion
             $product = Product::find($catatanProduksi->product_id);
             $productName = $product ? $product->name_product : 'Unknown Product';
@@ -510,29 +473,19 @@ class CatatanProduksiController extends Controller
 
             $produksiId = $catatanProduksi->id;
 
-            // Delete catatan produksi using service (with DB transaction)
-            $productionService = app(ProductionService::class);
-            $productionService->deleteProduction($catatanProduksi);
-
-            // Update inventory bahan baku - recalculate terpakai for affected bahan baku
-            foreach ($affectedBahanBakuIds as $bahanBakuId) {
-                InventoryBahanBaku::recalculateTerpakaiFromProduksi($bahanBakuId);
-            }
+            // Delete catatan produksi using service (handles all inventory updates and transactions)
+            $this->productionService->deleteProduction($catatanProduksi);
 
             // Log detailed activity
             $logMessage = 'Pengguna menghapus catatan produksi: Produk: ' . $productName .
                 ', Bahan: ' . implode(', ', $bahanBakuDetails);
-
             addActivity('catatan_produksi', 'delete', $logMessage, $produksiId);
-
-            DB::commit();
 
             return response()->json([
                 'success' => true,
                 'message' => 'Catatan produksi telah berhasil dihapus dari sistem dan inventory telah diperbarui.'
             ]);
         } catch (\Exception $e) {
-            DB::rollBack();
             Log::error('Error saat menghapus catatan produksi', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
@@ -543,6 +496,122 @@ class CatatanProduksiController extends Controller
                 'success' => false,
                 'message' => 'Maaf! Kami tidak dapat menghapus catatan produksi saat ini. Silahkan coba lagi.',
                 'error' => config('app.debug') ? $e->getMessage() : null
+            ], 500);
+        }
+    }
+
+    /**
+     * Sync production data for consistency check
+     */
+    public function sync(Request $request)
+    {
+        try {
+            $productId = $request->input('product_id');
+            $syncResults = $this->productionService->syncProductionData($productId);
+
+            Log::info('Production data sync requested', [
+                'product_id' => $productId,
+                'results' => $syncResults,
+                'user_id' => auth()->id()
+            ]);
+
+            // Log activity
+            $message = $productId
+                ? "Pengguna melakukan sync data produksi untuk produk ID: {$productId}"
+                : "Pengguna melakukan sync data produksi untuk semua produk";
+            addActivity('catatan_produksi', 'sync', $message, null);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Sinkronisasi data produksi selesai',
+                'data' => $syncResults
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error saat sync catatan produksi', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'request' => $request->all()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal melakukan sinkronisasi: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Get production statistics
+     */
+    public function statistics(Request $request)
+    {
+        try {
+            $filters = $request->only(['product_id', 'start_date', 'end_date', 'bahan_baku_id']);
+            $statistics = $this->productionService->getProductionStatistics($filters);
+
+            Log::info('Production statistics requested', [
+                'filters' => $filters,
+                'user_id' => auth()->id()
+            ]);
+
+            // Log activity
+            addActivity('catatan_produksi', 'statistics', 'Pengguna melihat statistik catatan produksi', null);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Statistik catatan produksi berhasil diambil',
+                'data' => $statistics
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error saat mengambil statistik catatan produksi', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'request' => $request->all()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal mengambil statistik: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Verify production data consistency
+     */
+    public function verifyConsistency(Request $request)
+    {
+        try {
+            $productId = $request->input('product_id');
+            $consistencyResults = $this->productionService->verifyProductionConsistency($productId);
+
+            Log::info('Production consistency check requested', [
+                'product_id' => $productId,
+                'results' => $consistencyResults,
+                'user_id' => auth()->id()
+            ]);
+
+            // Log activity
+            $message = $productId
+                ? "Pengguna melakukan verifikasi konsistensi data produksi untuk produk ID: {$productId}"
+                : "Pengguna melakukan verifikasi konsistensi data produksi untuk semua produk";
+            addActivity('catatan_produksi', 'verify', $message, null);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Verifikasi konsistensi data produksi selesai',
+                'data' => $consistencyResults
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error saat verifikasi konsistensi catatan produksi', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'request' => $request->all()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal melakukan verifikasi konsistensi: ' . $e->getMessage()
             ], 500);
         }
     }

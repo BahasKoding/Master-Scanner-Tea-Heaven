@@ -56,7 +56,7 @@ class HistorySaleSeeder extends Seeder
         // Header: ID	No Resi	SKU	Jumlah	Dibuat Pada	Diperbarui Pada
         if (!empty($lines) && !is_numeric(trim(explode("\t", $lines[0])[0]))) {
             $this->command->info("📝 Mendeteksi header, melewati baris pertama: " . substr($lines[0], 0, 100));
-            array_shift($lines);
+        array_shift($lines);
         }
 
         $salesData = [];
@@ -323,7 +323,7 @@ class HistorySaleSeeder extends Seeder
                         $this->command->warn("⚠️ ID {$singleRecord['id']} sudah ada, melakukan update...");
                         $existingRecord->update($singleRecord);
                     } else {
-                        HistorySale::create($singleRecord);
+                    HistorySale::create($singleRecord);
                     }
 
                     $successfulInserts++;

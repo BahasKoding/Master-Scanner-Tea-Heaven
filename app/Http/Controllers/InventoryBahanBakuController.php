@@ -338,7 +338,132 @@ class InventoryBahanBakuController extends Controller
      */
     public function data(Request $request)
     {
-        return $this->index($request);
+        try {
+            // Auto-sync inventory data to ensure consistency with latest production data
+            // Commented out to prevent timeout issues during search
+            // $this->autoSyncInventoryData();
+
+            // Query semua bahan baku dengan LEFT JOIN ke inventory_bahan_bakus
+            $query = BahanBaku::leftJoin('inventory_bahan_bakus', 'bahan_bakus.id', '=', 'inventory_bahan_bakus.bahan_baku_id')
+                ->select([
+                    'bahan_bakus.id as bahan_baku_id',
+                    'bahan_bakus.sku_induk',
+                    'bahan_bakus.nama_barang',
+                    'bahan_bakus.satuan',
+                    'bahan_bakus.kategori',
+                    'inventory_bahan_bakus.id as inventory_id',
+                    'inventory_bahan_bakus.stok_awal',
+                    'inventory_bahan_bakus.stok_masuk',
+                    'inventory_bahan_bakus.terpakai',
+                    'inventory_bahan_bakus.defect',
+                    'inventory_bahan_bakus.live_stok_gudang'
+                ]);
+
+            // Apply filters
+            if ($request->filled('kategori')) {
+                $query->where('bahan_bakus.kategori', $request->kategori);
+            }
+
+            if ($request->filled('sku_induk')) {
+                $query->where('bahan_bakus.sku_induk', 'like', '%' . $request->sku_induk . '%');
+            }
+
+            if ($request->filled('nama_barang')) {
+                $query->where('bahan_bakus.nama_barang', 'like', '%' . $request->nama_barang . '%');
+            }
+
+            return DataTables::of($query)
+                ->addIndexColumn()
+                ->addColumn('action', function ($row) {
+                    return $row->bahan_baku_id;
+                })
+                ->addColumn('kategori_name', function ($row) {
+                    try {
+                        $categories = BahanBaku::getCategoryOptions();
+                        return $categories[$row->kategori] ?? 'Unknown Category';
+                    } catch (\Exception $e) {
+                        Log::error('Error getting category name', ['error' => $e->getMessage()]);
+                        return 'Unknown Category';
+                    }
+                })
+                ->editColumn('stok_awal', function ($row) {
+                    return intval($row->stok_awal ?? 0);
+                })
+                ->editColumn('stok_masuk', function ($row) {
+                    return intval($row->stok_masuk ?? 0);
+                })
+                ->editColumn('terpakai', function ($row) {
+                    return intval($row->terpakai ?? 0);
+                })
+                ->editColumn('defect', function ($row) {
+                    return intval($row->defect ?? 0);
+                })
+                ->editColumn('live_stok_gudang', function ($row) {
+                    return intval($row->live_stok_gudang ?? 0);
+                })
+                ->addColumn('status_stock', function ($row) {
+                    $liveStock = intval($row->live_stok_gudang ?? 0);
+                    if ($liveStock <= 10) {
+                        return '<span class="badge bg-danger">Low Stock</span>';
+                    } elseif ($liveStock <= 30) {
+                        return '<span class="badge bg-warning">Medium Stock</span>';
+                    } else {
+                        return '<span class="badge bg-success">Good Stock</span>';
+                    }
+                })
+                ->rawColumns(['action', 'status_stock'])
+                ->smart(true)
+                ->make(true);
+        } catch (\Exception $e) {
+            Log::error('Inventory Bahan Baku DataTable generation failed', [
+                'error' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString(),
+                'request' => $request->all()
+            ]);
+
+            return response()->json([
+                'draw' => intval($request->get('draw')),
+                'recordsTotal' => 0,
+                'recordsFiltered' => 0,
+                'data' => [],
+                'error' => 'Terjadi kesalahan saat memuat data. Silakan refresh halaman atau hubungi administrator. Error: ' . $e->getMessage()
+            ], 200); // Return 200 to prevent DataTables error popup
+        }
+    }
+
+    /**
+     * Auto-sync inventory data to ensure consistency with production and purchase data
+     */
+    private function autoSyncInventoryData()
+    {
+        try {
+            Log::info('Auto-syncing inventory bahan baku data to ensure consistency');
+
+            $bahanBakus = BahanBaku::all();
+            $syncedCount = 0;
+
+            foreach ($bahanBakus as $bahanBaku) {
+                // Only recalculate if there are related production or purchase records
+                $hasProductionData = \App\Models\CatatanProduksi::whereJsonContains('sku_induk', $bahanBaku->id)->exists();
+                $hasPurchaseData = \App\Models\Purchase::where('bahan_baku_id', $bahanBaku->id)
+                    ->where('kategori', 'bahan_baku')->exists();
+
+                if ($hasProductionData || $hasPurchaseData) {
+                    InventoryBahanBaku::recalculateStokMasukFromPurchases($bahanBaku->id);
+                    InventoryBahanBaku::recalculateTerpakaiFromProduksi($bahanBaku->id);
+                    $syncedCount++;
+                }
+            }
+
+            Log::info("Auto-sync completed: {$syncedCount} bahan baku items synchronized");
+        } catch (\Exception $e) {
+            Log::error('Auto-sync inventory failed', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+        }
     }
 
     /**
@@ -379,6 +504,85 @@ class InventoryBahanBakuController extends Controller
     }
 
     /**
+     * Force sync specific bahan baku inventory
+     * This method is useful when catatan produksi is deleted and we need to ensure consistency
+     */
+    public function forceSync(Request $request)
+    {
+        try {
+            DB::beginTransaction();
+
+            $bahanBakuIds = $request->input('bahan_baku_ids', []);
+
+            // If no specific IDs provided, sync all
+            if (empty($bahanBakuIds)) {
+                return $this->syncAll();
+            }
+
+            $syncedCount = 0;
+            $syncResults = [];
+
+            foreach ($bahanBakuIds as $bahanBakuId) {
+                try {
+                    // Validate bahan baku exists
+                    $bahanBaku = BahanBaku::findOrFail($bahanBakuId);
+
+                    // Recalculate inventory
+                    InventoryBahanBaku::recalculateStokMasukFromPurchases($bahanBakuId);
+                    InventoryBahanBaku::recalculateTerpakaiFromProduksi($bahanBakuId);
+
+                    $syncResults[] = [
+                        'bahan_baku_id' => $bahanBakuId,
+                        'nama_barang' => $bahanBaku->nama_barang,
+                        'status' => 'success'
+                    ];
+
+                    $syncedCount++;
+                } catch (\Exception $e) {
+                    $syncResults[] = [
+                        'bahan_baku_id' => $bahanBakuId,
+                        'status' => 'error',
+                        'error' => $e->getMessage()
+                    ];
+
+                    Log::error('Error syncing specific bahan baku', [
+                        'bahan_baku_id' => $bahanBakuId,
+                        'error' => $e->getMessage()
+                    ]);
+                }
+            }
+
+            DB::commit();
+
+            // Log activity
+            addActivity(
+                'inventory_bahan_baku',
+                'force_sync',
+                'Pengguna melakukan force sync inventory bahan baku untuk ' . count($bahanBakuIds) . ' items',
+                null
+            );
+
+            return response()->json([
+                'success' => true,
+                'message' => "Berhasil! {$syncedCount} dari " . count($bahanBakuIds) . " inventory bahan baku telah disinkronisasi.",
+                'synced_count' => $syncedCount,
+                'results' => $syncResults
+            ]);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Error saat force sync inventory bahan baku', [
+                'error' => $e->getMessage(),
+                'request' => $request->all()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Maaf! Terjadi kesalahan saat force sync data. Silahkan coba lagi.'
+            ], 500);
+        }
+    }
+
+    /**
      * Get low stock items
      */
     public function getLowStock($threshold = 10)
@@ -396,6 +600,65 @@ class InventoryBahanBakuController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Gagal mengambil data stok rendah.'
+            ], 500);
+        }
+    }
+
+    /**
+     * Get real-time inventory status for specific bahan baku
+     */
+    public function getInventoryStatus(Request $request)
+    {
+        try {
+            $bahanBakuId = $request->input('bahan_baku_id');
+
+            if (!$bahanBakuId) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Bahan baku ID diperlukan'
+                ], 400);
+            }
+
+            $bahanBaku = BahanBaku::findOrFail($bahanBakuId);
+            $inventory = InventoryBahanBaku::where('bahan_baku_id', $bahanBakuId)->first();
+
+            // Force recalculate to get real-time data
+            InventoryBahanBaku::recalculateStokMasukFromPurchases($bahanBakuId);
+            InventoryBahanBaku::recalculateTerpakaiFromProduksi($bahanBakuId);
+
+            // Get fresh data
+            $inventory = InventoryBahanBaku::where('bahan_baku_id', $bahanBakuId)->first();
+
+            $response = [
+                'bahan_baku' => [
+                    'id' => $bahanBaku->id,
+                    'sku_induk' => $bahanBaku->sku_induk,
+                    'nama_barang' => $bahanBaku->nama_barang,
+                    'satuan' => $bahanBaku->satuan,
+                    'kategori' => $bahanBaku->kategori
+                ],
+                'inventory' => [
+                    'stok_awal' => $inventory->stok_awal ?? 0,
+                    'stok_masuk' => $inventory->stok_masuk ?? 0,
+                    'terpakai' => $inventory->terpakai ?? 0,
+                    'defect' => $inventory->defect ?? 0,
+                    'live_stok_gudang' => $inventory->live_stok_gudang ?? 0
+                ]
+            ];
+
+            return response()->json([
+                'success' => true,
+                'data' => $response
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error getting inventory status', [
+                'error' => $e->getMessage(),
+                'request' => $request->all()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal mengambil status inventory.'
             ], 500);
         }
     }

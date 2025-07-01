@@ -9,10 +9,9 @@
 
     <!-- [Page specific CSS] start -->
     <!-- data tables css -->
-    <link rel="stylesheet" href="{{ URL::asset('build/css/plugins/datatables/dataTables.bootstrap5.min.css') }}">
-    <link rel="stylesheet" href="{{ URL::asset('build/css/plugins/datatables/buttons.bootstrap5.min.css') }}">
-    <!-- Choices css -->
-    <link rel="stylesheet" href="{{ URL::asset('build/css/plugins/choices.min.css') }}">
+    <link rel="stylesheet" href="{{ URL::asset('build/css/plugins/dataTables.bootstrap5.min.css') }}">
+    <link rel="stylesheet" href="{{ URL::asset('build/css/plugins/buttons.bootstrap5.min.css') }}">
+    <!-- Choices css is already included in main style.css -->
     <!-- [Page specific CSS] end -->
     <style>
         .form-section {
@@ -146,15 +145,18 @@
             vertical-align: middle;
         }
 
-        /* Alert for low stock */
-        .low-stock {
-            background-color: #f8d7da !important;
-            color: #721c24;
+        /* Auto field styling to match finished goods */
+        .auto-field {
+            background-color: #f8f9fa;
+            color: #6c757d;
+            font-weight: bold;
+            cursor: not-allowed;
         }
 
-        .normal-stock {
-            background-color: #d1edff !important;
-            color: #0c5460;
+        .auto-field:disabled {
+            background-color: #e9ecef !important;
+            border-color: #ced4da !important;
+            opacity: 0.8;
         }
     </style>
 @endsection
@@ -167,8 +169,11 @@
             <div class="card">
                 <div class="card-header">
                     <div class="d-flex justify-content-between align-items-center flex-wrap">
-                        <h5 class="mb-2 mb-sm-0">Daftar Inventory Bahan Baku - Semua Bahan Baku</h5>
+                        <h5 class="mb-2 mb-sm-0">Daftar Inventory Bahan Baku - Semua Item</h5>
                         <div class="d-flex flex-wrap">
+                            <button id="sync-inventory" class="btn btn-success me-2 mb-2 mb-sm-0">
+                                <i class="fas fa-sync-alt"></i> Sync Data
+                            </button>
                             <button id="clear-filters" class="btn btn btn-secondary me-2 mb-2 mb-sm-0">
                                 <i class="fas fa-filter"></i> Hapus Filter
                             </button>
@@ -210,6 +215,45 @@
                     </div>
                     <!-- End Filter Section -->
 
+                    <!-- Search Information -->
+                    <div class="alert alert-light border-primary" role="alert">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-search text-primary me-2"></i>
+                            <div>
+                                <small class="text-muted mb-0">
+                                    <strong>Info Pencarian:</strong> Kolom yang dapat dicari menggunakan "Search" adalah:
+                                    <span class="badge bg-primary mx-1">SKU Induk</span>
+                                    <span class="badge bg-success mx-1">Nama Barang</span>
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Info Box -->
+                    <div class="alert alert-info" role="alert">
+                        <h6 class="alert-heading"><i class="fas fa-info-circle"></i> Informasi Input Data</h6>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <p class="mb-1"><strong><i class="fas fa-edit text-primary"></i> Manual Input:</strong>
+                                </p>
+                                <ul class="mb-2">
+                                    <li><strong>Stok Awal:</strong> Input manual oleh user</li>
+                                    <li><strong>Defect:</strong> Input manual oleh user</li>
+                                </ul>
+                            </div>
+                            <div class="col-md-6">
+                                <p class="mb-1"><strong><i class="fas fa-cog text-secondary"></i> Otomatis:</strong></p>
+                                <ul class="mb-2">
+                                    <li><strong>Stok Masuk:</strong> Dari Purchase</li>
+                                    <li><strong>Terpakai:</strong> Dari Catatan Produksi</li>
+                                    <li><strong>Live Stock:</strong> Kalkulasi otomatis</li>
+                                </ul>
+                            </div>
+                        </div>
+                        <small class="text-muted">💡 Field dengan latar abu-abu tidak dapat diedit karena nilainya dihitung
+                            otomatis dari sistem</small>
+                    </div>
+
                     <div class="dt-responsive table-responsive">
                         <table id="inventoryBahanBaku-table" class="table table-striped table-bordered nowrap">
                             <thead>
@@ -223,8 +267,7 @@
                                     <th>Stok Masuk</th>
                                     <th>Terpakai</th>
                                     <th>Defect</th>
-                                    <th>Live Stok</th>
-                                    <th>Status</th>
+                                    <th>Live Stock</th>
                                     <th>Aksi</th>
                                 </tr>
                             </thead>
@@ -268,29 +311,34 @@
 
     <script type="text/javascript">
         $(document).ready(function() {
-            // Initialize choices for category filter
-            var filterCategoryChoices = new Choices('#filter-category', {
-                searchEnabled: true,
-                searchPlaceholderValue: "Cari kategori",
-                itemSelectText: '',
-                placeholder: true,
-                placeholderValue: "Semua Kategori",
-                allowHTML: false
-            });
+            console.log('Initializing inventory bahan baku DataTable...');
 
             // Initialize DataTable
-            var table = $('#inventoryBahanBaku-table').DataTable({
+            let table = $('#inventoryBahanBaku-table').DataTable({
                 processing: true,
                 serverSide: true,
+                responsive: true,
                 ajax: {
-                    url: "{{ route('inventory-bahan-baku.data') }}",
-                    type: "POST",
+                    url: '{{ route('inventory-bahan-baku.data') }}',
+                    type: 'POST',
                     data: function(d) {
+                        d._token = $('meta[name="csrf-token"]').attr('content');
                         d.sku_induk = $('#filter-sku-induk').val();
                         d.nama_barang = $('#filter-nama-barang').val();
                         d.kategori = $('#filter-category').val();
-                        d._token = "{{ csrf_token() }}";
-                        return d;
+                    },
+                    error: function(xhr, error, thrown) {
+                        console.error('DataTables Error:', xhr.responseText);
+                        if (typeof Swal !== 'undefined') {
+                            Swal.fire({
+                                title: 'Error Memuat Data',
+                                text: 'Terjadi kesalahan saat memuat data inventory.',
+                                icon: 'error',
+                                confirmButtonText: 'OK'
+                            });
+                        } else {
+                            alert('Error memuat data: ' + error);
+                        }
                     }
                 },
                 columns: [{
@@ -301,67 +349,74 @@
                     },
                     {
                         data: 'sku_induk',
-                        name: 'sku_induk'
+                        name: 'sku_induk',
+                        searchable: true
                     },
                     {
                         data: 'nama_barang',
-                        name: 'nama_barang'
+                        name: 'nama_barang',
+                        searchable: true
                     },
                     {
                         data: 'kategori_name',
-                        name: 'kategori_name'
+                        name: 'kategori_name',
+                        searchable: true
                     },
                     {
                         data: 'satuan',
-                        name: 'satuan'
+                        name: 'satuan',
+                        searchable: true
                     },
                     {
                         data: 'stok_awal',
                         name: 'stok_awal',
+                        searchable: false,
                         render: function(data, type, row) {
                             return `<input type="number" class="form-control form-control-sm stock-input" 
                                     data-field="stok_awal" data-bahan-baku-id="${row.bahan_baku_id}" 
-                                    value="${data}" min="0" style="width: 80px;">`;
+                                    value="${data || 0}" min="0" style="width: 80px;">`;
                         }
                     },
                     {
                         data: 'stok_masuk',
                         name: 'stok_masuk',
+                        searchable: false,
                         render: function(data, type, row) {
-                            return `<span class="badge bg-info">${data}</span>
-                                    <small class="text-muted d-block">Auto dari Purchase</small>`;
+                            return `<input type="number" class="form-control form-control-sm stock-input auto-field" 
+                                    data-field="stok_masuk" data-bahan-baku-id="${row.bahan_baku_id}" 
+                                    value="${data || 0}" min="0" style="width: 80px;" readonly disabled>
+                                    <small class="text-muted d-block">Auto</small>`;
                         }
                     },
                     {
                         data: 'terpakai',
                         name: 'terpakai',
+                        searchable: false,
                         render: function(data, type, row) {
-                            return `<span class="badge bg-warning">${data}</span>
-                                    <small class="text-muted d-block">Auto dari Produksi</small>`;
+                            return `<input type="number" class="form-control form-control-sm stock-input auto-field" 
+                                    data-field="terpakai" data-bahan-baku-id="${row.bahan_baku_id}" 
+                                    value="${data || 0}" min="0" style="width: 80px;" readonly disabled>
+                                    <small class="text-muted d-block">Auto</small>`;
                         }
                     },
                     {
                         data: 'defect',
                         name: 'defect',
+                        searchable: false,
                         render: function(data, type, row) {
                             return `<input type="number" class="form-control form-control-sm stock-input" 
                                     data-field="defect" data-bahan-baku-id="${row.bahan_baku_id}" 
-                                    value="${data}" min="0" style="width: 80px;">`;
+                                    value="${data || 0}" min="0" style="width: 80px;">`;
                         }
                     },
                     {
                         data: 'live_stok_gudang',
                         name: 'live_stok_gudang',
+                        searchable: false,
                         render: function(data, type, row) {
-                            const stockClass = data <= 10 ? 'bg-danger' : 'bg-primary';
-                            return `<span class="badge ${stockClass} live-stock" data-bahan-baku-id="${row.bahan_baku_id}">${data}</span>`;
+                            return `<span class="badge bg-primary live-stock" data-bahan-baku-id="${row.bahan_baku_id}">${data || 0}</span>
+                                    <small class="text-muted d-block">Auto</small>`;
                         }
-                    },
-                    {
-                        data: 'status_stock',
-                        name: 'status_stock',
-                        orderable: false,
-                        searchable: false
                     },
                     {
                         data: 'action',
@@ -373,8 +428,8 @@
                                 <button type="button" class="btn btn-sm btn-success update-btn" data-id="${row.bahan_baku_id}">
                                     <i class="fas fa-save"></i> Update
                                 </button>
-                                <button type="button" class="btn btn-sm btn-info sync-btn" data-id="${row.bahan_baku_id}">
-                                    <i class="fas fa-sync"></i> Sync
+                                <button type="button" class="btn btn-sm btn-secondary reset-btn" data-id="${row.bahan_baku_id}">
+                                    <i class="fas fa-undo"></i> Reset
                                 </button>
                             `;
                         }
@@ -403,65 +458,72 @@
                 ]
             });
 
+            console.log('DataTable initialized successfully');
+
             // Apply filters when input/dropdown values change
             $('#filter-sku-induk, #filter-nama-barang, #filter-category').on('input change', function() {
+                console.log('Filter changed, reloading table...');
                 table.ajax.reload();
             });
 
             // Clear filters function
             $('#clear-filters').on('click', function() {
-                // Reset all filters
+                console.log('Clearing filters...');
                 $('#filter-sku-induk').val('');
                 $('#filter-nama-barang').val('');
                 $('#filter-category').val('');
-
-                // Reload table
                 table.ajax.reload();
             });
 
+            // Initialize tooltips
+            var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+            var tooltipList = tooltipTriggerList.map(function(tooltipTriggerEl) {
+                return new bootstrap.Tooltip(tooltipTriggerEl);
+            });
+
+            // Update last sync time
+            $('#last-sync').text(new Date().toLocaleTimeString('id-ID'));
+
             // Function to calculate live stock for a specific row
             function calculateRowLiveStock(bahanBakuId) {
+                // Only get values from enabled inputs (manual inputs)
                 const stokAwal = parseInt($(`input[data-bahan-baku-id="${bahanBakuId}"][data-field="stok_awal"]`)
                     .val()) || 0;
                 const defect = parseInt($(`input[data-bahan-baku-id="${bahanBakuId}"][data-field="defect"]`)
                     .val()) || 0;
 
-                // Note: stok_masuk and terpakai are auto-calculated from purchase and production data
-                // We'll just update the display, actual calculation is done on server side
+                // Get auto values from disabled inputs (just for display, but actual calculation will be server-side)
+                const stokMasuk = parseInt($(`input[data-bahan-baku-id="${bahanBakuId}"][data-field="stok_masuk"]`)
+                    .val()) || 0;
+                const terpakai = parseInt($(`input[data-bahan-baku-id="${bahanBakuId}"][data-field="terpakai"]`)
+                    .val()) || 0;
 
-                const $liveStockElement = $(`.live-stock[data-bahan-baku-id="${bahanBakuId}"]`);
+                const liveStock = stokAwal + stokMasuk - terpakai - defect;
+                $(`.live-stock[data-bahan-baku-id="${bahanBakuId}"]`).text(Math.max(0, liveStock));
 
-                // Update badge color based on current stock level
-                const currentStock = parseInt($liveStockElement.text()) || 0;
-                $liveStockElement.removeClass('bg-primary bg-danger');
-                if (currentStock <= 10) {
-                    $liveStockElement.addClass('bg-danger');
-                } else {
-                    $liveStockElement.addClass('bg-primary');
-                }
-
-                return currentStock;
+                return liveStock;
             }
 
-            // Live stock calculation when input changes
-            $(document).on('input', '.stock-input', function() {
+            // Live stock calculation when input changes (only for enabled inputs)
+            $(document).on('input', '.stock-input:not([disabled])', function() {
                 const bahanBakuId = $(this).data('bahan-baku-id');
                 calculateRowLiveStock(bahanBakuId);
             });
 
-            // Update button click
+            // Update button click - only send manual input fields
             $(document).on('click', '.update-btn', function() {
                 const bahanBakuId = $(this).data('id');
+
+                // Only get values from manual input fields (enabled inputs)
                 const stokAwal = parseInt($(
-                        `input[data-bahan-baku-id="${bahanBakuId}"][data-field="stok_awal"]`)
+                    `input[data-bahan-baku-id="${bahanBakuId}"][data-field="stok_awal"]`).val()) || 0;
+                const defect = parseInt($(`input[data-bahan-baku-id="${bahanBakuId}"][data-field="defect"]`)
                     .val()) || 0;
-                const defect = parseInt($(
-                    `input[data-bahan-baku-id="${bahanBakuId}"][data-field="defect"]`).val()) || 0;
 
                 // Disable button during update
                 $(this).prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Updating...');
 
-                // Prepare form data
+                // Prepare form data - only send manual fields
                 const formData = new FormData();
                 formData.append('stok_awal', stokAwal);
                 formData.append('defect', defect);
@@ -487,8 +549,8 @@
                                 position: 'top-end'
                             });
 
-                            // Update live stock display
-                            calculateRowLiveStock(bahanBakuId);
+                            // Reload table to get updated dynamic values
+                            table.ajax.reload(null, false);
                         }
                     },
                     error: function(xhr) {
@@ -524,64 +586,84 @@
                 });
             });
 
-            // Sync button click - recalculate from purchase and production data
-            $(document).on('click', '.sync-btn', function() {
+            // Reset button click - only reset manual fields
+            $(document).on('click', '.reset-btn', function() {
                 const bahanBakuId = $(this).data('id');
 
                 Swal.fire({
-                    title: 'Sinkronisasi Data?',
-                    text: "Sistem akan menghitung ulang stok masuk dari data purchase dan terpakai dari data produksi.",
+                    title: 'Reset Data Manual?',
+                    text: "Apakah Anda yakin ingin mereset data stok manual (Stok Awal & Defect) ke 0?",
                     icon: 'question',
                     showCancelButton: true,
                     confirmButtonColor: '#3085d6',
                     cancelButtonColor: '#d33',
-                    confirmButtonText: 'Ya, Sinkronisasi!',
+                    confirmButtonText: 'Ya, Reset!',
                     cancelButtonText: 'Batal'
                 }).then((result) => {
                     if (result.isConfirmed) {
-                        // Disable button during sync
-                        $(this).prop('disabled', true).html(
-                            '<i class="fas fa-spinner fa-spin"></i> Syncing...');
+                        // Reset only manual input fields to 0
+                        $(`input[data-bahan-baku-id="${bahanBakuId}"][data-field="stok_awal"]`).val(
+                            0);
+                        $(`input[data-bahan-baku-id="${bahanBakuId}"][data-field="defect"]`).val(0);
+                        calculateRowLiveStock(bahanBakuId);
 
-                        $.ajax({
-                            url: `/inventory-bahan-baku/sync-all`,
-                            method: 'POST',
-                            data: {
-                                _token: '{{ csrf_token() }}'
-                            },
-                            success: function(response) {
-                                if (response.success) {
-                                    Swal.fire({
-                                        title: 'Berhasil!',
-                                        text: response.message,
-                                        icon: 'success',
-                                        timer: 2000,
-                                        showConfirmButton: false,
-                                        toast: true,
-                                        position: 'top-end'
-                                    });
-
-                                    // Reload table to show updated data
-                                    table.ajax.reload();
-                                }
-                            },
-                            error: function(xhr) {
-                                Swal.fire({
-                                    title: 'Gagal Sinkronisasi',
-                                    text: xhr.responseJSON?.message ||
-                                        'Tidak dapat melakukan sinkronisasi saat ini.',
-                                    icon: 'error',
-                                    confirmButtonText: 'OK',
-                                    confirmButtonColor: '#3085d6'
-                                });
-                            },
-                            complete: function() {
-                                // Re-enable button
-                                $(`.sync-btn[data-id="${bahanBakuId}"]`).prop(
-                                    'disabled', false).html(
-                                    '<i class="fas fa-sync"></i> Sync');
-                            }
+                        Swal.fire({
+                            title: 'Direset!',
+                            text: 'Data stok manual telah direset ke 0.',
+                            icon: 'success',
+                            timer: 1500,
+                            showConfirmButton: false,
+                            toast: true,
+                            position: 'top-end'
                         });
+                    }
+                });
+            });
+
+            // Sync Inventory Data
+            $('#sync-inventory').on('click', function() {
+                const btn = $(this);
+                const originalText = btn.html();
+
+                btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Syncing...');
+
+                $.ajax({
+                    url: '{{ route('inventory-bahan-baku.sync-all') }}',
+                    type: 'POST',
+                    data: {
+                        _token: $('meta[name="csrf-token"]').attr('content')
+                    },
+                    success: function(response) {
+                        if (response.success) {
+                            Swal.fire({
+                                title: 'Sync Berhasil!',
+                                text: response.message,
+                                icon: 'success',
+                                timer: 2000,
+                                showConfirmButton: false,
+                                toast: true,
+                                position: 'top-end'
+                            });
+                            table.ajax.reload(null, false);
+                        } else {
+                            Swal.fire({
+                                title: 'Sync Gagal!',
+                                text: response.message ||
+                                    'Terjadi kesalahan saat sync data',
+                                icon: 'error'
+                            });
+                        }
+                    },
+                    error: function(xhr) {
+                        console.error('Sync Error:', xhr);
+                        Swal.fire({
+                            title: 'Error!',
+                            text: 'Terjadi kesalahan saat sync data',
+                            icon: 'error'
+                        });
+                    },
+                    complete: function() {
+                        btn.prop('disabled', false).html(originalText);
                     }
                 });
             });

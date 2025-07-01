@@ -6,6 +6,7 @@ use App\Models\FinishedGoods;
 use App\Models\Product;
 use App\Models\CatatanProduksi;
 use App\Models\HistorySale;
+use App\Services\FinishedGoodsService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Yajra\DataTables\Facades\DataTables;
@@ -13,11 +14,15 @@ use Illuminate\Validation\ValidationException;
 
 class FinishedGoodsController extends Controller
 {
+    protected $finishedGoodsService;
+
     /**
-     * Constructor to apply permissions middleware
+     * Constructor to apply permissions middleware and inject service
      */
-    public function __construct()
+    public function __construct(FinishedGoodsService $finishedGoodsService)
     {
+        $this->finishedGoodsService = $finishedGoodsService;
+
         $this->middleware('permission:Finished Goods List', ['only' => ['index']]);
         $this->middleware('permission:Finished Goods Create', ['only' => ['store']]);
         $this->middleware('permission:Finished Goods Update', ['only' => ['edit', 'update']]);
@@ -70,22 +75,19 @@ class FinishedGoodsController extends Controller
                         'finished_goods.updated_at as fg_updated_at'
                     ]);
 
-                // Filter by product if provided
+                // Apply filters
                 if ($request->has('product_id') && !empty($request->product_id)) {
                     $query->where('products.id', $request->product_id);
                 }
 
-                // Filter by category if provided
                 if ($request->has('category_product') && !empty($request->category_product)) {
                     $query->where('products.category_product', $request->category_product);
                 }
 
-                // Filter by label if provided
                 if ($request->has('label') && !empty($request->label)) {
                     $query->where('products.label', $request->label);
                 }
 
-                // Filter by SKU if provided
                 if ($request->has('sku') && !empty($request->sku)) {
                     $query->where('products.sku', 'like', '%' . $request->sku . '%');
                 }
@@ -332,19 +334,8 @@ class FinishedGoodsController extends Controller
                 'defective' => 'required|integer|min:0',
             ], $this->getValidationMessages());
 
-            // Get or create finished goods record
-            $finishedGoods = FinishedGoods::firstOrNew(['product_id' => $validated['product_id']]);
-
-            // Set manual input values
-            $finishedGoods->stok_awal = $validated['stok_awal'];
-            $finishedGoods->defective = $validated['defective'];
-
-            // Auto-calculate stok_masuk and stok_keluar
-            $finishedGoods->updateStokMasukFromCatatanProduksi();
-            $finishedGoods->updateStokKeluarFromHistorySales();
-
-            // Save the record
-            $finishedGoods->save();
+            // Use FinishedGoodsService for consistent transaction handling
+            $finishedGoods = $this->finishedGoodsService->createOrUpdateFinishedGoods($validated);
 
             // Get product name for logging
             $productName = Product::find($validated['product_id'])->name_product;
@@ -359,7 +350,7 @@ class FinishedGoodsController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Berhasil! Data stok finished goods telah diperbarui. Stok masuk dan keluar dihitung otomatis.',
+                'message' => 'Berhasil! Data stok finished goods telah diperbarui dengan service layer. Stok masuk dan keluar dihitung otomatis.',
                 'data' => [
                     'id' => $finishedGoods->id,
                     'product_id' => $finishedGoods->product_id,
@@ -394,23 +385,8 @@ class FinishedGoodsController extends Controller
     public function edit($productId)
     {
         try {
-            // Find the product first
-            $product = Product::findOrFail($productId);
-
-            // Find or create default finished goods record
-            $finishedGoods = FinishedGoods::firstOrNew(['product_id' => $productId]);
-
-            // If it's a new record, set default values
-            if (!$finishedGoods->exists) {
-                $finishedGoods->stok_awal = 0;
-                $finishedGoods->defective = 0;
-                // Auto-calculate stok_masuk and stok_keluar for new records
-                $finishedGoods->updateStokMasukFromCatatanProduksi();
-                $finishedGoods->updateStokKeluarFromHistorySales();
-            }
-
-            // Add product information to the response
-            $finishedGoods->product_id = $productId;
+            // Use FinishedGoodsService to get product data
+            $finishedGoods = $this->finishedGoodsService->getFinishedGoodsForProduct($productId);
 
             // Prepare response data with both static and dynamic values
             $responseData = [
@@ -424,18 +400,18 @@ class FinishedGoodsController extends Controller
                 'stok_masuk_dynamic' => $finishedGoods->stok_masuk_dynamic,
                 'stok_keluar_dynamic' => $finishedGoods->stok_keluar_dynamic,
                 'live_stock_dynamic' => $finishedGoods->live_stock_dynamic,
-                'product_name' => $product->name_product,
-                'product_sku' => $product->sku,
+                'product_name' => $finishedGoods->product->name_product,
+                'product_sku' => $finishedGoods->product->sku,
             ];
 
-            Log::info('Permintaan edit finished goods diterima', [
+            Log::info('Permintaan edit finished goods diterima via service', [
                 'product_id' => $productId,
-                'product_name' => $product->name_product,
+                'product_name' => $finishedGoods->product->name_product,
                 'finished_goods' => $responseData
             ]);
 
             // Log activity
-            addActivity('finished_goods', 'edit', 'Pengguna melihat form edit finished goods untuk produk: ' . $product->name_product, $productId);
+            addActivity('finished_goods', 'edit', 'Pengguna melihat form edit finished goods untuk produk: ' . $finishedGoods->product->name_product, $productId);
 
             return response()->json([
                 'success' => true,
@@ -457,7 +433,7 @@ class FinishedGoodsController extends Controller
     public function update(Request $request, $id)
     {
         try {
-            // PERBAIKAN: Gunakan $id sebagai product_id
+            // Find the product first
             $product = Product::findOrFail($id);
 
             $validated = $request->validate([
@@ -465,22 +441,11 @@ class FinishedGoodsController extends Controller
                 'defective' => 'required|integer|min:0',
             ], $this->getValidationMessages());
 
-            // PERBAIKAN: Gunakan $id sebagai product_id
+            // Get existing finished goods record or create new
             $finishedGoods = FinishedGoods::firstOrNew(['product_id' => $id]);
 
-            // Set manual input values
-            $finishedGoods->stok_awal = $validated['stok_awal'];
-            $finishedGoods->defective = $validated['defective'];
-
-            // Auto-calculate stok_masuk and stok_keluar
-            $finishedGoods->updateStokMasukFromCatatanProduksi();
-            $finishedGoods->updateStokKeluarFromHistorySales();
-
-            // Save the record
-            $finishedGoods->save();
-
-            // Trigger recalculation untuk memastikan live_stock terupdate
-            $finishedGoods->recalculateLiveStock();
+            // Use FinishedGoodsService for consistent transaction handling
+            $finishedGoods = $this->finishedGoodsService->updateFinishedGoods($finishedGoods, $validated);
 
             // Log activity
             $action = $finishedGoods->wasRecentlyCreated ? 'create' : 'update';
@@ -488,11 +453,11 @@ class FinishedGoodsController extends Controller
                 ? 'Pengguna membuat finished goods baru untuk produk: ' . $product->name_product
                 : 'Pengguna memperbarui finished goods untuk produk: ' . $product->name_product;
 
-            addActivity('finished_goods', $action, $message, $finishedGoods->id);
+            addActivity('finished_goods', $action, $message . ' (via service layer)', $finishedGoods->id);
 
             return response()->json([
                 'success' => true,
-                'message' => 'Berhasil! Data stok finished goods telah diperbarui.',
+                'message' => 'Berhasil! Data stok finished goods telah diperbarui dengan service layer.',
                 'data' => [
                     'id' => $finishedGoods->id,
                     'product_id' => $finishedGoods->product_id,
@@ -524,233 +489,124 @@ class FinishedGoodsController extends Controller
      */
     public function data(Request $request)
     {
+        return $this->index($request);
+    }
+
+    /**
+     * Sync finished goods stock data for consistency check
+     */
+    public function sync(Request $request)
+    {
         try {
-            // Validate CSRF token
-            if (!$request->hasValidSignature() && !hash_equals(csrf_token(), $request->get('_token'))) {
-                Log::warning('Invalid CSRF token in finished goods data request', [
-                    'ip' => $request->ip(),
-                    'user_agent' => $request->userAgent()
-                ]);
-            }
+            $productId = $request->get('product_id');
 
-            // Query semua produk dengan LEFT JOIN ke finished_goods
-            $query = Product::leftJoin('finished_goods', 'products.id', '=', 'finished_goods.product_id')
-                ->select([
-                    'products.id as product_id',
-                    'products.sku',
-                    'products.name_product',
-                    'products.packaging',
-                    'products.category_product',
-                    'products.label',
-                    'finished_goods.id as finished_goods_id',
-                    'finished_goods.stok_awal',
-                    'finished_goods.stok_masuk',
-                    'finished_goods.stok_keluar',
-                    'finished_goods.defective',
-                    'finished_goods.live_stock'
-                ]);
+            $syncResults = $this->finishedGoodsService->syncFinishedGoodsStock($productId);
 
-            // Filter by product if provided
-            if ($request->has('product_id') && !empty($request->product_id)) {
-                $query->where('products.id', $request->product_id);
-            }
+            $successCount = collect($syncResults)->where('status', 'success')->count();
+            $errorCount = collect($syncResults)->where('status', 'error')->count();
 
-            // Filter by category if provided
-            if ($request->has('category_product') && !empty($request->category_product)) {
-                $query->where('products.category_product', $request->category_product);
-            }
+            // Log activity
+            $scope = $productId ? 'untuk produk ID: ' . $productId : 'untuk semua produk';
+            addActivity('finished_goods', 'sync', 'Pengguna melakukan sync finished goods stock ' . $scope . ' (Success: ' . $successCount . ', Error: ' . $errorCount . ')', null);
 
-            // Filter by label if provided
-            if ($request->has('label') && !empty($request->label)) {
-                $query->where('products.label', $request->label);
-            }
-
-            // Filter by SKU if provided
-            if ($request->has('sku') && !empty($request->sku)) {
-                $query->where('products.sku', 'like', '%' . $request->sku . '%');
-            }
-
-            $dataTable = DataTables::of($query)
-                ->addIndexColumn()
-                ->addColumn('category_name', function ($row) {
-                    try {
-                        $categories = Product::getCategoryOptions();
-                        return $categories[$row->category_product] ?? 'Unknown Category';
-                    } catch (\Exception $e) {
-                        Log::error('Error getting category name in data method', ['error' => $e->getMessage()]);
-                        return 'Unknown Category';
-                    }
-                })
-                ->addColumn('label_name', function ($row) {
-                    try {
-                        $labels = Product::getLabelOptions();
-                        return $labels[$row->label] ?? '-';
-                    } catch (\Exception $e) {
-                        Log::error('Error getting label name in data method', ['error' => $e->getMessage()]);
-                        return '-';
-                    }
-                })
-                ->addColumn('stok_awal_display', function ($row) {
-                    return $row->stok_awal ?? 0;
-                })
-                ->addColumn('stok_masuk_display', function ($row) {
-                    // Show dynamic value from CatatanProduksi
-                    try {
-                        $dynamicValue = CatatanProduksi::where('product_id', $row->product_id)->sum('quantity');
-                        return $dynamicValue;
-                    } catch (\Exception $e) {
-                        Log::error('Error calculating dynamic stok_masuk in data method', ['error' => $e->getMessage()]);
-                        return $row->stok_masuk ?? 0;
-                    }
-                })
-                ->addColumn('stok_keluar_display', function ($row) {
-                    // Show dynamic value from HistorySale with improved validation
-                    try {
-                        $product = Product::find($row->product_id);
-                        if (!$product) {
-                            Log::warning('Product not found for stok_keluar calculation in data method', ['product_id' => $row->product_id]);
-                            return $row->stok_keluar ?? 0;
-                        }
-
-                        $totalSales = 0;
-                        $historySales = HistorySale::whereNotNull('no_sku')->get();
-
-                        foreach ($historySales as $sale) {
-                            try {
-                                $skuArray = is_string($sale->no_sku) ? json_decode($sale->no_sku, true) : $sale->no_sku;
-                                $qtyArray = is_string($sale->qty) ? json_decode($sale->qty, true) : $sale->qty;
-
-                                // Validate data integrity
-                                if (!is_array($skuArray) || !is_array($qtyArray)) {
-                                    Log::warning('Invalid SKU or QTY data in HistorySale (data method)', [
-                                        'sale_id' => $sale->id,
-                                        'no_sku' => $sale->no_sku,
-                                        'qty' => $sale->qty
-                                    ]);
-                                    continue;
-                                }
-
-                                // Ensure arrays have same length
-                                if (count($skuArray) !== count($qtyArray)) {
-                                    Log::warning('SKU and QTY arrays length mismatch (data method)', [
-                                        'sale_id' => $sale->id,
-                                        'sku_count' => count($skuArray),
-                                        'qty_count' => count($qtyArray)
-                                    ]);
-                                    continue;
-                                }
-
-                                foreach ($skuArray as $index => $sku) {
-                                    // Validate SKU exists in products table
-                                    if (trim($sku) === $product->sku) {
-                                        $quantity = $qtyArray[$index] ?? 0;
-                                        if (is_numeric($quantity) && $quantity > 0) {
-                                            $totalSales += (int)$quantity;
-                                        }
-                                    }
-                                }
-                            } catch (\Exception $saleError) {
-                                Log::error('Error processing individual sale for stok_keluar (data method)', [
-                                    'sale_id' => $sale->id,
-                                    'error' => $saleError->getMessage()
-                                ]);
-                                continue;
-                            }
-                        }
-
-                        return $totalSales;
-                    } catch (\Exception $e) {
-                        Log::error('Error calculating dynamic stok_keluar in data method', [
-                            'product_id' => $row->product_id,
-                            'error' => $e->getMessage(),
-                            'trace' => $e->getTraceAsString()
-                        ]);
-                        return $row->stok_keluar ?? 0;
-                    }
-                })
-                ->addColumn('defective_display', function ($row) {
-                    return $row->defective ?? 0;
-                })
-                ->addColumn('live_stock_display', function ($row) {
-                    // Calculate dynamic live stock with improved validation
-                    try {
-                        $stokAwal = $row->stok_awal ?? 0;
-                        $stokMasuk = CatatanProduksi::where('product_id', $row->product_id)->sum('quantity');
-                        $defective = $row->defective ?? 0;
-
-                        $product = Product::find($row->product_id);
-                        $stokKeluar = 0;
-
-                        if ($product) {
-                            $historySales = HistorySale::whereNotNull('no_sku')->get();
-
-                            foreach ($historySales as $sale) {
-                                try {
-                                    $skuArray = is_string($sale->no_sku) ? json_decode($sale->no_sku, true) : $sale->no_sku;
-                                    $qtyArray = is_string($sale->qty) ? json_decode($sale->qty, true) : $sale->qty;
-
-                                    // Validate data integrity
-                                    if (!is_array($skuArray) || !is_array($qtyArray)) {
-                                        continue;
-                                    }
-
-                                    // Ensure arrays have same length
-                                    if (count($skuArray) !== count($qtyArray)) {
-                                        continue;
-                                    }
-
-                                    foreach ($skuArray as $index => $sku) {
-                                        if (trim($sku) === $product->sku) {
-                                            $quantity = $qtyArray[$index] ?? 0;
-                                            if (is_numeric($quantity) && $quantity > 0) {
-                                                $stokKeluar += (int)$quantity;
-                                            }
-                                        }
-                                    }
-                                } catch (\Exception $saleError) {
-                                    // Skip problematic sales data
-                                    continue;
-                                }
-                            }
-                        }
-
-                        $liveStock = $stokAwal + $stokMasuk - $stokKeluar - $defective;
-                        return max(0, $liveStock); // Ensure not negative
-                    } catch (\Exception $e) {
-                        Log::error('Error calculating dynamic live_stock in data method', [
-                            'product_id' => $row->product_id,
-                            'error' => $e->getMessage()
-                        ]);
-                        return $row->live_stock ?? 0;
-                    }
-                })
-                ->addColumn('action', function ($row) {
-                    return '
-                        <button type="button" class="btn btn-sm btn-warning edit-btn" data-id="' . $row->product_id . '">
-                            <i class="fas fa-edit"></i> Edit Stok
-                        </button>
-                    ';
-                })
-                ->rawColumns(['action'])
-                ->make(true);
-
-            return $dataTable;
+            return response()->json([
+                'success' => true,
+                'message' => 'Sync selesai. Berhasil: ' . $successCount . ', Gagal: ' . $errorCount,
+                'results' => $syncResults
+            ]);
         } catch (\Exception $e) {
-            Log::error('Error in FinishedGoods data method', [
+            Log::error('Failed to sync finished goods stock', [
                 'error' => $e->getMessage(),
-                'file' => $e->getFile(),
-                'line' => $e->getLine(),
-                'trace' => $e->getTraceAsString(),
                 'request' => $request->all()
             ]);
 
             return response()->json([
-                'draw' => intval($request->get('draw')),
-                'recordsTotal' => 0,
-                'recordsFiltered' => 0,
-                'data' => [],
-                'error' => 'Terjadi kesalahan saat memuat data. Silakan refresh halaman atau hubungi administrator.'
-            ], 200); // Return 200 to prevent DataTables error popup
+                'success' => false,
+                'message' => 'Gagal melakukan sync data finished goods stock.'
+            ], 500);
+        }
+    }
+
+    /**
+     * Get finished goods statistics for a specific product
+     */
+    public function statistics(Request $request)
+    {
+        try {
+            $validated = $request->validate([
+                'product_id' => 'required|integer|exists:products,id'
+            ]);
+
+            $statistics = $this->finishedGoodsService->getFinishedGoodsStatistics($validated['product_id']);
+
+            return response()->json([
+                'success' => true,
+                'data' => $statistics
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Failed to get finished goods statistics', [
+                'error' => $e->getMessage(),
+                'request' => $request->all()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal mengambil statistik finished goods.'
+            ], 500);
+        }
+    }
+
+    /**
+     * Get low stock finished goods items
+     */
+    public function lowStock(Request $request)
+    {
+        try {
+            $threshold = $request->get('threshold', 10);
+            $lowStockItems = $this->finishedGoodsService->getLowStockFinishedGoods($threshold);
+
+            return response()->json([
+                'success' => true,
+                'data' => $lowStockItems,
+                'count' => $lowStockItems->count(),
+                'threshold' => $threshold
+            ]);
+                    } catch (\Exception $e) {
+            Log::error('Failed to get low stock finished goods', [
+                            'error' => $e->getMessage(),
+                'request' => $request->all()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal mengambil data finished goods dengan stok rendah.'
+            ], 500);
+        }
+    }
+
+    /**
+     * Verify stock consistency
+     */
+    public function verifyConsistency(Request $request)
+    {
+        try {
+            $productId = $request->get('product_id');
+            $consistencyCheck = $this->finishedGoodsService->verifyStockConsistency($productId);
+
+            return response()->json([
+                'success' => true,
+                'data' => $consistencyCheck
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Failed to verify finished goods stock consistency', [
+                'error' => $e->getMessage(),
+                'request' => $request->all()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal melakukan verifikasi konsistensi stock finished goods.'
+            ], 500);
         }
     }
 }
