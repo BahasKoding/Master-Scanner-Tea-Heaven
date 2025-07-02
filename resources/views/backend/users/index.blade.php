@@ -54,6 +54,10 @@
             background-color: #007bff;
         }
 
+        .bg-secondary {
+            background-color: #6c757d;
+        }
+
         .btn-sm {
             padding: 0.25rem 0.5rem;
             font-size: 0.875rem;
@@ -110,11 +114,19 @@
                                         @endforeach
                                     </td>
                                     <td>
+                                        @php
+                                            $isSuperAdmin = $user->hasRole('Super Admin');
+                                        @endphp
+
                                         @can('Users Update')
-                                            <button type="button" class="btn btn-sm btn-info"
-                                                onclick="editUser({{ $user->id }})">
-                                                <i class="ti ti-edit"></i> Edit
-                                            </button>
+                                            @if (!$isSuperAdmin)
+                                                <button type="button" class="btn btn-sm btn-info"
+                                                    onclick="editUser({{ $user->id }})">
+                                                    <i class="ti ti-edit"></i> Edit
+                                                </button>
+                                            @else
+                                                <span class="badge bg-secondary">Protected</span>
+                                            @endif
                                         @endcan
 
                                         <a href="{{ route('activity.user.show', $user->id) }}"
@@ -123,10 +135,12 @@
                                         </a>
 
                                         @can('Users Delete')
-                                            <button type="button" class="btn btn-sm btn-danger"
-                                                onclick="deleteUser({{ $user->id }})">
-                                                <i class="ti ti-trash"></i> Delete
-                                            </button>
+                                            @if (!$isSuperAdmin)
+                                                <button type="button" class="btn btn-sm btn-danger"
+                                                    onclick="deleteUser({{ $user->id }})">
+                                                    <i class="ti ti-trash"></i> Delete
+                                                </button>
+                                            @endif
                                         @endcan
                                     </td>
                                 </tr>
@@ -327,6 +341,16 @@
                     // Close loading indicator
                     Swal.close();
 
+                    // Check if request failed due to security restrictions
+                    if (data.status === 'error') {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Access Denied',
+                            text: data.message
+                        });
+                        return;
+                    }
+
                     // Debug data in console
                     console.log('User data received:', data);
 
@@ -409,9 +433,12 @@
                             window.location.reload();
                         });
                     } else {
+                        // Handle security restrictions and other errors
+                        const title = data.message && data.message.includes('security') ? 'Security Restriction' :
+                            'Update Failed';
                         Swal.fire({
                             icon: 'error',
-                            title: 'Update Failed',
+                            title: title,
                             text: data.message || 'An error occurred'
                         });
                     }
@@ -482,9 +509,12 @@
                                     window.location.reload();
                                 });
                             } else {
+                                // Handle security restrictions and other errors
+                                const title = data.message && data.message.includes('security') ?
+                                    'Security Restriction' : 'Delete Failed';
                                 Swal.fire({
                                     icon: 'error',
-                                    title: 'Error',
+                                    title: title,
                                     text: data.message || 'Failed to delete user'
                                 });
                             }
