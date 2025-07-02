@@ -126,13 +126,24 @@
                                     <td>
                                         @php
                                             $isSuperAdmin = $user->hasRole('Super Admin');
+                                            $currentUserId = Auth::id();
+                                            $canEditThisUser = true;
+
+                                            // SECURITY: Only Super Admin can edit themselves
+                                            if ($isSuperAdmin && $currentUserId !== $user->id) {
+                                                $canEditThisUser = false;
+                                            }
                                         @endphp
 
                                         @can('Users Update')
-                                            <button type="button" class="btn btn-sm btn-info"
-                                                onclick="editUser({{ $user->id }})">
-                                                <i class="ti ti-edit"></i> Edit
-                                            </button>
+                                            @if ($canEditThisUser)
+                                                <button type="button" class="btn btn-sm btn-info"
+                                                    onclick="editUser({{ $user->id }})">
+                                                    <i class="ti ti-edit"></i> Edit
+                                                </button>
+                                            @else
+                                                <span class="badge bg-secondary">Self-Edit Only</span>
+                                            @endif
                                         @endcan
 
                                         <a href="{{ route('activity.user.show', $user->id) }}"
@@ -352,6 +363,16 @@
                 .then(data => {
                     // Close loading indicator
                     Swal.close();
+
+                    // Check if request failed due to security restrictions
+                    if (data.status === 'error') {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Access Denied',
+                            text: data.message
+                        });
+                        return;
+                    }
 
                     // Debug data in console
                     console.log('User data received:', data);

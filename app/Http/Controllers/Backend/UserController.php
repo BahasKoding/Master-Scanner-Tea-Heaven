@@ -114,6 +114,17 @@ class UserController extends Controller
     public function edit(User $user)
     {
         try {
+            // SECURITY: Only Super Admin can edit themselves
+            if ($user->hasRole('Super Admin')) {
+                // Check if current user is the same Super Admin
+                if (Auth::id() !== $user->id) {
+                    return response()->json([
+                        'status' => 'error',
+                        'message' => 'Only Super Admin can edit their own account for security reasons.'
+                    ], 403);
+                }
+            }
+
             $data = User::with('roles')->findOrFail($user->id);
             return response()->json([
                 'status' => 'success',
@@ -135,6 +146,17 @@ class UserController extends Controller
     public function update(Request $request, User $user)
     {
         try {
+            // SECURITY: Only Super Admin can update themselves
+            if ($user->hasRole('Super Admin')) {
+                // Check if current user is the same Super Admin
+                if (Auth::id() !== $user->id) {
+                    return response()->json([
+                        'status' => 'error',
+                        'message' => 'Only Super Admin can update their own account for security reasons.'
+                    ], 403);
+                }
+            }
+
             Log::info('Update user request', [
                 'user_id' => $user->id,
                 'request_data' => $request->all()
