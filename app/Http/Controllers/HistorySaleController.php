@@ -11,19 +11,16 @@ use Illuminate\Support\Facades\Log;
 /**
  * History Sales Controller
  * -----------------------
- * Current Implementation (Independent Mode):
- * This controller currently operates independently without integration with other modules.
- * It manages history of sales with basic CRUD operations for No Resi and SKUs.
+ * Integrated Implementation:
+ * This controller is fully integrated with inventory management system.
+ * It manages sales transactions with automatic stock adjustments via SalesService.
  * 
- * Future Integration:
- * The controller is designed to be integrated with inventory management in the future.
- * Integration points are marked with "FUTURE INTEGRATION FEATURES" comments.
- * 
- * When implementing integration, you should:
- * 1. Update the store method to adjust product stock levels based on sales
- * 2. Update the update method to handle stock adjustments when SKUs or quantities change
- * 3. Update the destroy/restore methods to handle stock restoration on deletion/restoration
- * 4. Implement proper error handling for inventory constraints
+ * Key Integration Features:
+ * - Automatic inventory updates on create/update/delete operations
+ * - Real-time stock calculation for finished goods
+ * - Transaction-safe operations with rollback support
+ * - Comprehensive activity logging and audit trail
+ * - SKU validation against product master data
  */
 class HistorySaleController extends Controller
 {
@@ -151,23 +148,13 @@ class HistorySaleController extends Controller
             }
 
             // Create record using service (with DB transaction)
+            // This automatically handles inventory updates via SalesService
             $salesService = app(SalesService::class);
             $historySale = $salesService->createSale([
                 'no_resi' => $validatedData['no_resi'],
                 'no_sku' => $skus,
                 'qty' => $quantities,
             ]);
-
-            /**
-             * FUTURE INTEGRATION FEATURES
-             * =========================
-             * The following code would be implemented for integration with inventory management:
-             * 
-             * 1. Update product stock based on each SKU in the sale
-             * 2. Log stock changes in the inventory history
-             * 3. Check minimum stock levels and trigger alerts if needed
-             * 4. Update sales analytics and reporting data
-             */
 
             // Log activity
             addActivity('sales', 'create', 'Pengguna membuat catatan penjualan dengan resi: ' . $noResi, $historySale->id);
@@ -307,21 +294,8 @@ class HistorySaleController extends Controller
                 ], 422);
             }
 
-            /**
-             * FUTURE INTEGRATION FEATURES
-             * =========================
-             * The following would be needed when implementing inventory integration:
-             * 
-             * 1. Get original SKUs and quantities before update
-             * 2. Compare with new SKUs and quantities to determine changes
-             * 3. Adjust product stock levels accordingly:
-             *    - Restore stock for removed SKUs
-             *    - Deduct stock for added SKUs
-             *    - Adjust quantities for modified SKUs
-             * 4. Log all inventory changes with appropriate references
-             */
-
             // Update record using service (with DB transaction)
+            // This automatically handles inventory adjustments via SalesService
             $salesService = app(SalesService::class);
             $historySale = $salesService->updateSale($historySale, [
                 'no_resi' => $validatedData['no_resi'],
