@@ -12,6 +12,7 @@ use App\Models\Sticker;
 use App\Models\Backend\Activity;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
 
 class DashboardController extends Controller
@@ -19,6 +20,11 @@ class DashboardController extends Controller
     public function index(Request $request)
     {
         try {
+            // Get current user and roles
+            $currentUser = Auth::user();
+            $userRoles = $currentUser->roles->pluck('name');
+            $isAdmin = $userRoles->contains('Super Admin') || $userRoles->contains('Admin');
+
             // Simple date range parsing
             $year = (int) $request->get('year', Carbon::now()->year);
             $month = (int) $request->get('month', Carbon::now()->month);
@@ -52,16 +58,16 @@ class DashboardController extends Controller
                 'label' => $label
             ];
 
-            // Get basic master data
+            // Get basic master data - filtered by role
             $masterData = [
                 'total_products' => 0,
                 'total_bahan_baku' => 0,
-                'total_users' => 0,
+                'total_users' => 0, // Only for admins
                 'products_low_stock' => 0,
                 'stickers_need_order' => 0
             ];
 
-            // Try to get real counts safely
+            // Basic data available to all roles
             try {
                 $masterData['total_products'] = Product::count();
             } catch (\Exception $e) {
@@ -73,17 +79,24 @@ class DashboardController extends Controller
                 Log::error('BahanBaku count error: ' . $e->getMessage());
             }
             try {
-                $masterData['total_users'] = User::count();
-            } catch (\Exception $e) {
-                Log::error('User count error: ' . $e->getMessage());
-            }
-            try {
                 $masterData['stickers_need_order'] = Sticker::where('stok_awal', '<', 30)->count();
             } catch (\Exception $e) {
                 Log::error('Sticker count error: ' . $e->getMessage());
             }
 
-            // Get activity data with date filter
+            // Sensitive data only for admins
+            if ($isAdmin) {
+                try {
+                    $masterData['total_users'] = User::count();
+                } catch (\Exception $e) {
+                    Log::error('User count error: ' . $e->getMessage());
+                }
+            } else {
+                // Non-admins don't see user count
+                $masterData['total_users'] = null;
+            }
+
+            // Get activity data with date filter - role-based filtering
             $activityData = [
                 'sales_count' => 0,
                 'production_count' => 0,
@@ -93,44 +106,47 @@ class DashboardController extends Controller
                 'total_purchase_qty' => 0
             ];
 
+            // Basic activity data - available to all roles but may be limited
             try {
-                $activityData['sales_count'] = HistorySale::whereBetween('created_at', [$startDate, $endDate])->count();
+                if ($isAdmin) {
+                    // Admins see all data
+                    $activityData['sales_count'] = HistorySale::whereBetween('created_at', [$startDate, $endDate])->count();
+                    $activityData['production_count'] = CatatanProduksi::whereBetween('created_at', [$startDate, $endDate])->count();
+                    $activityData['purchases_count'] = Purchase::whereBetween('created_at', [$startDate, $endDate])->count();
+                } else {
+                    // Non-admins see limited data (last 30 days only for security)
+                    $limitedStartDate = Carbon::now()->startOfMonth();
+                    $limitedEndDate = Carbon::now()->endOfMonth();
+
+                    $activityData['sales_count'] = HistorySale::whereBetween('created_at', [$limitedStartDate, $limitedEndDate])->count();
+                    $activityData['production_count'] = CatatanProduksi::whereBetween('created_at', [$limitedStartDate, $limitedEndDate])->count();
+                    // Non-admins don't see purchase data
+                    $activityData['purchases_count'] = null;
+                }
             } catch (\Exception $e) {
-                Log::error('Sales count error: ' . $e->getMessage());
-            }
-            try {
-                $activityData['production_count'] = CatatanProduksi::whereBetween('created_at', [$startDate, $endDate])->count();
-            } catch (\Exception $e) {
-                Log::error('Production count error: ' . $e->getMessage());
-            }
-            try {
-                $activityData['purchases_count'] = Purchase::whereBetween('created_at', [$startDate, $endDate])->count();
-            } catch (\Exception $e) {
-                Log::error('Purchase count error: ' . $e->getMessage());
+                Log::error('Activity count error: ' . $e->getMessage());
             }
 
-            // Simple quantity calculations
+            // Quantity calculations - role-based access
             try {
-                $activityData['total_production_qty'] = CatatanProduksi::whereBetween('created_at', [$startDate, $endDate])->sum('quantity') ?? 0;
+                if ($isAdmin) {
+                    $activityData['total_production_qty'] = CatatanProduksi::whereBetween('created_at', [$startDate, $endDate])->sum('quantity') ?? 0;
+                    $activityData['total_purchase_qty'] = Purchase::whereBetween('created_at', [$startDate, $endDate])->sum('qty_pembelian') ?? 0;
+                    $activityData['total_qty_sold'] = HistorySale::getTotalQuantitySold($startDate, $endDate);
+                } else {
+                    // Non-admins see limited quantity data
+                    $limitedStartDate = Carbon::now()->startOfMonth();
+                    $limitedEndDate = Carbon::now()->endOfMonth();
+
+                    $activityData['total_production_qty'] = CatatanProduksi::whereBetween('created_at', [$limitedStartDate, $limitedEndDate])->sum('quantity') ?? 0;
+                    $activityData['total_purchase_qty'] = null; // Hidden for non-admins
+                    $activityData['total_qty_sold'] = HistorySale::getTotalQuantitySold($limitedStartDate, $limitedEndDate);
+                }
             } catch (\Exception $e) {
-                Log::error('Production qty error: ' . $e->getMessage());
+                Log::error('Quantity calculation error: ' . $e->getMessage());
             }
 
-            try {
-                $activityData['total_purchase_qty'] = Purchase::whereBetween('created_at', [$startDate, $endDate])->sum('qty_pembelian') ?? 0;
-            } catch (\Exception $e) {
-                Log::error('Purchase qty error: ' . $e->getMessage());
-            }
-
-            // Calculate total qty sold safely using model method
-            try {
-                $activityData['total_qty_sold'] = HistorySale::getTotalQuantitySold($startDate, $endDate);
-            } catch (\Exception $e) {
-                Log::error('Total qty sold error: ' . $e->getMessage());
-                $activityData['total_qty_sold'] = 0;
-            }
-
-            // Performance data
+            // Performance data - role-based access
             $performanceData = [
                 'top_selling_skus' => [],
                 'recent_sales' => collect(),
@@ -138,33 +154,29 @@ class DashboardController extends Controller
                 'recent_purchases' => collect()
             ];
 
-            // Calculate top selling products safely using model method
             try {
-                $performanceData['top_selling_skus'] = HistorySale::getTopSellingSKUs($startDate, $endDate, 5);
+                if ($isAdmin) {
+                    // Admins see full performance data
+                    $performanceData['top_selling_skus'] = HistorySale::getTopSellingSKUs($startDate, $endDate, 5);
+                    $performanceData['recent_sales'] = HistorySale::whereBetween('created_at', [$startDate, $endDate])->latest()->take(10)->get();
+                    $performanceData['recent_production'] = CatatanProduksi::whereBetween('created_at', [$startDate, $endDate])->latest()->take(10)->get();
+                    $performanceData['recent_purchases'] = Purchase::whereBetween('created_at', [$startDate, $endDate])->latest()->take(10)->get();
+                } else {
+                    // Non-admins see limited performance data (current month only)
+                    $limitedStartDate = Carbon::now()->startOfMonth();
+                    $limitedEndDate = Carbon::now()->endOfMonth();
+
+                    $performanceData['top_selling_skus'] = HistorySale::getTopSellingSKUs($limitedStartDate, $limitedEndDate, 3); // Only top 3
+                    $performanceData['recent_sales'] = HistorySale::whereBetween('created_at', [$limitedStartDate, $limitedEndDate])->latest()->take(5)->get(); // Only 5 recent
+                    $performanceData['recent_production'] = CatatanProduksi::whereBetween('created_at', [$limitedStartDate, $limitedEndDate])->latest()->take(5)->get();
+                    // Recent purchases hidden for non-admins
+                    $performanceData['recent_purchases'] = collect();
+                }
             } catch (\Exception $e) {
-                Log::error('Top selling calculation error: ' . $e->getMessage());
-                $performanceData['top_selling_skus'] = [];
+                Log::error('Performance data error: ' . $e->getMessage());
             }
 
-            try {
-                $performanceData['recent_sales'] = HistorySale::whereBetween('created_at', [$startDate, $endDate])->latest()->take(10)->get();
-            } catch (\Exception $e) {
-                Log::error('Recent sales error: ' . $e->getMessage());
-            }
-
-            try {
-                $performanceData['recent_production'] = CatatanProduksi::whereBetween('created_at', [$startDate, $endDate])->latest()->take(10)->get();
-            } catch (\Exception $e) {
-                Log::error('Recent production error: ' . $e->getMessage());
-            }
-
-            try {
-                $performanceData['recent_purchases'] = Purchase::whereBetween('created_at', [$startDate, $endDate])->latest()->take(10)->get();
-            } catch (\Exception $e) {
-                Log::error('Recent purchases error: ' . $e->getMessage());
-            }
-
-            // System health
+            // System health - only for admins
             $systemHealth = [
                 'total_transactions' => 0,
                 'data_integrity' => 'Good',
@@ -172,24 +184,30 @@ class DashboardController extends Controller
                 'database_status' => 'Connected'
             ];
 
-            try {
-                $systemHealth['total_transactions'] = HistorySale::count() + CatatanProduksi::count() + Purchase::count();
-            } catch (\Exception $e) {
-                Log::error('Total transactions error: ' . $e->getMessage());
+            if ($isAdmin) {
+                try {
+                    $systemHealth['total_transactions'] = HistorySale::count() + CatatanProduksi::count() + Purchase::count();
+
+                    // Get last activity for current user from Activity table
+                    $lastActivity = Activity::where('user_id', auth()->id())
+                        ->latest()
+                        ->first();
+                    $systemHealth['last_activity'] = $lastActivity ? $lastActivity->created_at : null;
+                } catch (\Exception $e) {
+                    Log::error('System health error: ' . $e->getMessage());
+                    $systemHealth['database_status'] = 'Error';
+                }
+            } else {
+                // Non-admins see limited system health
+                $systemHealth = [
+                    'total_transactions' => null, // Hidden
+                    'data_integrity' => 'Good', // Generic status
+                    'last_activity' => null, // Hidden
+                    'database_status' => 'Connected' // Basic status
+                ];
             }
 
-            // Get last activity for current user from Activity table
-            try {
-                $lastActivity = Activity::where('user_id', auth()->id())
-                    ->latest()
-                    ->first();
-                $systemHealth['last_activity'] = $lastActivity ? $lastActivity->created_at : null;
-            } catch (\Exception $e) {
-                Log::error('Last activity error: ' . $e->getMessage());
-                $systemHealth['last_activity'] = null;
-            }
-
-            // Get user activity statistics
+            // Get user activity statistics - personalized for all roles
             $userStats = [
                 'total_logins' => 0,
                 'last_login' => null,
@@ -197,22 +215,20 @@ class DashboardController extends Controller
             ];
 
             try {
-                // Count total logins for current user
+                // All users can see their own stats
                 $userStats['total_logins'] = Activity::where('user_id', auth()->id())
                     ->where('category', 'auth')
                     ->where('action', 'login')
                     ->count();
 
-                // Get last login (excluding current session)
                 $lastLogin = Activity::where('user_id', auth()->id())
                     ->where('category', 'auth')
                     ->where('action', 'login')
                     ->latest()
-                    ->skip(1) // Skip current login
+                    ->skip(1)
                     ->first();
                 $userStats['last_login'] = $lastLogin ? $lastLogin->created_at : null;
 
-                // Count activities today
                 $userStats['activities_today'] = Activity::where('user_id', auth()->id())
                     ->whereDate('created_at', Carbon::today())
                     ->count();
@@ -220,8 +236,13 @@ class DashboardController extends Controller
                 Log::error('User stats error: ' . $e->getMessage());
             }
 
-            // Available years - simple approach
-            $availableYears = [2023, 2024, Carbon::now()->year];
+            // Available years - limited for non-admins
+            if ($isAdmin) {
+                $availableYears = [2023, 2024, Carbon::now()->year];
+            } else {
+                // Non-admins only see current year
+                $availableYears = [Carbon::now()->year];
+            }
             $availableYears = array_unique($availableYears);
             sort($availableYears);
 
@@ -240,6 +261,13 @@ class DashboardController extends Controller
                 12 => 'December'
             ];
 
+            // Add role information to pass to view
+            $roleInfo = [
+                'is_admin' => $isAdmin,
+                'current_role' => $userRoles->first(),
+                'user_name' => $currentUser->name
+            ];
+
             return view('dashboard', [
                 'masterData' => $masterData,
                 'activityData' => $activityData,
@@ -248,27 +276,28 @@ class DashboardController extends Controller
                 'userStats' => $userStats,
                 'dateRange' => $dateRange,
                 'availableYears' => $availableYears,
-                'availableMonths' => $availableMonths
+                'availableMonths' => $availableMonths,
+                'roleInfo' => $roleInfo
             ]);
         } catch (\Exception $e) {
             Log::error('Dashboard Critical Error: ' . $e->getMessage() . ' at line ' . $e->getLine());
 
-            // Ultra-safe fallback
+            // Ultra-safe fallback with minimal data
             return view('dashboard', [
                 'masterData' => [
                     'total_products' => 0,
                     'total_bahan_baku' => 0,
-                    'total_users' => 0,
+                    'total_users' => null,
                     'products_low_stock' => 0,
                     'stickers_need_order' => 0,
                 ],
                 'activityData' => [
                     'sales_count' => 0,
                     'production_count' => 0,
-                    'purchases_count' => 0,
+                    'purchases_count' => null,
                     'total_qty_sold' => 0,
                     'total_production_qty' => 0,
-                    'total_purchase_qty' => 0,
+                    'total_purchase_qty' => null,
                 ],
                 'performanceData' => [
                     'top_selling_skus' => [],
@@ -277,7 +306,7 @@ class DashboardController extends Controller
                     'recent_purchases' => collect(),
                 ],
                 'systemHealth' => [
-                    'total_transactions' => 0,
+                    'total_transactions' => null,
                     'data_integrity' => 'Unknown',
                     'last_activity' => null,
                     'database_status' => 'Error'
@@ -309,6 +338,11 @@ class DashboardController extends Controller
                     10 => 'October',
                     11 => 'November',
                     12 => 'December'
+                ],
+                'roleInfo' => [
+                    'is_admin' => false,
+                    'current_role' => 'Unknown',
+                    'user_name' => 'User'
                 ]
             ]);
         }
