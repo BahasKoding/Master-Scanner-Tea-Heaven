@@ -11,170 +11,236 @@
 </li>
 
 <!-- Master Tables -->
+@php
+    $showMasterData = auth()->user()->can('Product List') || auth()->user()->can('Bahan Baku List');
+@endphp
 
-<li class="pc-item pc-hasmenu">
-    <a href="#!" class="pc-link" data-bs-toggle="collapse" data-bs-target="#masterDataSubmenu" aria-expanded="false"
-        aria-controls="masterDataSubmenu">
-        <span class="pc-micon"><i class="ph-duotone ph-database"></i></span>
-        <span class="pc-mtext">Master Data</span>
-        <span class="pc-arrow"><i data-feather="chevron-right"></i></span>
-    </a>
-    <ul class="pc-submenu collapse" id="masterDataSubmenu">
-        <li class="pc-item"><a class="pc-link" href="{{ route('products.index') }}">
-                <span class="pc-mtext">Products</span>
-            </a></li>
-        <li class="pc-item"><a class="pc-link" href="{{ route('bahan-baku.index') }}">
-                <span class="pc-mtext">Bahan Baku</span>
-            </a></li>
-    </ul>
-</li>
+@if ($showMasterData)
+    <li class="pc-item pc-hasmenu">
+        <a href="#!" class="pc-link" data-bs-toggle="collapse" data-bs-target="#masterDataSubmenu"
+            aria-expanded="false" aria-controls="masterDataSubmenu">
+            <span class="pc-micon"><i class="ph-duotone ph-database"></i></span>
+            <span class="pc-mtext">Master Data</span>
+            <span class="pc-arrow"><i data-feather="chevron-right"></i></span>
+        </a>
+        <ul class="pc-submenu collapse" id="masterDataSubmenu">
+            @can('Product List')
+                <li class="pc-item"><a class="pc-link" href="{{ route('products.index') }}">
+                        <span class="pc-mtext">Products</span>
+                    </a></li>
+            @endcan
+            @can('Bahan Baku List')
+                <li class="pc-item"><a class="pc-link" href="{{ route('bahan-baku.index') }}">
+                        <span class="pc-mtext">Bahan Baku</span>
+                    </a></li>
+            @endcan
+        </ul>
+    </li>
+@endif
 
 <!-- Transaction Tables -->
-<li class="pc-item pc-caption">
-    <label> Transaction Tables</label>
-</li>
-<li class="pc-item pc-hasmenu">
-    <a href="#!" class="pc-link" data-bs-toggle="collapse" data-bs-target="#allTransactionsSubmenu"
-        aria-expanded="false" aria-controls="allTransactionsSubmenu">
-        <span class="pc-micon"><i class="ph-duotone ph-swap"></i></span>
-        <span class="pc-mtext">All Transactions</span>
-        <span class="pc-arrow"><i data-feather="chevron-right"></i></span>
-    </a>
-    <ul class="pc-submenu collapse" id="allTransactionsSubmenu">
-        <!-- Purchase & Procurement -->
-        <li class="pc-item"><a class="pc-link" href="{{ route('purchase.index') }}">
-                <span class="pc-mtext">Purchase Items</span>
-            </a></li>
-        <li class="pc-item"><a class="pc-link" href="{{ route('purchase-sticker.index') }}">
-                <span class="pc-mtext">Purchase Stiker</span>
-            </a></li>
+@php
+    $showTransactions =
+        auth()->user()->can('Purchase List') ||
+        auth()->user()->can('Purchase Stiker List') ||
+        auth()->user()->can('Catatan Produksi List') ||
+        auth()->user()->can('Inventory Bahan Baku List') ||
+        auth()->user()->can('Finished Goods List') ||
+        auth()->user()->can('Sticker List');
+@endphp
 
-        <!-- Production -->
-        <li class="pc-item"><a class="pc-link" href="{{ route('catatan-produksi.index') }}">
-                <span class="pc-mtext">Catatan Produksi</span>
-            </a></li>
+@if ($showTransactions)
+    <li class="pc-item pc-caption">
+        <label> Transaction Tables</label>
+    </li>
+    <li class="pc-item pc-hasmenu">
+        <a href="#!" class="pc-link" data-bs-toggle="collapse" data-bs-target="#allTransactionsSubmenu"
+            aria-expanded="false" aria-controls="allTransactionsSubmenu">
+            <span class="pc-micon"><i class="ph-duotone ph-swap"></i></span>
+            <span class="pc-mtext">All Transactions</span>
+            <span class="pc-arrow"><i data-feather="chevron-right"></i></span>
+        </a>
+        <ul class="pc-submenu collapse" id="allTransactionsSubmenu">
+            <!-- Purchase & Procurement -->
+            @can('Purchase List')
+                <li class="pc-item"><a class="pc-link" href="{{ route('purchase.index') }}">
+                        <span class="pc-mtext">Purchase Items</span>
+                    </a></li>
+            @endcan
+            @can('Purchase Stiker List')
+                <li class="pc-item"><a class="pc-link" href="{{ route('purchase-sticker.index') }}">
+                        <span class="pc-mtext">Purchase Stiker</span>
+                    </a></li>
+            @endcan
 
-        <!-- Inventory -->
-        <li class="pc-item"><a class="pc-link" href="{{ route('inventory-bahan-baku.index') }}">
-                <span class="pc-mtext">Inventory Bahan Baku</span>
-            </a></li>
-        <li class="pc-item"><a class="pc-link" href="{{ route('finished-goods.index') }}">
-                <span class="pc-mtext">Finished Goods Stock</span>
-            </a></li>
-        <li class="pc-item"><a class="pc-link" href="{{ route('stickers.index') }}">
-                <span class="pc-mtext">Sticker Stock</span>
-            </a></li>
+            <!-- Production -->
+            @can('Catatan Produksi List')
+                <li class="pc-item"><a class="pc-link" href="{{ route('catatan-produksi.index') }}">
+                        <span class="pc-mtext">Catatan Produksi</span>
+                    </a></li>
+            @endcan
 
-        <!-- Reports & Analytics -->
-        <!-- TODO: Route belum tersedia - Production Performance
+            <!-- Inventory -->
+            @can('Inventory Bahan Baku List')
+                <li class="pc-item"><a class="pc-link" href="{{ route('inventory-bahan-baku.index') }}">
+                        <span class="pc-mtext">Inventory Bahan Baku</span>
+                    </a></li>
+            @endcan
+            @can('Finished Goods List')
+                <li class="pc-item"><a class="pc-link" href="{{ route('finished-goods.index') }}">
+                        <span class="pc-mtext">Finished Goods Stock</span>
+                    </a></li>
+            @endcan
+            @can('Sticker List')
+                <li class="pc-item"><a class="pc-link" href="{{ route('stickers.index') }}">
+                        <span class="pc-mtext">Sticker Stock</span>
+                    </a></li>
+            @endcan
+
+            <!-- Reports & Analytics -->
+            <!-- TODO: Route belum tersedia - Production Performance
         <li class="pc-item"><a class="pc-link disabled" href="#!"
                 style="color: #6c757d; cursor: not-allowed; pointer-events: none;">
                 <span class="pc-mtext">Production Performance</span>
             </a></li>
         -->
-        <!-- TODO: Route belum tersedia - Material Usage
+            <!-- TODO: Route belum tersedia - Material Usage
         <li class="pc-item"><a class="pc-link disabled" href="#!"
                 style="color: #6c757d; cursor: not-allowed; pointer-events: none;">
                 <span class="pc-mtext">Material Usage</span>
             </a></li>
         -->
-        <!-- TODO: Route belum tersedia - Stock Movement
+            <!-- TODO: Route belum tersedia - Stock Movement
         <li class="pc-item"><a class="pc-link disabled" href="#!"
                 style="color: #6c757d; cursor: not-allowed; pointer-events: none;">
                 <span class="pc-mtext">Stock Movement</span>
             </a></li>
         -->
-        <!-- TODO: Route belum tersedia - Low Stock Alert
+            <!-- TODO: Route belum tersedia - Low Stock Alert
         <li class="pc-item"><a class="pc-link disabled" href="#!"
                 style="color: #6c757d; cursor: not-allowed; pointer-events: none;">
                 <span class="pc-mtext">Low Stock Alert</span>
             </a></li>
         -->
-    </ul>
-</li>
+        </ul>
+    </li>
+@endif
 
 <!-- Sales & Transactions -->
-<li class="pc-item pc-caption">
-    <label>Sales & Transactions</label>
-</li>
-<li class="pc-item pc-hasmenu">
-    <a href="#!" class="pc-link" data-bs-toggle="collapse" data-bs-target="#salesSubmenu" aria-expanded="false"
-        aria-controls="salesSubmenu">
-        <span class="pc-micon"><i class="ph-duotone ph-chart-line-up"></i></span>
-        <span class="pc-mtext">Sales</span>
-        <span class="pc-arrow"><i data-feather="chevron-right"></i></span>
-    </a>
-    <ul class="pc-submenu collapse" id="salesSubmenu">
-        <li class="pc-item"><a class="pc-link" href="{{ route('scanner.index') }}">
-                <span class="pc-mtext">Scanner</span>
-            </a></li>
-        <li class="pc-item"><a class="pc-link" href="{{ route('sales-management.index') }}">
-                <span class="pc-mtext">Sales Management</span>
-            </a></li>
-        <li class="pc-item"><a class="pc-link" href="{{ route('sales-report.index') }}">
-                <span class="pc-mtext">Sales Report</span>
-            </a></li>
-    </ul>
-</li>
+@php
+    $showSales =
+        auth()->user()->can('Sales List') ||
+        auth()
+            ->user()
+            ->hasAnyPermission(['scanner', 'sales management', 'sales report']);
+@endphp
+
+@if ($showSales)
+    <li class="pc-item pc-caption">
+        <label>Sales & Transactions</label>
+    </li>
+    <li class="pc-item pc-hasmenu">
+        <a href="#!" class="pc-link" data-bs-toggle="collapse" data-bs-target="#salesSubmenu" aria-expanded="false"
+            aria-controls="salesSubmenu">
+            <span class="pc-micon"><i class="ph-duotone ph-chart-line-up"></i></span>
+            <span class="pc-mtext">Sales</span>
+            <span class="pc-arrow"><i data-feather="chevron-right"></i></span>
+        </a>
+        <ul class="pc-submenu collapse" id="salesSubmenu">
+            @if (auth()->user()->can('Sales List') || auth()->user()->can('Sales Create'))
+                <li class="pc-item"><a class="pc-link" href="{{ route('scanner.index') }}">
+                        <span class="pc-mtext">Scanner</span>
+                    </a></li>
+            @endif
+            @can('Sales List')
+                <li class="pc-item"><a class="pc-link" href="{{ route('sales-management.index') }}">
+                        <span class="pc-mtext">Sales Management</span>
+                    </a></li>
+            @endcan
+            @if (auth()->user()->can('Sales List') || auth()->user()->can('Reports View'))
+                <li class="pc-item"><a class="pc-link" href="{{ route('sales-report.index') }}">
+                        <span class="pc-mtext">Sales Report</span>
+                    </a></li>
+            @endif
+        </ul>
+    </li>
+@endif
 
 <!-- Reports & Analytics -->
-<li class="pc-item pc-caption">
-    <label> Reports & Analytics</label>
-</li>
-<li class="pc-item pc-hasmenu">
-    <a href="#!" class="pc-link" data-bs-toggle="collapse" data-bs-target="#reportsSubmenu"
-        aria-expanded="false" aria-controls="reportsSubmenu">
-        <span class="pc-micon"><i class="ph-duotone ph-chart-bar"></i></span>
-        <span class="pc-mtext">Reports</span>
-        <span class="pc-arrow"><i data-feather="chevron-right"></i></span>
-    </a>
-    <ul class="pc-submenu collapse" id="reportsSubmenu">
-        <li class="pc-item"><a class="pc-link" href="{{ route('reports.purchase.index') }}">
-                <span class="pc-mtext">Laporan Purchase</span>
-            </a></li>
-        <li class="pc-item"><a class="pc-link" href="{{ route('reports.catatan-produksi.index') }}">
-                <span class="pc-mtext">Laporan Catatan Produksi</span>
-            </a></li>
-        <li class="pc-item"><a class="pc-link" href="{{ route('reports.scanner.index') }}">
-                <span class="pc-mtext">Laporan Scanner</span>
-            </a></li>
-    </ul>
-</li>
+@can('Reports View')
+    <li class="pc-item pc-caption">
+        <label> Reports & Analytics</label>
+    </li>
+    <li class="pc-item pc-hasmenu">
+        <a href="#!" class="pc-link" data-bs-toggle="collapse" data-bs-target="#reportsSubmenu"
+            aria-expanded="false" aria-controls="reportsSubmenu">
+            <span class="pc-micon"><i class="ph-duotone ph-chart-bar"></i></span>
+            <span class="pc-mtext">Reports</span>
+            <span class="pc-arrow"><i data-feather="chevron-right"></i></span>
+        </a>
+        <ul class="pc-submenu collapse" id="reportsSubmenu">
+            <li class="pc-item"><a class="pc-link" href="{{ route('reports.purchase.index') }}">
+                    <span class="pc-mtext">Laporan Purchase</span>
+                </a></li>
+            <li class="pc-item"><a class="pc-link" href="{{ route('reports.catatan-produksi.index') }}">
+                    <span class="pc-mtext">Laporan Catatan Produksi</span>
+                </a></li>
+            <li class="pc-item"><a class="pc-link" href="{{ route('reports.scanner.index') }}">
+                    <span class="pc-mtext">Laporan Scanner</span>
+                </a></li>
+        </ul>
+    </li>
+@endcan
 
 <!-- System -->
-<li class="pc-item pc-caption">
-    <label>System</label>
-</li>
-<li class="pc-item pc-hasmenu">
-    <a href="#!" class="pc-link" data-bs-toggle="collapse" data-bs-target="#systemSubmenu"
-        aria-expanded="false" aria-controls="systemSubmenu">
-        <span class="pc-micon"><i class="ph-duotone ph-shield-check"></i></span>
-        <span class="pc-mtext">User Management</span>
-        <span class="pc-arrow"><i data-feather="chevron-right"></i></span>
-    </a>
-    <ul class="pc-submenu collapse" id="systemSubmenu">
-        <li class="pc-item"><a class="pc-link" href="{{ route('users.index') }}">
-                <span class="pc-mtext">Users</span>
-            </a></li>
-        @if (auth()->user()->hasRole('Super Admin'))
-            <li class="pc-item"><a class="pc-link" href="{{ route('roles.index') }}">
-                    <span class="pc-mtext">Roles</span>
-                </a></li>
-            <li class="pc-item"><a class="pc-link" href="{{ route('permissions.index') }}">
-                    <span class="pc-mtext">Permissions</span>
-                </a></li>
-        @endif
-    </ul>
-</li>
+@php
+    $showUserManagement =
+        auth()->user()->can('Users List') ||
+        auth()->user()->can('Roles List') ||
+        auth()->user()->can('Permissions List');
+@endphp
 
-<li class="pc-item">
-    <a href="{{ route('activity') }}" class="pc-link">
-        <span class="pc-micon">
-            <i class="ph-duotone ph-clock-clockwise"></i>
-        </span>
-        <span class="pc-mtext">Activity Log</span>
-    </a>
-</li>
+@if ($showUserManagement)
+    <li class="pc-item pc-caption">
+        <label>System</label>
+    </li>
+    <li class="pc-item pc-hasmenu">
+        <a href="#!" class="pc-link" data-bs-toggle="collapse" data-bs-target="#systemSubmenu"
+            aria-expanded="false" aria-controls="systemSubmenu">
+            <span class="pc-micon"><i class="ph-duotone ph-shield-check"></i></span>
+            <span class="pc-mtext">User Management</span>
+            <span class="pc-arrow"><i data-feather="chevron-right"></i></span>
+        </a>
+        <ul class="pc-submenu collapse" id="systemSubmenu">
+            @can('Users List')
+                <li class="pc-item"><a class="pc-link" href="{{ route('users.index') }}">
+                        <span class="pc-mtext">Users</span>
+                    </a></li>
+            @endcan
+            @can('Roles List')
+                <li class="pc-item"><a class="pc-link" href="{{ route('roles.index') }}">
+                        <span class="pc-mtext">Roles</span>
+                    </a></li>
+            @endcan
+            @can('Permissions List')
+                <li class="pc-item"><a class="pc-link" href="{{ route('permissions.index') }}">
+                        <span class="pc-mtext">Permissions</span>
+                    </a></li>
+            @endcan
+        </ul>
+    </li>
+@endif
+
+@can('Activity List')
+    <li class="pc-item">
+        <a href="{{ route('activity') }}" class="pc-link">
+            <span class="pc-micon">
+                <i class="ph-duotone ph-clock-clockwise"></i>
+            </span>
+            <span class="pc-mtext">Activity Log</span>
+        </a>
+    </li>
+@endcan
 
 <script>
     document.addEventListener('DOMContentLoaded', function() {

@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\Backend\Activity;
 use Illuminate\Http\Request;
 use App\Models\User;
+use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Auth;
 
 class ActivityController extends Controller
 {
@@ -30,15 +32,26 @@ class ActivityController extends Controller
             return $this->getActivitiesData($request);
         }
 
-        // Get simple filter options
+        // Get simple filter options with role-based filtering
         $categories = Activity::distinct('category')->pluck('category')->filter();
-        $users = User::select('id', 'name')->orderBy('name')->get();
+
+        // Get users list based on current user role
+        $currentUser = Auth::user();
+        $userRoles = $currentUser->roles->pluck('name');
+
+        if ($userRoles->contains('Super Admin') || $userRoles->contains('Admin')) {
+            // Super Admin and Admin can see all users in filter
+            $users = User::select('id', 'name')->orderBy('name')->get();
+        } else {
+            // Other roles can only see themselves in filter
+            $users = User::select('id', 'name')->where('id', $currentUser->id)->get();
+        }
 
         return view('activity', compact('categories', 'users'));
     }
 
     /**
-     * Get activities data for DataTables with optimized queries
+     * Get activities data for DataTables with optimized queries and role-based filtering
      *
      * @param Request $request
      * @return \Illuminate\Http\JsonResponse
@@ -55,6 +68,10 @@ class ActivityController extends Controller
         $userId = $request->get('user_id');
         $date = $request->get('date');
 
+        // Get current user and their roles
+        $currentUser = Auth::user();
+        $userRoles = $currentUser->roles->pluck('name');
+
         // Optimized base query - only select needed columns
         $query = Activity::with(['user:id,name'])
             ->select([
@@ -66,13 +83,22 @@ class ActivityController extends Controller
                 'created_at'
             ]);
 
+        // Apply role-based filtering
+        if (!$userRoles->contains('Super Admin') && !$userRoles->contains('Admin')) {
+            // Non-admin roles can only see their own activities
+            $query->where('user_id', $currentUser->id);
+        }
+
         // Apply simple filters
         if (!empty($category)) {
             $query->where('category', $category);
         }
 
         if (!empty($userId)) {
-            $query->where('user_id', $userId);
+            // Only apply user filter if current user has permission to see other users
+            if ($userRoles->contains('Super Admin') || $userRoles->contains('Admin')) {
+                $query->where('user_id', $userId);
+            }
         }
 
         if (!empty($date)) {
@@ -88,8 +114,13 @@ class ActivityController extends Controller
             });
         }
 
-        // Get total count efficiently
-        $totalRecords = Activity::count();
+        // Get total count efficiently with role filtering
+        $totalRecordsQuery = Activity::query();
+        if (!$userRoles->contains('Super Admin') && !$userRoles->contains('Admin')) {
+            $totalRecordsQuery->where('user_id', $currentUser->id);
+        }
+        $totalRecords = $totalRecordsQuery->count();
+
         $filteredRecords = $query->count();
 
         // Apply pagination and ordering
@@ -105,7 +136,7 @@ class ActivityController extends Controller
                 'created_at' => $activity->created_at->format('Y-m-d H:i'),
                 'category' => $this->getCategoryBadge($activity->category),
                 'action' => $activity->action,
-                'note' => $activity->note ? \Str::limit($activity->note, 50) : '-',
+                'note' => $activity->note ? Str::limit($activity->note, 50) : '-',
                 'user' => $activity->user ? $activity->user->name : 'System'
             ];
         }
@@ -119,13 +150,24 @@ class ActivityController extends Controller
     }
 
     /**
-     * Show activities for a specific user
+     * Show activities for a specific user (with role-based access control)
      *
      * @param int $userId
      * @return \Illuminate\View\View
      */
     public function showUserActivities($userId)
     {
+        $currentUser = Auth::user();
+        $userRoles = $currentUser->roles->pluck('name');
+
+        // Check if user has permission to view other users' activities
+        if (!$userRoles->contains('Super Admin') && !$userRoles->contains('Admin')) {
+            // Non-admin users can only view their own activities
+            if ($userId != $currentUser->id) {
+                abort(403, 'Unauthorized access. You can only view your own activities.');
+            }
+        }
+
         $user = User::findOrFail($userId);
 
         $activities = Activity::where('user_id', $userId)
@@ -137,7 +179,7 @@ class ActivityController extends Controller
     }
 
     /**
-     * Get activities for a specific user (AJAX)
+     * Get activities for a specific user (AJAX) with role-based access control
      *
      * @param Request $request
      * @param int $userId
@@ -145,6 +187,20 @@ class ActivityController extends Controller
      */
     public function getUserActivities(Request $request, $userId)
     {
+        $currentUser = Auth::user();
+        $userRoles = $currentUser->roles->pluck('name');
+
+        // Check if user has permission to view other users' activities
+        if (!$userRoles->contains('Super Admin') && !$userRoles->contains('Admin')) {
+            // Non-admin users can only view their own activities
+            if ($userId != $currentUser->id) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthorized access. You can only view your own activities.'
+                ], 403);
+            }
+        }
+
         $limit = $request->input('limit', 20);
         $category = $request->input('category');
 
