@@ -50,6 +50,10 @@
             color: #000;
         }
 
+        .text-dark {
+            color: #212529 !important;
+        }
+
         .bg-primary {
             background-color: #007bff;
         }
@@ -63,6 +67,12 @@
             font-size: 0.875rem;
             line-height: 1.5;
             border-radius: 0.2rem;
+        }
+
+        .form-control:disabled {
+            background-color: #f8f9fa;
+            opacity: 0.6;
+            cursor: not-allowed;
         }
     </style>
 @endsection
@@ -119,14 +129,10 @@
                                         @endphp
 
                                         @can('Users Update')
-                                            @if (!$isSuperAdmin)
-                                                <button type="button" class="btn btn-sm btn-info"
-                                                    onclick="editUser({{ $user->id }})">
-                                                    <i class="ti ti-edit"></i> Edit
-                                                </button>
-                                            @else
-                                                <span class="badge bg-secondary">Protected</span>
-                                            @endif
+                                            <button type="button" class="btn btn-sm btn-info"
+                                                onclick="editUser({{ $user->id }})">
+                                                <i class="ti ti-edit"></i> Edit
+                                            </button>
                                         @endcan
 
                                         <a href="{{ route('activity.user.show', $user->id) }}"
@@ -140,6 +146,8 @@
                                                     onclick="deleteUser({{ $user->id }})">
                                                     <i class="ti ti-trash"></i> Delete
                                                 </button>
+                                            @else
+                                                <span class="badge bg-warning text-dark">No Delete</span>
                                             @endif
                                         @endcan
                                     </td>
@@ -239,6 +247,10 @@
                                         <option value="{{ $role->name }}">{{ $role->name }}</option>
                                     @endforeach
                                 </select>
+                                <div id="super-admin-warning" class="alert alert-warning mt-2" style="display: none;">
+                                    <small><i class="ti ti-lock"></i> Super Admin role cannot be changed for security
+                                        reasons.</small>
+                                </div>
                             </div>
                         </form>
                     </div>
@@ -341,16 +353,6 @@
                     // Close loading indicator
                     Swal.close();
 
-                    // Check if request failed due to security restrictions
-                    if (data.status === 'error') {
-                        Swal.fire({
-                            icon: 'error',
-                            title: 'Access Denied',
-                            text: data.message
-                        });
-                        return;
-                    }
-
                     // Debug data in console
                     console.log('User data received:', data);
 
@@ -371,7 +373,20 @@
 
                         // Set role if available
                         if (userData.roles && userData.roles.length > 0) {
-                            document.getElementById('edit-role').value = userData.roles[0].name;
+                            const userRole = userData.roles[0].name;
+                            document.getElementById('edit-role').value = userRole;
+
+                            // SECURITY: Disable role change for Super Admin
+                            if (userRole === 'Super Admin') {
+                                document.getElementById('edit-role').disabled = true;
+                                document.getElementById('edit-role').title =
+                                    'Super Admin role cannot be changed for security reasons';
+                                document.getElementById('super-admin-warning').style.display = 'block';
+                            } else {
+                                document.getElementById('edit-role').disabled = false;
+                                document.getElementById('edit-role').title = '';
+                                document.getElementById('super-admin-warning').style.display = 'none';
+                            }
                         }
 
                         // Show modal

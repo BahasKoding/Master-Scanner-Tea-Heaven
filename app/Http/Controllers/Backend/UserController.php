@@ -114,14 +114,6 @@ class UserController extends Controller
     public function edit(User $user)
     {
         try {
-            // SECURITY: Prevent editing Super Admin users
-            if ($user->hasRole('Super Admin')) {
-                return response()->json([
-                    'status' => 'error',
-                    'message' => 'Super Admin users cannot be edited for security reasons.'
-                ], 403);
-            }
-
             $data = User::with('roles')->findOrFail($user->id);
             return response()->json([
                 'status' => 'success',
@@ -143,14 +135,6 @@ class UserController extends Controller
     public function update(Request $request, User $user)
     {
         try {
-            // SECURITY: Prevent updating Super Admin users
-            if ($user->hasRole('Super Admin')) {
-                return response()->json([
-                    'status' => 'error',
-                    'message' => 'Super Admin users cannot be updated for security reasons.'
-                ], 403);
-            }
-
             Log::info('Update user request', [
                 'user_id' => $user->id,
                 'request_data' => $request->all()
@@ -198,6 +182,14 @@ class UserController extends Controller
 
             // Sync roles if role is provided
             if (isset($validatedData['role'])) {
+                // SECURITY: Prevent Super Admin from downgrading their own role
+                if ($user->hasRole('Super Admin') && $validatedData['role'] !== 'Super Admin') {
+                    return response()->json([
+                        'status' => 'error',
+                        'message' => 'Super Admin role cannot be downgraded for security reasons.'
+                    ], 403);
+                }
+
                 $user->syncRoles([$validatedData['role']]);
             }
 
