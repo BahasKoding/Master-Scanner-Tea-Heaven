@@ -458,6 +458,47 @@ class FinishedGoodsService
     }
 
     /**
+     * Reset finished goods to default values
+     *
+     * @param int $productId
+     * @return FinishedGoods
+     */
+    public function resetFinishedGoods(int $productId)
+    {
+        return DB::transaction(function () use ($productId) {
+            try {
+                $product = Product::findOrFail($productId);
+
+                // Reset to default values
+                $finishedGoods = FinishedGoods::updateOrCreate(
+                    ['product_id' => $productId],
+                    [
+                        'stok_awal' => 0,
+                        'defective' => 0
+                    ]
+                );
+
+                // Recalculate stock from related data
+                $this->updateStockFromRelatedData($finishedGoods);
+
+                Log::info('Finished goods reset via service', [
+                    'product_id' => $productId,
+                    'product_name' => $product->name_product,
+                    'finished_goods_id' => $finishedGoods->id
+                ]);
+
+                return $finishedGoods;
+            } catch (\Exception $e) {
+                Log::error('Error resetting finished goods', [
+                    'product_id' => $productId,
+                    'error' => $e->getMessage()
+                ]);
+                throw $e;
+            }
+        });
+    }
+
+    /**
      * Get low stock finished goods
      *
      * @param int $threshold

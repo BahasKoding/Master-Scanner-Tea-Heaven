@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\InventoryBahanBaku;
 use App\Models\BahanBaku;
+use App\Services\InventoryBahanBakuService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
@@ -12,11 +13,15 @@ use Illuminate\Validation\ValidationException;
 
 class InventoryBahanBakuController extends Controller
 {
+    protected $inventoryBahanBakuService;
+
     /**
-     * Constructor to apply permissions middleware
+     * Constructor to apply permissions middleware and inject service
      */
-    public function __construct()
+    public function __construct(InventoryBahanBakuService $inventoryBahanBakuService)
     {
+        $this->inventoryBahanBakuService = $inventoryBahanBakuService;
+
         $this->middleware('permission:Inventory Bahan Baku List', ['only' => ['index', 'data']]);
         $this->middleware('permission:Inventory Bahan Baku Create', ['only' => ['store']]);
         $this->middleware('permission:Inventory Bahan Baku Update', ['only' => ['edit', 'update']]);
@@ -165,30 +170,17 @@ class InventoryBahanBakuController extends Controller
     public function store(Request $request)
     {
         try {
-            DB::beginTransaction();
-
             $validated = $request->validate([
                 'bahan_baku_id' => 'required|exists:bahan_bakus,id',
                 'stok_awal' => 'required|integer|min:0',
                 'defect' => 'required|integer|min:0',
             ], $this->getValidationMessages());
 
-            // Get bahan baku for satuan
-            $bahanBaku = BahanBaku::findOrFail($validated['bahan_baku_id']);
+            // Use InventoryBahanBakuService for consistent transaction handling
+            $inventoryBahanBaku = $this->inventoryBahanBakuService->createOrUpdateInventory($validated);
 
-            // Use updateOrCreate to update existing record or create new one
-            $inventoryBahanBaku = InventoryBahanBaku::updateOrCreate(
-                ['bahan_baku_id' => $validated['bahan_baku_id']],
-                [
-                    'stok_awal' => $validated['stok_awal'],
-                    'defect' => $validated['defect'],
-                    'satuan' => $bahanBaku->satuan
-                ]
-            );
-
-            // Recalculate stok_masuk and terpakai from related data
-            InventoryBahanBaku::recalculateStokMasukFromPurchases($validated['bahan_baku_id']);
-            InventoryBahanBaku::recalculateTerpakaiFromProduksi($validated['bahan_baku_id']);
+            // Get bahan baku name for logging
+            $bahanBaku = BahanBaku::find($validated['bahan_baku_id']);
 
             // Log activity
             $action = $inventoryBahanBaku->wasRecentlyCreated ? 'create' : 'update';
@@ -196,25 +188,21 @@ class InventoryBahanBakuController extends Controller
                 ? 'Pengguna membuat inventory bahan baku baru untuk: ' . $bahanBaku->nama_barang
                 : 'Pengguna memperbarui inventory bahan baku untuk: ' . $bahanBaku->nama_barang;
 
-            addActivity('inventory_bahan_baku', $action, $message, $inventoryBahanBaku->id);
-
-            DB::commit();
+            addActivity('inventory_bahan_baku', $action, $message . ' (via service layer)', $inventoryBahanBaku->id);
 
             return response()->json([
                 'success' => true,
-                'message' => 'Berhasil! Data inventory bahan baku telah diperbarui dan terintegrasi dengan data purchase & produksi.',
+                'message' => 'Berhasil! Data inventory bahan baku telah diperbarui dengan service layer dan terintegrasi dengan data purchase & produksi.',
                 'data' => $inventoryBahanBaku
             ]);
         } catch (ValidationException $e) {
-            DB::rollBack();
             return response()->json([
                 'success' => false,
                 'message' => 'Terjadi Kesalahan',
                 'errors' => $e->errors()
             ], 422);
         } catch (\Exception $e) {
-            DB::rollBack();
-            Log::error('Error saat memperbarui inventory bahan baku', ['error' => $e->getMessage()]);
+            Log::error('Error saat memperbarui inventory bahan baku via service', ['error' => $e->getMessage()]);
             return response()->json([
                 'success' => false,
                 'message' => 'Maaf! Terjadi kesalahan saat memperbarui inventory bahan baku. Silahkan coba lagi.'
@@ -228,41 +216,27 @@ class InventoryBahanBakuController extends Controller
     public function edit($bahanBakuId)
     {
         try {
-            // Find the bahan baku first
-            $bahanBaku = BahanBaku::findOrFail($bahanBakuId);
-
-            // Find or create default inventory bahan baku record
-            $inventoryBahanBaku = InventoryBahanBaku::firstOrNew(['bahan_baku_id' => $bahanBakuId]);
-
-            // If it's a new record, set default values
-            if (!$inventoryBahanBaku->exists) {
-                $inventoryBahanBaku->stok_awal = 0;
-                $inventoryBahanBaku->stok_masuk = 0;
-                $inventoryBahanBaku->terpakai = 0;
-                $inventoryBahanBaku->defect = 0;
-                $inventoryBahanBaku->live_stok_gudang = 0;
-                $inventoryBahanBaku->satuan = $bahanBaku->satuan;
-            }
+            // Use InventoryBahanBakuService to get inventory data
+            $inventoryBahanBaku = $this->inventoryBahanBakuService->getInventoryForBahanBaku($bahanBakuId);
 
             // Add bahan baku information to the response
             $inventoryBahanBaku->bahan_baku_id = $bahanBakuId;
-            $inventoryBahanBaku->bahan_baku = $bahanBaku;
 
-            Log::info('Permintaan edit inventory bahan baku diterima', [
+            Log::info('Permintaan edit inventory bahan baku diterima via service', [
                 'bahan_baku_id' => $bahanBakuId,
-                'nama_barang' => $bahanBaku->nama_barang,
+                'nama_barang' => $inventoryBahanBaku->bahan_baku->nama_barang,
                 'inventory_bahan_baku' => $inventoryBahanBaku->toArray()
             ]);
 
             // Log activity
-            addActivity('inventory_bahan_baku', 'edit', 'Pengguna melihat form edit inventory bahan baku untuk: ' . $bahanBaku->nama_barang, $bahanBakuId);
+            addActivity('inventory_bahan_baku', 'edit', 'Pengguna melihat form edit inventory bahan baku untuk: ' . $inventoryBahanBaku->bahan_baku->nama_barang, $bahanBakuId);
 
             return response()->json([
                 'success' => true,
                 'data' => $inventoryBahanBaku
             ]);
         } catch (\Exception $e) {
-            Log::error('Error pada edit inventory bahan baku', ['error' => $e->getMessage()]);
+            Log::error('Error pada edit inventory bahan baku via service', ['error' => $e->getMessage()]);
 
             return response()->json([
                 'success' => false,
@@ -277,29 +251,16 @@ class InventoryBahanBakuController extends Controller
     public function update(Request $request, $bahanBakuId)
     {
         try {
-            DB::beginTransaction();
-
-            // Validate that the bahan baku exists
-            $bahanBaku = BahanBaku::findOrFail($bahanBakuId);
-
             $validated = $request->validate([
                 'stok_awal' => 'required|integer|min:0',
                 'defect' => 'required|integer|min:0',
             ], $this->getValidationMessages());
 
-            // Use updateOrCreate to update existing record or create new one
-            $inventoryBahanBaku = InventoryBahanBaku::updateOrCreate(
-                ['bahan_baku_id' => $bahanBakuId],
-                [
-                    'stok_awal' => $validated['stok_awal'],
-                    'defect' => $validated['defect'],
-                    'satuan' => $bahanBaku->satuan
-                ]
-            );
+            // Use InventoryBahanBakuService for consistent transaction handling
+            $inventoryBahanBaku = $this->inventoryBahanBakuService->updateInventory($bahanBakuId, $validated);
 
-            // Recalculate stok_masuk and terpakai from related data
-            InventoryBahanBaku::recalculateStokMasukFromPurchases($bahanBakuId);
-            InventoryBahanBaku::recalculateTerpakaiFromProduksi($bahanBakuId);
+            // Get bahan baku name for logging
+            $bahanBaku = BahanBaku::find($bahanBakuId);
 
             // Log activity
             $action = $inventoryBahanBaku->wasRecentlyCreated ? 'create' : 'update';
@@ -307,25 +268,21 @@ class InventoryBahanBakuController extends Controller
                 ? 'Pengguna membuat inventory bahan baku baru untuk: ' . $bahanBaku->nama_barang
                 : 'Pengguna memperbarui inventory bahan baku untuk: ' . $bahanBaku->nama_barang;
 
-            addActivity('inventory_bahan_baku', $action, $message, $inventoryBahanBaku->id);
-
-            DB::commit();
+            addActivity('inventory_bahan_baku', $action, $message . ' (via service layer)', $inventoryBahanBaku->id);
 
             return response()->json([
                 'success' => true,
-                'message' => 'Berhasil! Data inventory bahan baku telah diperbarui dan terintegrasi dengan data purchase & produksi.',
+                'message' => 'Berhasil! Data inventory bahan baku telah diperbarui dengan service layer dan terintegrasi dengan data purchase & produksi.',
                 'data' => $inventoryBahanBaku
             ]);
         } catch (ValidationException $e) {
-            DB::rollBack();
             return response()->json([
                 'success' => false,
                 'message' => 'Terjadi Kesalahan',
                 'errors' => $e->errors()
             ], 422);
         } catch (\Exception $e) {
-            DB::rollBack();
-            Log::error('Error saat memperbarui inventory bahan baku', ['error' => $e->getMessage()]);
+            Log::error('Error saat memperbarui inventory bahan baku via service', ['error' => $e->getMessage()]);
             return response()->json([
                 'success' => false,
                 'message' => 'Maaf! Terjadi kesalahan saat memperbarui inventory bahan baku. Silahkan coba lagi.'
@@ -472,30 +429,20 @@ class InventoryBahanBakuController extends Controller
     public function syncAll()
     {
         try {
-            DB::beginTransaction();
+            // Use InventoryBahanBakuService for consistent transaction handling
+            $syncResults = $this->inventoryBahanBakuService->syncAllInventory();
 
-            $bahanBakus = BahanBaku::all();
-            $syncedCount = 0;
-
-            foreach ($bahanBakus as $bahanBaku) {
-                // Recalculate both stok_masuk and terpakai
-                InventoryBahanBaku::recalculateStokMasukFromPurchases($bahanBaku->id);
-                InventoryBahanBaku::recalculateTerpakaiFromProduksi($bahanBaku->id);
-                $syncedCount++;
-            }
-
-            DB::commit();
-
-            addActivity('inventory_bahan_baku', 'sync', 'Pengguna melakukan sinkronisasi semua data inventory bahan baku (' . $syncedCount . ' items)', null);
+            addActivity('inventory_bahan_baku', 'sync', 'Pengguna melakukan sinkronisasi semua data inventory bahan baku (' . $syncResults['synced_count'] . ' items) via service layer', null);
 
             return response()->json([
                 'success' => true,
-                'message' => 'Berhasil! Semua data inventory bahan baku telah disinkronisasi dengan data purchase dan produksi.',
-                'synced_count' => $syncedCount
+                'message' => 'Berhasil! Semua data inventory bahan baku telah disinkronisasi dengan service layer.',
+                'synced_count' => $syncResults['synced_count'],
+                'total_count' => $syncResults['total_count'],
+                'results' => $syncResults['results']
             ]);
         } catch (\Exception $e) {
-            DB::rollBack();
-            Log::error('Error saat sinkronisasi inventory bahan baku', ['error' => $e->getMessage()]);
+            Log::error('Error saat sinkronisasi inventory bahan baku via service', ['error' => $e->getMessage()]);
             return response()->json([
                 'success' => false,
                 'message' => 'Maaf! Terjadi kesalahan saat sinkronisasi data. Silahkan coba lagi.'
@@ -510,67 +457,28 @@ class InventoryBahanBakuController extends Controller
     public function forceSync(Request $request)
     {
         try {
-            DB::beginTransaction();
-
             $bahanBakuIds = $request->input('bahan_baku_ids', []);
 
-            // If no specific IDs provided, sync all
-            if (empty($bahanBakuIds)) {
-                return $this->syncAll();
-            }
-
-            $syncedCount = 0;
-            $syncResults = [];
-
-            foreach ($bahanBakuIds as $bahanBakuId) {
-                try {
-                    // Validate bahan baku exists
-                    $bahanBaku = BahanBaku::findOrFail($bahanBakuId);
-
-                    // Recalculate inventory
-                    InventoryBahanBaku::recalculateStokMasukFromPurchases($bahanBakuId);
-                    InventoryBahanBaku::recalculateTerpakaiFromProduksi($bahanBakuId);
-
-                    $syncResults[] = [
-                        'bahan_baku_id' => $bahanBakuId,
-                        'nama_barang' => $bahanBaku->nama_barang,
-                        'status' => 'success'
-                    ];
-
-                    $syncedCount++;
-                } catch (\Exception $e) {
-                    $syncResults[] = [
-                        'bahan_baku_id' => $bahanBakuId,
-                        'status' => 'error',
-                        'error' => $e->getMessage()
-                    ];
-
-                    Log::error('Error syncing specific bahan baku', [
-                        'bahan_baku_id' => $bahanBakuId,
-                        'error' => $e->getMessage()
-                    ]);
-                }
-            }
-
-            DB::commit();
+            // Use InventoryBahanBakuService for consistent transaction handling
+            $syncResults = $this->inventoryBahanBakuService->forceSyncInventory($bahanBakuIds);
 
             // Log activity
             addActivity(
                 'inventory_bahan_baku',
                 'force_sync',
-                'Pengguna melakukan force sync inventory bahan baku untuk ' . count($bahanBakuIds) . ' items',
+                'Pengguna melakukan force sync inventory bahan baku untuk ' . $syncResults['total_count'] . ' items via service layer',
                 null
             );
 
             return response()->json([
                 'success' => true,
-                'message' => "Berhasil! {$syncedCount} dari " . count($bahanBakuIds) . " inventory bahan baku telah disinkronisasi.",
-                'synced_count' => $syncedCount,
-                'results' => $syncResults
+                'message' => "Berhasil! {$syncResults['synced_count']} dari {$syncResults['total_count']} inventory bahan baku telah disinkronisasi dengan service layer.",
+                'synced_count' => $syncResults['synced_count'],
+                'total_count' => $syncResults['total_count'],
+                'results' => $syncResults['results']
             ]);
         } catch (\Exception $e) {
-            DB::rollBack();
-            Log::error('Error saat force sync inventory bahan baku', [
+            Log::error('Error saat force sync inventory bahan baku via service', [
                 'error' => $e->getMessage(),
                 'request' => $request->all()
             ]);
@@ -588,15 +496,17 @@ class InventoryBahanBakuController extends Controller
     public function getLowStock($threshold = 10)
     {
         try {
-            $lowStockItems = InventoryBahanBaku::getLowStockItems($threshold);
+            // Use InventoryBahanBakuService for consistent data handling
+            $lowStockItems = $this->inventoryBahanBakuService->getLowStockItems($threshold);
 
             return response()->json([
                 'success' => true,
                 'data' => $lowStockItems,
-                'count' => $lowStockItems->count()
+                'count' => $lowStockItems->count(),
+                'threshold' => $threshold
             ]);
         } catch (\Exception $e) {
-            Log::error('Error getting low stock items', ['error' => $e->getMessage()]);
+            Log::error('Error getting low stock items via service', ['error' => $e->getMessage()]);
             return response()->json([
                 'success' => false,
                 'message' => 'Gagal mengambil data stok rendah.'
@@ -619,39 +529,15 @@ class InventoryBahanBakuController extends Controller
                 ], 400);
             }
 
-            $bahanBaku = BahanBaku::findOrFail($bahanBakuId);
-            $inventory = InventoryBahanBaku::where('bahan_baku_id', $bahanBakuId)->first();
-
-            // Force recalculate to get real-time data
-            InventoryBahanBaku::recalculateStokMasukFromPurchases($bahanBakuId);
-            InventoryBahanBaku::recalculateTerpakaiFromProduksi($bahanBakuId);
-
-            // Get fresh data
-            $inventory = InventoryBahanBaku::where('bahan_baku_id', $bahanBakuId)->first();
-
-            $response = [
-                'bahan_baku' => [
-                    'id' => $bahanBaku->id,
-                    'sku_induk' => $bahanBaku->sku_induk,
-                    'nama_barang' => $bahanBaku->nama_barang,
-                    'satuan' => $bahanBaku->satuan,
-                    'kategori' => $bahanBaku->kategori
-                ],
-                'inventory' => [
-                    'stok_awal' => $inventory->stok_awal ?? 0,
-                    'stok_masuk' => $inventory->stok_masuk ?? 0,
-                    'terpakai' => $inventory->terpakai ?? 0,
-                    'defect' => $inventory->defect ?? 0,
-                    'live_stok_gudang' => $inventory->live_stok_gudang ?? 0
-                ]
-            ];
+            // Use InventoryBahanBakuService for consistent data handling
+            $inventoryStatus = $this->inventoryBahanBakuService->getInventoryStatus($bahanBakuId);
 
             return response()->json([
                 'success' => true,
-                'data' => $response
+                'data' => $inventoryStatus
             ]);
         } catch (\Exception $e) {
-            Log::error('Error getting inventory status', [
+            Log::error('Error getting inventory status via service', [
                 'error' => $e->getMessage(),
                 'request' => $request->all()
             ]);
@@ -659,6 +545,70 @@ class InventoryBahanBakuController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Gagal mengambil status inventory.'
+            ], 500);
+        }
+    }
+
+    /**
+     * Reset inventory bahan baku to default values
+     */
+    public function reset($bahanBakuId)
+    {
+        try {
+            // Use InventoryBahanBakuService for consistent transaction handling
+            $inventoryBahanBaku = $this->inventoryBahanBakuService->resetInventory($bahanBakuId);
+
+            // Get bahan baku name for logging
+            $bahanBaku = BahanBaku::find($bahanBakuId);
+
+            // Log activity
+            addActivity('inventory_bahan_baku', 'reset', 'Pengguna mereset inventory bahan baku untuk: ' . $bahanBaku->nama_barang . ' (via service layer)', $inventoryBahanBaku->id);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Berhasil! Data inventory bahan baku telah direset dengan service layer.',
+                'data' => $inventoryBahanBaku
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error saat reset inventory bahan baku via service', [
+                'bahan_baku_id' => $bahanBakuId,
+                'error' => $e->getMessage()
+            ]);
+            return response()->json([
+                'success' => false,
+                'message' => 'Maaf! Terjadi kesalahan saat reset inventory bahan baku. Silahkan coba lagi.'
+            ], 500);
+        }
+    }
+
+    /**
+     * Verify inventory consistency
+     */
+    public function verifyConsistency(Request $request)
+    {
+        try {
+            $bahanBakuId = $request->get('bahan_baku_id');
+
+            // Use InventoryBahanBakuService for consistency check
+            $consistencyResults = $this->inventoryBahanBakuService->verifyInventoryConsistency($bahanBakuId);
+
+            // Log activity
+            $scope = $bahanBakuId ? 'untuk bahan baku ID: ' . $bahanBakuId : 'untuk semua bahan baku';
+            addActivity('inventory_bahan_baku', 'verify_consistency', 'Pengguna melakukan verifikasi konsistensi inventory ' . $scope . ' via service layer', null);
+
+            return response()->json([
+                'success' => true,
+                'data' => $consistencyResults
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error verifying inventory consistency via service', [
+                'error' => $e->getMessage(),
+                'request' => $request->all()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal melakukan verifikasi konsistensi inventory.'
             ], 500);
         }
     }

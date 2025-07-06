@@ -512,7 +512,7 @@ class CatatanProduksiController extends Controller
             Log::info('Production data sync requested', [
                 'product_id' => $productId,
                 'results' => $syncResults,
-                'user_id' => auth()->id()
+                'user_id' => auth()->user()->id ?? null
             ]);
 
             // Log activity
@@ -588,7 +588,7 @@ class CatatanProduksiController extends Controller
             Log::info('Production consistency check requested', [
                 'product_id' => $productId,
                 'results' => $consistencyResults,
-                'user_id' => auth()->id()
+                'user_id' => auth()->user()->id ?? null
             ]);
 
             // Log activity

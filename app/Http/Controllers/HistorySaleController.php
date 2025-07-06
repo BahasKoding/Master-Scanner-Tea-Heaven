@@ -874,12 +874,7 @@ class HistorySaleController extends Controller
 
             // Use SalesService for proper stock integration with DB transaction
             $salesService = app(SalesService::class);
-
-            // Restore the record
-            $historySale->restore();
-
-            // Re-apply stock deduction (since the sale is now active again)
-            $salesService->stockService->updateStockFromSales($historySale);
+            $salesService->restoreSale($historySale);
 
             // Log activity
             addActivity('sales', 'restore', 'Pengguna memulihkan catatan penjualan yang terhapus dengan resi: ' . $resiNumber . ' dan stock telah diperbarui', $id);
@@ -913,20 +908,10 @@ class HistorySaleController extends Controller
 
             // Use SalesService for proper stock integration with DB transaction
             $salesService = app(SalesService::class);
+            $salesService->forceDeleteSale($historySale);
 
-            // If the record is currently soft-deleted (not affecting stock), we don't need to restore stock
-            // If the record is active (not trashed), we need to restore stock before permanent deletion
-            if (!$historySale->trashed()) {
-                // Record is active, restore stock before permanent deletion
-                $salesService->stockService->restoreStockFromSales($historySale);
-                $stockMessage = ' dan stock telah dikembalikan';
-            } else {
-                // Record is already soft-deleted (stock already restored), no stock changes needed
-                $stockMessage = ' (stock sudah dikembalikan sebelumnya)';
-            }
-
-            // Permanently delete the record
-            $historySale->forceDelete();
+            // Determine stock message based on previous state
+            $stockMessage = !$historySale->trashed() ? ' dan stock telah dikembalikan' : ' (stock sudah dikembalikan sebelumnya)';
 
             // Log activity with detailed information
             $skuCount = is_array($skuArray) ? count($skuArray) : 0;

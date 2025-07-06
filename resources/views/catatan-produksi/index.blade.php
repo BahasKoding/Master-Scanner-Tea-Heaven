@@ -194,6 +194,17 @@
             width: 100%;
         }
 
+        /* Date column styling */
+        .date-column {
+            white-space: nowrap;
+        }
+
+        .date-column small {
+            display: block;
+            font-size: 0.75rem;
+            color: #6c757d;
+        }
+
         /* Mobile responsive adjustments */
         @media (max-width: 768px) {
             .dt-responsive table {
@@ -255,6 +266,15 @@
             /* Mobile gap adjustments */
             .gap-2 {
                 gap: 0.5rem !important;
+            }
+
+            /* Mobile date column adjustments */
+            .date-column {
+                font-size: 0.75rem;
+            }
+
+            .date-column small {
+                font-size: 0.65rem;
             }
         }
 
@@ -481,6 +501,8 @@
                                     <th>SKU Induk</th>
                                     <th>Gramasi</th>
                                     <th>Total Terpakai</th>
+                                    <th>Tanggal Dibuat</th>
+                                    <th>Tanggal Diubah</th>
                                     <th>Aksi</th>
                                 </tr>
                             </thead>
@@ -2372,45 +2394,89 @@
                         name: 'DT_RowIndex',
                         orderable: false,
                         searchable: false,
-                        width: "5%"
+                        width: "4%"
                     },
                     {
                         data: 'sku_product',
                         name: 'sku_product',
-                        width: "10%"
+                        width: "8%"
                     },
                     {
                         data: 'nama_product',
                         name: 'nama_product',
-                        width: "15%"
+                        width: "12%"
                     },
                     {
                         data: 'packaging',
                         name: 'packaging',
-                        width: "10%"
+                        width: "8%"
                     },
                     {
                         data: 'quantity',
                         name: 'quantity',
-                        width: "8%"
+                        width: "6%"
                     },
                     {
                         data: 'sku_induk',
                         name: 'sku_induk',
-                        width: "15%",
+                        width: "12%",
                         orderable: false
                     },
                     {
                         data: 'gramasi',
                         name: 'gramasi',
-                        width: "17%",
+                        width: "12%",
                         orderable: false
                     },
                     {
                         data: 'total_terpakai',
                         name: 'total_terpakai',
-                        width: "12%",
+                        width: "10%",
                         orderable: false
+                    },
+                    {
+                        data: 'created_at',
+                        name: 'created_at',
+                        width: "10%",
+                        className: 'date-column',
+                        render: function(data, type, row) {
+                            if (data) {
+                                const date = new Date(data);
+                                return '<div class="date-column">' +
+                                    date.toLocaleDateString('id-ID', {
+                                        day: '2-digit',
+                                        month: '2-digit',
+                                        year: 'numeric'
+                                    }) + '<small>' +
+                                    date.toLocaleTimeString('id-ID', {
+                                        hour: '2-digit',
+                                        minute: '2-digit'
+                                    }) + '</small></div>';
+                            }
+                            return '<div class="date-column">-</div>';
+                        }
+                    },
+                    {
+                        data: 'updated_at',
+                        name: 'updated_at',
+                        width: "10%",
+                        className: 'date-column',
+                        render: function(data, type, row) {
+                            if (data) {
+                                const date = new Date(data);
+                                return '<div class="date-column">' +
+                                    date.toLocaleDateString('id-ID', {
+                                        day: '2-digit',
+                                        month: '2-digit',
+                                        year: 'numeric'
+                                    }) + '<small>' +
+                                    date.toLocaleTimeString('id-ID', {
+                                        hour: '2-digit',
+                                        minute: '2-digit'
+                                    }) + '</small></div>';
+                            }
+                            return '<div class="date-column">-</div>';
+                        }
                     },
                     {
                         data: 'action',
@@ -2431,7 +2497,7 @@
                     }
                 ],
                 order: [
-                    [0, 'asc'] // Order by row number (index column)
+                    [8, 'desc'] // Order by created_at column (newest first)
                 ],
                 pageLength: 25,
                 dom: 'Bfrtip',

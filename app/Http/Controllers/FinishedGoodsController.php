@@ -571,15 +571,56 @@ class FinishedGoodsController extends Controller
                 'count' => $lowStockItems->count(),
                 'threshold' => $threshold
             ]);
-                    } catch (\Exception $e) {
+        } catch (\Exception $e) {
             Log::error('Failed to get low stock finished goods', [
-                            'error' => $e->getMessage(),
+                'error' => $e->getMessage(),
                 'request' => $request->all()
             ]);
 
             return response()->json([
                 'success' => false,
                 'message' => 'Gagal mengambil data finished goods dengan stok rendah.'
+            ], 500);
+        }
+    }
+
+    /**
+     * Reset finished goods to default values
+     */
+    public function reset($productId)
+    {
+        try {
+            // Use FinishedGoodsService for consistent transaction handling
+            $finishedGoods = $this->finishedGoodsService->resetFinishedGoods($productId);
+
+            // Get product name for logging
+            $product = Product::find($productId);
+
+            // Log activity
+            addActivity('finished_goods', 'reset', 'Pengguna mereset finished goods untuk produk: ' . $product->name_product . ' (via service layer)', $finishedGoods->id);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Berhasil! Data finished goods telah direset dengan service layer.',
+                'data' => [
+                    'id' => $finishedGoods->id,
+                    'product_id' => $finishedGoods->product_id,
+                    'stok_awal' => $finishedGoods->stok_awal,
+                    'stok_masuk' => $finishedGoods->stok_masuk,
+                    'stok_keluar' => $finishedGoods->stok_keluar,
+                    'defective' => $finishedGoods->defective,
+                    'live_stock' => $finishedGoods->live_stock,
+                    'updated_at' => $finishedGoods->updated_at->format('Y-m-d H:i:s')
+                ]
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error saat reset finished goods via service', [
+                'product_id' => $productId,
+                'error' => $e->getMessage()
+            ]);
+            return response()->json([
+                'success' => false,
+                'message' => 'Maaf! Terjadi kesalahan saat reset finished goods. Silahkan coba lagi.'
             ], 500);
         }
     }

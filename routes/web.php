@@ -167,6 +167,7 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/', [FinishedGoodsController::class, 'store'])->name('store');
         Route::get('/{productId}/edit', [FinishedGoodsController::class, 'edit'])->name('edit');
         Route::put('/{productId}', [FinishedGoodsController::class, 'update'])->name('update');
+        Route::post('/{productId}/reset', [FinishedGoodsController::class, 'reset'])->name('reset');
         Route::post('/data', [FinishedGoodsController::class, 'data'])->name('data');
         Route::post('/sync', [FinishedGoodsController::class, 'sync'])->name('sync');
         Route::post('/statistics', [FinishedGoodsController::class, 'statistics'])->name('statistics');
@@ -194,9 +195,11 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/', [InventoryBahanBakuController::class, 'store'])->name('store');
         Route::get('/{bahanBakuId}/edit', [InventoryBahanBakuController::class, 'edit'])->name('edit');
         Route::put('/{bahanBakuId}', [InventoryBahanBakuController::class, 'update'])->name('update');
+        Route::post('/{bahanBakuId}/reset', [InventoryBahanBakuController::class, 'reset'])->name('reset');
         Route::post('/data', [InventoryBahanBakuController::class, 'data'])->name('data');
         Route::post('/sync-all', [InventoryBahanBakuController::class, 'syncAll'])->name('sync-all');
         Route::post('/force-sync', [InventoryBahanBakuController::class, 'forceSync'])->name('force-sync');
+        Route::post('/verify-consistency', [InventoryBahanBakuController::class, 'verifyConsistency'])->name('verify-consistency');
         Route::post('/inventory-status', [InventoryBahanBakuController::class, 'getInventoryStatus'])->name('inventory-status');
         Route::get('/low-stock/{threshold?}', [InventoryBahanBakuController::class, 'getLowStock'])->name('low-stock');
     });
