@@ -30,6 +30,10 @@ class ProductionService
     {
         return DB::transaction(function () use ($data) {
             try {
+                // Pastikan field unit ada dan valid (array)
+                if (!isset($data['unit']) || !is_array($data['unit'])) {
+                    Log::warning('ProductionService: Field unit tidak ada atau bukan array', ['unit' => $data['unit'] ?? null]);
+                }
                 // 1. Create production record
                 $catatanProduksi = CatatanProduksi::create($data);
 
@@ -68,6 +72,10 @@ class ProductionService
     {
         return DB::transaction(function () use ($catatanProduksi, $data) {
             try {
+                // Pastikan field unit ada dan valid (array)
+                if (!isset($data['unit']) || !is_array($data['unit'])) {
+                    Log::warning('ProductionService: Field unit tidak ada atau bukan array (update)', ['unit' => $data['unit'] ?? null]);
+                }
                 // Store old values for inventory adjustments
                 $oldProductId = $catatanProduksi->product_id;
                 $oldQuantity = $catatanProduksi->quantity;

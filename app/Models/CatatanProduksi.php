@@ -18,14 +18,16 @@ class CatatanProduksi extends Model
         'quantity',
         'sku_induk',
         'gramasi',
-        'total_terpakai'
+        'total_terpakai',
+        'unit' // tambahkan unit ke fillable
     ];
 
     protected $casts = [
         'sku_induk' => 'array',
         'gramasi' => 'array',
         'total_terpakai' => 'array',
-        'quantity' => 'integer'
+        'quantity' => 'integer',
+        'unit' => 'array' // tambahkan unit ke casts
     ];
 
     /**
@@ -46,7 +48,7 @@ class CatatanProduksi extends Model
     }
 
     /**
-     * Get details of bahan baku with gramasi and total_terpakai
+     * Get details of bahan baku with gramasi, total_terpakai, dan unit
      */
     public function getBahanBakuDetailsAttribute()
     {
@@ -63,12 +65,12 @@ class CatatanProduksi extends Model
                         'nama_barang' => $bahan->nama_barang,
                         'satuan' => $bahan->satuan,
                         'gramasi' => $this->gramasi[$index] ?? 0,
-                        'total_terpakai' => $this->total_terpakai[$index] ?? 0
+                        'total_terpakai' => $this->total_terpakai[$index] ?? 0,
+                        'unit' => $this->unit[$index] ?? 'gram',
                     ];
                 }
             }
         }
-
         return $result;
     }
 

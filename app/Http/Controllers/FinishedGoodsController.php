@@ -571,9 +571,9 @@ class FinishedGoodsController extends Controller
                 'count' => $lowStockItems->count(),
                 'threshold' => $threshold
             ]);
-        } catch (\Exception $e) {
+                    } catch (\Exception $e) {
             Log::error('Failed to get low stock finished goods', [
-                'error' => $e->getMessage(),
+                            'error' => $e->getMessage(),
                 'request' => $request->all()
             ]);
 

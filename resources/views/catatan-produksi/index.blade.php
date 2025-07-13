@@ -602,7 +602,15 @@
                                                     required min="0.01" step="0.01" placeholder="0.00">
                                                 <div class="input-group-text satuan-display bg-light"
                                                     style="min-width: 60px;">
-                                                    <span class="satuan-text">gr</span>
+                                                    <span class="satuan-text">-</span>
+                                                </div>
+                                                <div class="input-group-text bg-light" style="min-width: 60px;">
+                                                    <select class="form-select form-select-sm unit-select" name="unit[]"
+                                                        style="min-width: 60px;">
+                                                        <option value="gram">Gram</option>
+                                                        <option value="kg">Kilogram</option>
+                                                        <option value="pcs">PCS</option>
+                                                    </select>
                                                 </div>
                                                 <button class="btn btn-outline-secondary btn-sm convert-btn"
                                                     type="button" title="Konversi Satuan (kg ↔ gram)">
@@ -1229,9 +1237,17 @@
                             <div class="col-lg-5 col-md-5 col-12 mb-3">
                                 <label class="form-label">Gramasi <span class="text-danger">*</span></label>
                                 <div class="input-group">
-                                    <input type="number" class="form-control gramasi-input" name="gramasi[]" required min="0.01" step="0.01" placeholder="0.00">
+                                    <input type="number" class="form-control gramasi-input" name="gramasi[]"
+                                        required min="0.01" step="0.01" placeholder="0.00">
                                     <div class="input-group-text satuan-display bg-light" style="min-width: 60px;">
                                         <span class="satuan-text">gr</span>
+                                    </div>
+                                    <div class="input-group-text bg-light" style="min-width: 60px;">
+                                        <select class="form-select form-select-sm unit-select" name="unit[]" style="min-width: 60px;">
+                                            <option value="gram">Gram</option>
+                                            <option value="kg">Kilogram</option>
+                                            <option value="pcs">PCS</option>
+                                        </select>
                                     </div>
                                     <button class="btn btn-outline-secondary btn-sm convert-btn" type="button" 
                                         title="Konversi Satuan (kg ↔ gram)">
@@ -1317,13 +1333,14 @@
             function calculateRowTotal(container) {
                 const quantity = parseInt(container.closest('form').find('[name="quantity"]').val()) || 0;
                 const gramasi = parseFloat(container.find('.gramasi-input').val()) || 0;
-
+                const unit = container.find('.unit-select').val() || 'gr';
+                let satuan = 'gr';
+                if (unit === 'kg') satuan = 'kg';
+                else if (unit === 'pcs') satuan = 'PCS';
                 // For testing: simplify calculation and set a minimum value of 1 to ensure it's valid
                 const totalTerpakai = (gramasi * quantity).toFixed(2) || 1;
                 container.find('.total-terpakai-input').val(totalTerpakai < 0.01 ? 1 : totalTerpakai);
-
                 // Show calculation result to user
-                const satuan = container.find('.satuan-text').text();
                 container.find('.total-calculation-display').remove();
                 if (gramasi > 0 && quantity > 0) {
                     container.find('.gramasi-helper').after(
@@ -2124,17 +2141,21 @@
                                 catatan.bahan_baku_details.forEach((bahan, index) => {
                                     const template = getSkuGramasiTemplate(true);
                                     const container = $(template);
-
-                                    // Set values
                                     container.find('.bahan-baku-select').val(bahan.id);
                                     container.find('.gramasi-input').val(bahan.gramasi);
                                     container.find('.total-terpakai-input').val(bahan
                                         .total_terpakai);
-
-                                    // Update satuan display
-                                    updateSatuanDisplay(container, bahan.satuan ||
-                                        'gram');
-
+                                    // Set value unit-select sesuai data
+                                    container.find('.unit-select').val(bahan.unit ||
+                                        'gram').trigger('change');
+                                    // Set satuan-text sesuai unit
+                                    let satuanText = '-';
+                                    if (bahan.unit === 'kg') satuanText = 'kg';
+                                    else if (bahan.unit === 'pcs') satuanText = 'PCS';
+                                    else if (bahan.unit === 'gram') satuanText = 'gr';
+                                    container.find('.satuan-text').text(satuanText);
+                                    // Update satuan display helper jika perlu
+                                    updateSatuanDisplay(container, satuanText);
                                     $('#edit-sku-gramasi-container').append(container);
                                 });
                             }
@@ -2886,6 +2907,70 @@
             adjustForMobile();
             $(window).resize(function() {
                 adjustForMobile();
+            });
+
+            // Pada JS, tambahkan event handler untuk .unit-select
+            $(document).on('change', '.unit-select', function() {
+                const container = $(this).closest('.array-container');
+                const selectedUnit = $(this).val();
+                const gramasiInput = container.find('.gramasi-input');
+                const satuanText = container.find('.satuan-text');
+                const convertBtn = container.find('.convert-btn');
+                const helperDiv = container.find('.gramasi-helper');
+                if (selectedUnit === 'pcs') {
+                    satuanText.text('PCS');
+                    convertBtn.hide();
+                    helperDiv.show();
+                    helperDiv.find('.conversion-text').text('Contoh: 10 PCS = 10 unit');
+                    gramasiInput.attr('placeholder', 'Contoh: 10 (PCS)');
+                } else if (selectedUnit === 'kg') {
+                    satuanText.text('kg');
+                    convertBtn.show();
+                    helperDiv.show();
+                    helperDiv.find('.conversion-text').text(
+                        'Contoh: 0.5 kg = 500 gram, 1.2 kg = 1200 gram');
+                    gramasiInput.attr('placeholder', 'Contoh: 0.5 (kg)');
+                } else {
+                    satuanText.text('gr');
+                    convertBtn.show();
+                    helperDiv.show();
+                    helperDiv.find('.conversion-text').text(
+                        'Contoh: 500 gram = 0.5 kg, 1200 gram = 1.2 kg');
+                    gramasiInput.attr('placeholder', 'Contoh: 500 (gram)');
+                }
+                // Tambahkan hidden input unit[] setelah .unit-select, dan update value-nya setiap kali .unit-select berubah
+                let hidden = container.find('.unit-hidden-input');
+                if (hidden.length === 0) {
+                    hidden = $('<input type="hidden" class="unit-hidden-input" name="unit[]">');
+                    $(this).after(hidden);
+                }
+                hidden.val(selectedUnit);
+                // Trigger ulang perhitungan total terpakai setiap kali unit berubah
+                calculateRowTotal(container);
+            });
+            // Pada saat edit, set value unit-select sesuai data
+            // ... existing code ...
+
+            // Sebelum submit (add & edit), sinkronkan semua unit[] agar urutannya sama dengan sku_induk[]/gramasi[]/total_terpakai[]
+            $('#addProduksiForm, #editProduksiForm').on('submit', function(e) {
+                // Hapus semua hidden input unit[]
+                $(this).find('input.unit-hidden-input').remove();
+                // Untuk setiap baris, buat hidden input unit[] sesuai value select
+                $(this).find('.array-container').each(function() {
+                    const unitVal = $(this).find('.unit-select').val();
+                    const hidden = $(
+                        '<input type="hidden" class="unit-hidden-input" name="unit[]">').val(
+                        unitVal);
+                    $(this).find('.unit-select').after(hidden);
+                });
+                // ... existing code ...
+            });
+
+            // Saat menambah baris baru (add/edit), trigger .unit-select.change() agar hidden input langsung terbuat
+            $('#add-more-sku, #edit-add-more-sku').on('click', function() {
+                setTimeout(function() {
+                    $('.array-container:last .unit-select').trigger('change');
+                }, 10);
             });
         });
     </script>

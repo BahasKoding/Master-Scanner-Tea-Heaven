@@ -26,6 +26,9 @@ return new class extends Migration
             // JSON array of corresponding total_terpakai values
             $table->json('total_terpakai')->comment('Stores array of total_terpakai values corresponding to each bahan_baku');
 
+            // JSON array of corresponding unit values (gram, kg, pcs)
+            $table->json('unit')->nullable()->comment('Stores array of satuan (gram, kg, pcs) for each bahan baku');
+
             $table->timestamps();
 
             $table->foreign('product_id')->references('id')->on('products');

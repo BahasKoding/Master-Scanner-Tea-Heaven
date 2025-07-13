@@ -75,6 +75,7 @@ class CatatanProduksiController extends Controller
                         'catatan_produksis.sku_induk',
                         'catatan_produksis.gramasi',
                         'catatan_produksis.total_terpakai',
+                        'catatan_produksis.unit', // <-- tambahkan ini
                         'catatan_produksis.created_at',
                         'catatan_produksis.updated_at'
                     ]);
@@ -153,32 +154,31 @@ class CatatanProduksiController extends Controller
                     })
                     ->editColumn('gramasi', function ($row) {
                         $result = [];
-                        if (is_array($row->sku_induk) && is_array($row->gramasi) && is_array($row->total_terpakai)) {
+                        if (is_array($row->sku_induk) && is_array($row->gramasi)) {
                             $bahanBakuItems = BahanBaku::whereIn('id', $row->sku_induk)->get()->keyBy('id');
-
                             foreach ($row->sku_induk as $index => $bahanId) {
                                 if (isset($row->gramasi[$index]) && isset($bahanBakuItems[$bahanId])) {
                                     $bahan = $bahanBakuItems[$bahanId];
-                                    $result[] = $bahan->nama_barang . ': ' . $row->gramasi[$index] . ' ' . $bahan->satuan;
+                                    $value = $row->gramasi[$index];
+                                    $unit = $row->unit[$index] ?? $bahan->satuan ?? 'gram';
+                                    $result[] = $bahan->nama_barang . ': ' . $value . ' ' . strtoupper($unit);
                                 }
                             }
                         }
-
                         return !empty($result) ? implode(', ', $result) : implode(', ', $row->gramasi ?? []);
                     })
                     ->editColumn('total_terpakai', function ($row) {
                         $result = [];
                         if (is_array($row->sku_induk) && is_array($row->total_terpakai)) {
                             $bahanBakuItems = BahanBaku::whereIn('id', $row->sku_induk)->get()->keyBy('id');
-
                             foreach ($row->sku_induk as $index => $bahanId) {
                                 if (isset($row->total_terpakai[$index]) && isset($bahanBakuItems[$bahanId])) {
                                     $bahan = $bahanBakuItems[$bahanId];
-                                    $result[] = $bahan->nama_barang . ': ' . $row->total_terpakai[$index] . ' ' . $bahan->satuan;
+                                    $unit = $row->unit[$index] ?? $bahan->satuan ?? 'gram';
+                                    $result[] = $bahan->nama_barang . ': ' . $row->total_terpakai[$index] . ' ' . strtoupper($unit);
                                 }
                             }
                         }
-
                         return !empty($result) ? implode(', ', $result) : implode(', ', $row->total_terpakai ?? []);
                     })
                     ->editColumn('created_at', function ($row) {
@@ -279,8 +279,37 @@ class CatatanProduksiController extends Controller
     public function store(Request $request)
     {
         try {
-            // Validate request data
-            $validated = $request->validate([
+            $input = $request->all();
+            // Gabungkan dan filter baris yang benar-benar valid
+            $sku_induk = $input['sku_induk'] ?? [];
+            $gramasi = $input['gramasi'] ?? [];
+            $total_terpakai = $input['total_terpakai'] ?? [];
+            $unit = $input['unit'] ?? [];
+            $filtered = [];
+            $count = max(count($sku_induk), count($gramasi), count($total_terpakai), count($unit));
+            for ($i = 0; $i < $count; $i++) {
+                if (
+                    isset($sku_induk[$i], $gramasi[$i], $total_terpakai[$i], $unit[$i]) &&
+                    $sku_induk[$i] !== '' && $gramasi[$i] !== '' && $total_terpakai[$i] !== '' && $unit[$i] !== ''
+                ) {
+                    $filtered['sku_induk'][] = $sku_induk[$i];
+                    $filtered['gramasi'][] = $gramasi[$i];
+                    $filtered['total_terpakai'][] = $total_terpakai[$i];
+                    $filtered['unit'][] = $unit[$i];
+                }
+            }
+            // Validasi minimal satu baris valid
+            if (empty($filtered['sku_induk'])) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Minimal satu bahan baku harus diisi dengan lengkap.',
+                    'errors' => [
+                        'sku_induk' => ['Minimal satu bahan baku harus diisi dengan lengkap']
+                    ]
+                ], 422);
+            }
+            // Validasi utama
+            $validated = validator(array_merge($input, $filtered), [
                 'product_id' => 'required|exists:products,id',
                 'packaging' => 'required|string|max:255',
                 'quantity' => 'required|integer|min:1',
@@ -290,18 +319,18 @@ class CatatanProduksiController extends Controller
                 'gramasi.*' => 'required|numeric|min:0.01',
                 'total_terpakai' => 'required|array|min:1',
                 'total_terpakai.*' => 'required|numeric|min:0',
-            ], $this->getValidationMessages());
-
-            // Create catatan produksi using service (handles all inventory updates and transactions)
+                'unit' => 'required|array|min:1',
+                'unit.*' => 'required|string|in:gram,kg,pcs',
+            ], $this->getValidationMessages())->validate();
+            // Simpan hanya data hasil filter
+            $validated['sku_induk'] = $filtered['sku_induk'];
+            $validated['gramasi'] = $filtered['gramasi'];
+            $validated['total_terpakai'] = $filtered['total_terpakai'];
+            $validated['unit'] = $filtered['unit'];
             $catatanProduksi = $this->productionService->createProduction($validated);
-
-            // Get product info for activity log
             $product = Product::find($validated['product_id']);
             $productName = $product ? $product->name_product : 'Unknown Product';
-
-            // Log activity
             addActivity('catatan_produksi', 'create', 'Pengguna membuat catatan produksi baru: ' . $productName, $catatanProduksi->id);
-
             return response()->json([
                 'success' => true,
                 'message' => 'Berhasil! Catatan produksi telah ditambahkan ke dalam sistem dan inventory telah diperbarui.',
@@ -319,7 +348,6 @@ class CatatanProduksiController extends Controller
                 'trace' => $e->getTraceAsString(),
                 'request' => $request->all()
             ]);
-
             return response()->json([
                 'success' => false,
                 'message' => 'Terjadi kesalahan pada server: ' . $e->getMessage(),
@@ -350,15 +378,14 @@ class CatatanProduksiController extends Controller
                             'nama_barang' => $bahan->nama_barang,
                             'satuan' => $bahan->satuan,
                             'gramasi' => $catatanProduksi->gramasi[$index] ?? 0,
-                            'total_terpakai' => $catatanProduksi->total_terpakai[$index] ?? 0
+                            'total_terpakai' => $catatanProduksi->total_terpakai[$index] ?? 0,
+                            'unit' => $catatanProduksi->unit[$index] ?? 'gram' // Add unit here
                         ];
                     }
                 }
             }
 
             $catatanProduksi->bahan_baku_details = $bahanBakuDetails;
-
-            Log::info('Permintaan edit catatan produksi diterima', ['catatan_produksi' => $catatanProduksi->toArray()]);
 
             // Log activity
             $productName = $catatanProduksi->product ? $catatanProduksi->product->name_product : 'Unknown Product';
@@ -389,8 +416,34 @@ class CatatanProduksiController extends Controller
     public function update(Request $request, CatatanProduksi $catatanProduksi)
     {
         try {
-            // Validate request data
-            $validated = $request->validate([
+            $input = $request->all();
+            $sku_induk = $input['sku_induk'] ?? [];
+            $gramasi = $input['gramasi'] ?? [];
+            $total_terpakai = $input['total_terpakai'] ?? [];
+            $unit = $input['unit'] ?? [];
+            $filtered = [];
+            $count = max(count($sku_induk), count($gramasi), count($total_terpakai), count($unit));
+            for ($i = 0; $i < $count; $i++) {
+                if (
+                    isset($sku_induk[$i], $gramasi[$i], $total_terpakai[$i], $unit[$i]) &&
+                    $sku_induk[$i] !== '' && $gramasi[$i] !== '' && $total_terpakai[$i] !== '' && $unit[$i] !== ''
+                ) {
+                    $filtered['sku_induk'][] = $sku_induk[$i];
+                    $filtered['gramasi'][] = $gramasi[$i];
+                    $filtered['total_terpakai'][] = $total_terpakai[$i];
+                    $filtered['unit'][] = $unit[$i];
+                }
+            }
+            if (empty($filtered['sku_induk'])) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Minimal satu bahan baku harus diisi dengan lengkap.',
+                    'errors' => [
+                        'sku_induk' => ['Minimal satu bahan baku harus diisi dengan lengkap']
+                    ]
+                ], 422);
+            }
+            $validated = validator(array_merge($input, $filtered), [
                 'product_id' => 'required|exists:products,id',
                 'packaging' => 'required|string|max:255',
                 'quantity' => 'required|integer|min:1',
@@ -400,47 +453,46 @@ class CatatanProduksiController extends Controller
                 'gramasi.*' => 'required|numeric|min:0.01',
                 'total_terpakai' => 'required|array|min:1',
                 'total_terpakai.*' => 'required|numeric|min:0',
-            ], $this->getValidationMessages());
-
-            // Store old values for logging
-            $oldProduct = Product::find($catatanProduksi->product_id);
-            $oldProductName = $oldProduct ? $oldProduct->name_product : 'Unknown Product';
-
-            // Update catatan produksi using service (handles all inventory updates and transactions)
-            $catatanProduksi = $this->productionService->updateProduction($catatanProduksi, $validated);
-
-            // Get new product info for logging
-            $newProduct = Product::find($validated['product_id']);
-            $newProductName = $newProduct ? $newProduct->name_product : 'Unknown Product';
-
-            // Log activity with simplified message
-            $logMessage = 'Pengguna mengubah catatan produksi: ' . $oldProductName . ' menjadi ' . $newProductName;
-            addActivity('catatan_produksi', 'update', $logMessage, $catatanProduksi->id);
-
+                'unit' => 'required|array|min:1',
+                'unit.*' => 'required|string|in:gram,kg,pcs',
+            ], $this->getValidationMessages())->validate();
+            $validated['sku_induk'] = $filtered['sku_induk'];
+            $validated['gramasi'] = $filtered['gramasi'];
+            $validated['total_terpakai'] = $filtered['total_terpakai'];
+            $validated['unit'] = $filtered['unit'];
+            $product = Product::findOrFail($validated['product_id']);
+            $dataToUpdate = [
+                'product_id' => $validated['product_id'],
+                'sku_produk' => $product->sku,
+                'packaging' => $validated['packaging'],
+                'quantity' => $validated['quantity'],
+                'sku_induk' => $validated['sku_induk'],
+                'gramasi' => $validated['gramasi'],
+                'total_terpakai' => $validated['total_terpakai'],
+                'unit' => $validated['unit'],
+            ];
+            $catatanProduksi->update($dataToUpdate);
+            addActivity('catatan_produksi', 'update', "Data catatan produksi dengan ID {$catatanProduksi->id} berhasil diperbarui", $catatanProduksi);
             return response()->json([
                 'success' => true,
-                'message' => 'Berhasil! Informasi catatan produksi telah diperbarui dan inventory telah diperbarui.',
+                'message' => 'Catatan produksi berhasil diperbarui',
                 'data' => $catatanProduksi
             ]);
         } catch (ValidationException $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Terjadi Kesalahan',
-                'errors' => $e->errors()
-            ], 422);
+            Log::error('Validation error saat memperbarui catatan produksi', [
+                'errors' => $e->errors(),
+                'request' => $request->all(),
+                'user_id' => auth()->id()
+            ]);
+            return response()->json(['errors' => $e->errors()], 422);
         } catch (\Exception $e) {
             Log::error('Error saat memperbarui catatan produksi', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
                 'request' => $request->all(),
-                'id' => $catatanProduksi->id
+                'user_id' => auth()->id()
             ]);
-
-            return response()->json([
-                'success' => false,
-                'message' => 'Maaf! Terjadi kesalahan saat memperbarui catatan produksi. Silahkan coba lagi.',
-                'error' => config('app.debug') ? $e->getMessage() : null
-            ], 500);
+            return response()->json(['message' => 'Terjadi kesalahan saat memperbarui data: ' . $e->getMessage()], 500);
         }
     }
 
