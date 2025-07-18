@@ -566,7 +566,7 @@
                         <div class="row mb-4">
                             <div class="col-lg-6 col-md-12 col-12 mb-3">
                                 <label class="form-label">Packaging <span class="text-danger">*</span></label>
-                                <input type="text" class="form-control" readonly name="packaging" required>
+                                <input type="text" class="form-control" name="packaging" required>
                                 <small class="text-muted">Kemasan produk (akan otomatis terisi sesuai produk)</small>
                             </div>
                             <div class="col-lg-6 col-md-12 col-12 mb-3">
@@ -706,9 +706,9 @@
                         <div class="row mb-4">
                             <div class="col-lg-6 col-md-12 col-12 mb-3">
                                 <label class="form-label">Packaging <span class="text-danger">*</span></label>
-                                <input type="text" class="form-control" readonly name="packaging" id="edit_packaging"
+                                <input type="text" class="form-control" name="packaging" id="edit_packaging"
                                     required>
-                                <small class="text-muted">Kemasan produk (akan otomatis terisi sesuai produk)</small>
+                                <small class="text-muted">Kemasan produk (dapat diubah sesuai kebutuhan)</small>
                             </div>
                             <div class="col-lg-6 col-md-12 col-12 mb-3">
                                 <label class="form-label">Quantity <span class="text-danger">*</span></label>
@@ -1044,6 +1044,7 @@
                 let packaging = '';
                 let sku = '';
                 const form = $(this).closest('form');
+                const isEditForm = form.attr('id') === 'editProduksiForm';
 
                 if (selectedOption && selectedOption.value) {
                     // Method 1: Try to get from data attributes
@@ -1069,11 +1070,12 @@
                     }
                 }
 
-                if (packaging && packaging.trim() !== '') {
+                // Only auto-fill packaging in ADD form, not EDIT form
+                if (!isEditForm && packaging && packaging.trim() !== '') {
                     form.find('[name="packaging"]').val(packaging.trim());
                     showValidationFeedback(form.find('[name="packaging"]'), true,
                         "Packaging terisi otomatis");
-                } else {
+                } else if (!isEditForm) {
                     form.find('[name="packaging"]').val('');
                 }
 
@@ -1597,20 +1599,12 @@
                                 '.valid-feedback, .invalid-feedback, .total-calculation-display'
                             ).remove();
 
-                            // Reload table with error handling and reset to first page to show new data
+                            // Reload table to show the newest data
                             try {
                                 table.ajax.reload(function() {
                                     // After reload, go to first page to see the newest data
                                     table.page('first').draw('page');
-
-                                    // Scroll to top of table to make sure user sees the data
-                                    setTimeout(function() {
-                                        $('html, body').animate({
-                                            scrollTop: $(
-                                                    '#produksi-table')
-                                                .offset().top - 100
-                                        }, 500);
-                                    }, 200);
+                                    // No forced scrolling - let user stay where they are
                                 }, true); // true = reset paging to first page
                             } catch (error) {
                                 // Fallback: reload the page if table reload fails
@@ -1629,6 +1623,11 @@
                                 toast: true,
                                 position: 'top-end'
                             });
+
+                            // Auto-refresh page after 2 seconds
+                            setTimeout(function() {
+                                window.location.reload();
+                            }, 2000);
                         }
                     },
                     error: function(xhr) {
@@ -1953,15 +1952,9 @@
                                 '.valid-feedback, .invalid-feedback, .total-calculation-display'
                             ).remove();
 
-                            // Reload table and scroll to show updated data
+                            // Reload table to show updated data
                             table.ajax.reload(function() {
-                                // Scroll to table to make sure user sees the updated data
-                                setTimeout(function() {
-                                    $('html, body').animate({
-                                        scrollTop: $('#produksi-table')
-                                            .offset().top - 100
-                                    }, 500);
-                                }, 200);
+                                // No forced scrolling - let user stay where they are
                             }, false);
 
                             // Show success message
@@ -1974,6 +1967,11 @@
                                 toast: true,
                                 position: 'top-end'
                             });
+
+                            // Auto-refresh page after 2 seconds
+                            setTimeout(function() {
+                                window.location.reload();
+                            }, 2000);
                         }
                     },
                     error: function(xhr) {
@@ -2199,19 +2197,16 @@
                             },
                             success: function(data) {
                                 if (data.success) {
-                                    // Reload table and scroll to show remaining data
-                                    table.ajax.reload(function() {
-                                        // Scroll to table to make sure user sees the remaining data
-                                        setTimeout(function() {
-                                            $('html, body').animate({
-                                                scrollTop: $(
-                                                        '#produksi-table'
-                                                    )
-                                                    .offset()
-                                                    .top - 100
-                                            }, 500);
-                                        }, 200);
-                                    });
+                                    // Reload table with error handling and reset to first page to show new data
+                                    try {
+                                        table.ajax.reload(function() {
+                                            // After reload, go to first page to see the newest data
+                                            table.page('first').draw('page');
+                                            // No forced scrolling - let user stay where they are
+                                        }, true); // true = reset paging to first page
+                                    } catch (e) {
+                                        debugLog('Error reloading table:', e);
+                                    }
 
                                     // Show success message
                                     Swal.fire({

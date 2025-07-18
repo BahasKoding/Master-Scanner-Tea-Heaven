@@ -23,8 +23,10 @@
                 <li class="pc-h-item header-user-profile">
                     <!-- Simplified profile toggle button -->
                     <a href="javascript:void(0);" class="pc-head-link ms-0 profile-toggle-btn">
-                        <img src="{{ URL::asset('build/images/user/avatar-2.jpg') }}" alt="user-image"
-                            class="user-avtar">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="user-avtar">
+                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                            <circle cx="12" cy="7" r="4"></circle>
+                        </svg>
                     </a>
 
                     <!-- Custom profile menu that doesn't rely on Bootstrap's dropdown -->
@@ -36,8 +38,10 @@
                             <div class="user-profile-info">
                                 <div class="d-flex align-items-center">
                                     <div class="flex-shrink-0">
-                                        <img src="{{ URL::asset('build/images/user/avatar-2.jpg') }}" alt="user-image"
-                                            class="profile-img rounded-circle">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="user-avtar">
+                                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                                            <circle cx="12" cy="7" r="4"></circle>
+                                        </svg>
                                     </div>
                                     <div class="flex-grow-1 mx-3">
                                         <h5 class="mb-0 user-name">{{ Auth::user()->name }}</h5>

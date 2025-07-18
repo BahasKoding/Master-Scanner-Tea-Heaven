@@ -402,6 +402,85 @@ class InventoryBahanBakuService
     }
 
     /**
+     * Bulk update inventory bahan baku
+     *
+     * @param array $updates
+     * @return array
+     */
+    public function bulkUpdateInventory(array $updates)
+    {
+        return DB::transaction(function () use ($updates) {
+            try {
+                $successCount = 0;
+                $errorCount = 0;
+                $errors = [];
+                $updatedItems = [];
+
+                foreach ($updates as $update) {
+                    try {
+                        // Validate that bahan baku exists
+                        $bahanBaku = BahanBaku::findOrFail($update['bahan_baku_id']);
+
+                        // Use the existing updateInventory method for consistency
+                        $inventoryBahanBaku = $this->updateInventory(
+                            $update['bahan_baku_id'],
+                            [
+                                'stok_awal' => $update['stok_awal'],
+                                'defect' => $update['defect']
+                            ]
+                        );
+
+                        $successCount++;
+                        $updatedItems[] = [
+                            'bahan_baku_id' => $update['bahan_baku_id'],
+                            'inventory_id' => $inventoryBahanBaku->id,
+                            'stok_awal' => $update['stok_awal'],
+                            'defect' => $update['defect'],
+                            'nama_barang' => $bahanBaku->nama_barang
+                        ];
+
+                    } catch (Exception $e) {
+                        $errorCount++;
+                        $errors[] = [
+                            'bahan_baku_id' => $update['bahan_baku_id'] ?? 'unknown',
+                            'error' => $e->getMessage(),
+                            'nama_barang' => isset($update['bahan_baku_id']) ? 
+                                (BahanBaku::find($update['bahan_baku_id'])->nama_barang ?? 'Unknown') : 'Unknown'
+                        ];
+
+                        Log::error('Error in bulk update for individual item', [
+                            'bahan_baku_id' => $update['bahan_baku_id'] ?? 'unknown',
+                            'error' => $e->getMessage(),
+                            'update_data' => $update
+                        ]);
+                    }
+                }
+
+                Log::info('Bulk update inventory completed via service', [
+                    'total_items' => count($updates),
+                    'success_count' => $successCount,
+                    'error_count' => $errorCount
+                ]);
+
+                return [
+                    'success_count' => $successCount,
+                    'error_count' => $errorCount,
+                    'updated_items' => $updatedItems,
+                    'errors' => $errors,
+                    'total_count' => count($updates)
+                ];
+
+            } catch (Exception $e) {
+                Log::error('Error in bulk update inventory service', [
+                    'error' => $e->getMessage(),
+                    'updates' => $updates
+                ]);
+                throw $e;
+            }
+        });
+    }
+
+    /**
      * Verify inventory consistency
      *
      * @param int|null $bahanBakuId

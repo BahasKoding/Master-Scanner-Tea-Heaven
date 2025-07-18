@@ -108,8 +108,6 @@
                                     <option value="PCS">PCS</option>
                                     <option value="GRAM">GRAM</option>
                                     <option value="KG">KG</option>
-                                    <option value="LITER">LITER</option>
-                                    <option value="ML">ML</option>
                                 </select>
                             </div>
                         </div>
@@ -177,8 +175,6 @@
                                 <option value="PCS">PCS</option>
                                 <option value="GRAM">GRAM</option>
                                 <option value="KG">KG</option>
-                                <option value="LITER">LITER</option>
-                                <option value="ML">ML</option>
                             </select>
                         </div>
                     </div>
@@ -231,8 +227,6 @@
                                 <option value="PCS">PCS</option>
                                 <option value="GRAM">GRAM</option>
                                 <option value="KG">KG</option>
-                                <option value="LITER">LITER</option>
-                                <option value="ML">ML</option>
                             </select>
                         </div>
                     </div>
@@ -557,10 +551,8 @@
                             addSatuanChoices.setChoiceByValue('');
                             submitButton.prop('disabled', false);
 
-                            // Properly hide modal and remove backdrop
+                            // Hide modal properly
                             $('#addBahanBakuModal').modal('hide');
-                            $('body').removeClass('modal-open');
-                            $('.modal-backdrop').remove();
 
                             // Reload table
                             table.ajax.reload(null, false);
@@ -604,12 +596,6 @@
                                 confirmButtonColor: '#3085d6'
                             });
                         }
-                    },
-                    complete: function() {
-                        // Always ensure the UI is restored
-                        submitButton.prop('disabled', false);
-                        $('body').removeClass('modal-open');
-                        $('.modal-backdrop').remove();
                     }
                 });
             });
@@ -865,11 +851,6 @@
 
                 // Re-enable buttons
                 $(this).find('button').prop('disabled', false);
-
-                // Clean up any lingering modal artifacts
-                $('.modal-backdrop').remove();
-                $('body').removeClass('modal-open');
-                $('body').css('padding-right', '');
             });
 
             // Clean up add modal when it's hidden
@@ -884,11 +865,6 @@
 
                 // Re-enable buttons
                 $(this).find('button').prop('disabled', false);
-
-                // Clean up any lingering modal artifacts
-                $('.modal-backdrop').remove();
-                $('body').removeClass('modal-open');
-                $('body').css('padding-right', '');
             });
 
             // Prevent form reset when modal is shown

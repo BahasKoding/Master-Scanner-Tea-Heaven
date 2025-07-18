@@ -26,8 +26,10 @@
             <div class="card-body">
                 <div class="d-flex align-items-center">
                     <div class="flex-shrink-0">
-                        <img src="{{ URL::asset('build/images/user/avatar-1.jpg') }}" alt="user-image"
-                            class="user-avtar wid-45 rounded-circle">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="45" height="45" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="user-avtar rounded-circle" style="background-color: #f8f9fa; padding: 10px;">
+                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                            <circle cx="12" cy="7" r="4"></circle>
+                        </svg>
                     </div>
                     <div class="flex-grow-1 ms-3">
                         <h6 class="mb-0">{{ Auth::user()->name }}</h6>

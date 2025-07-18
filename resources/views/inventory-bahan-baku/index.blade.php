@@ -171,6 +171,9 @@
                     <div class="d-flex justify-content-between align-items-center flex-wrap">
                         <h5 class="mb-2 mb-sm-0">Daftar Inventory Bahan Baku - Semua Item</h5>
                         <div class="d-flex flex-wrap">
+                            <button id="bulk-update-all" class="btn btn-primary me-2 mb-2 mb-sm-0">
+                                <i class="fas fa-save"></i> Update Semua
+                            </button>
                             <button id="sync-inventory" class="btn btn-success me-2 mb-2 mb-sm-0">
                                 <i class="fas fa-sync-alt"></i> Sync Data
                             </button>
@@ -619,6 +622,162 @@
                     }
                 });
             });
+
+            // Track modified fields
+            let modifiedFields = new Set();
+
+            // Track field changes
+            $(document).on('input', '.stock-input:not([disabled])', function() {
+                const bahanBakuId = $(this).data('bahan-baku-id');
+                const field = $(this).data('field');
+                const key = `${bahanBakuId}_${field}`;
+                
+                modifiedFields.add(key);
+                
+                // Add visual indicator for modified fields
+                $(this).addClass('border-warning');
+                
+                // Update bulk update button state
+                updateBulkUpdateButton();
+                
+                // Calculate live stock for this row
+                calculateRowLiveStock(bahanBakuId);
+            });
+
+            // Function to update bulk update button state
+            function updateBulkUpdateButton() {
+                const btn = $('#bulk-update-all');
+                if (modifiedFields.size > 0) {
+                    btn.removeClass('btn-secondary').addClass('btn-primary');
+                    btn.html(`<i class="fas fa-save"></i> Update Semua (${modifiedFields.size} perubahan)`);
+                    btn.prop('disabled', false);
+                } else {
+                    btn.removeClass('btn-primary').addClass('btn-secondary');
+                    btn.html('<i class="fas fa-save"></i> Update Semua');
+                    btn.prop('disabled', true);
+                }
+            }
+
+            // Initialize bulk update button state
+            updateBulkUpdateButton();
+
+            // Bulk Update All functionality
+            $('#bulk-update-all').on('click', function() {
+                if (modifiedFields.size === 0) {
+                    Swal.fire({
+                        title: 'Tidak Ada Perubahan',
+                        text: 'Tidak ada field yang dimodifikasi untuk diupdate.',
+                        icon: 'info',
+                        confirmButtonText: 'OK'
+                    });
+                    return;
+                }
+
+                const btn = $(this);
+                const originalText = btn.html();
+
+                // Collect all modified data
+                const updates = [];
+                const processedIds = new Set();
+
+                modifiedFields.forEach(key => {
+                    const [bahanBakuId, field] = key.split('_');
+                    
+                    if (!processedIds.has(bahanBakuId)) {
+                        const stokAwal = parseInt($(`input[data-bahan-baku-id="${bahanBakuId}"][data-field="stok_awal"]`).val()) || 0;
+                        const defect = parseInt($(`input[data-bahan-baku-id="${bahanBakuId}"][data-field="defect"]`).val()) || 0;
+                        
+                        updates.push({
+                            bahan_baku_id: parseInt(bahanBakuId),
+                            stok_awal: stokAwal,
+                            defect: defect
+                        });
+                        
+                        processedIds.add(bahanBakuId);
+                    }
+                });
+
+                // Show confirmation dialog
+                Swal.fire({
+                    title: 'Konfirmasi Bulk Update',
+                    html: `Apakah Anda yakin ingin memperbarui <strong>${updates.length} item</strong> inventory bahan baku?<br><br><small class="text-muted">Operasi ini akan memperbarui semua field yang telah dimodifikasi.</small>`,
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonColor: '#3085d6',
+                    cancelButtonColor: '#d33',
+                    confirmButtonText: 'Ya, Update Semua!',
+                    cancelButtonText: 'Batal'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        performBulkUpdate(updates, btn, originalText);
+                    }
+                });
+            });
+
+            // Function to perform bulk update
+            function performBulkUpdate(updates, btn, originalText) {
+                btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Updating...');
+
+                $.ajax({
+                    url: '{{ route('inventory-bahan-baku.bulk-update') }}',
+                    type: 'POST',
+                    data: {
+                        _token: $('meta[name="csrf-token"]').attr('content'),
+                        updates: updates
+                    },
+                    success: function(response) {
+                        if (response.success) {
+                            const data = response.data;
+                            let message = response.message;
+                            
+                            if (data.error_count > 0) {
+                                message += `<br><small class="text-muted">Detail: ${data.success_count} berhasil, ${data.error_count} gagal</small>`;
+                            }
+
+                            Swal.fire({
+                                title: 'Bulk Update Selesai!',
+                                html: message,
+                                icon: data.error_count > 0 ? 'warning' : 'success',
+                                timer: 3000,
+                                showConfirmButton: false,
+                                toast: true,
+                                position: 'top-end'
+                            });
+
+                            // Clear modified fields tracking
+                            modifiedFields.clear();
+                            $('.stock-input').removeClass('border-warning');
+                            updateBulkUpdateButton();
+
+                            // Reload table to get updated data
+                            table.ajax.reload(null, false);
+                        } else {
+                            Swal.fire({
+                                title: 'Bulk Update Gagal!',
+                                text: response.message || 'Terjadi kesalahan saat bulk update',
+                                icon: 'error'
+                            });
+                        }
+                    },
+                    error: function(xhr) {
+                        console.error('Bulk Update Error:', xhr);
+                        let errorMessage = 'Terjadi kesalahan saat bulk update';
+                        
+                        if (xhr.responseJSON && xhr.responseJSON.message) {
+                            errorMessage = xhr.responseJSON.message;
+                        }
+                        
+                        Swal.fire({
+                            title: 'Error!',
+                            text: errorMessage,
+                            icon: 'error'
+                        });
+                    },
+                    complete: function() {
+                        btn.prop('disabled', false).html(originalText);
+                    }
+                });
+            }
 
             // Sync Inventory Data
             $('#sync-inventory').on('click', function() {

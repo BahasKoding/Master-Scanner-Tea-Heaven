@@ -612,4 +612,85 @@ class InventoryBahanBakuController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Bulk update inventory bahan baku
+     */
+    public function bulkUpdate(Request $request)
+    {
+        try {
+            $updates = $request->input('updates', []);
+            
+            if (empty($updates)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Tidak ada data yang akan diperbarui'
+                ], 400);
+            }
+
+            // Validate each update before processing
+            $validatedUpdates = [];
+            $validationErrors = [];
+
+            foreach ($updates as $index => $update) {
+                try {
+                    $validated = validator($update, [
+                        'bahan_baku_id' => 'required|exists:bahan_bakus,id',
+                        'stok_awal' => 'required|integer|min:0',
+                        'defect' => 'required|integer|min:0',
+                    ], $this->getValidationMessages())->validate();
+
+                    $validatedUpdates[] = $validated;
+                } catch (ValidationException $e) {
+                    $validationErrors[] = [
+                        'index' => $index,
+                        'bahan_baku_id' => $update['bahan_baku_id'] ?? 'unknown',
+                        'errors' => $e->errors()
+                    ];
+                }
+            }
+
+            // If there are validation errors, return them
+            if (!empty($validationErrors)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Terdapat kesalahan validasi pada beberapa item',
+                    'validation_errors' => $validationErrors
+                ], 422);
+            }
+
+            // Use InventoryBahanBakuService for bulk update with transaction handling
+            $bulkResults = $this->inventoryBahanBakuService->bulkUpdateInventory($validatedUpdates);
+
+            // Log activity
+            addActivity(
+                'inventory_bahan_baku', 
+                'bulk_update', 
+                "Pengguna melakukan bulk update inventory bahan baku: {$bulkResults['success_count']} berhasil, {$bulkResults['error_count']} gagal (via service layer)", 
+                null
+            );
+
+            $message = "Bulk update selesai: {$bulkResults['success_count']} item berhasil diperbarui";
+            if ($bulkResults['error_count'] > 0) {
+                $message .= ", {$bulkResults['error_count']} item gagal";
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => $message,
+                'data' => $bulkResults
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Error saat bulk update inventory bahan baku via service', [
+                'error' => $e->getMessage(),
+                'request' => $request->all()
+            ]);
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Maaf! Terjadi kesalahan saat bulk update inventory bahan baku. Silahkan coba lagi.'
+            ], 500);
+        }
+    }
 }

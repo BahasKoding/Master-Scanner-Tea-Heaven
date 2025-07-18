@@ -42,7 +42,7 @@ class BahanBakuController extends Controller
 
             'satuan.required' => 'Silahkan pilih satuan untuk bahan baku',
             'satuan.string' => 'Satuan harus berupa teks',
-            'satuan.max' => 'Nama satuan terlalu panjang (maksimal 255 karakter)',
+            'satuan.in' => 'Satuan harus berupa PCS, GRAM, atau KG',
         ];
     }
 
@@ -136,7 +136,7 @@ class BahanBakuController extends Controller
                 'kategori'      => 'required|integer',
                 'sku_induk'     => 'required|string|max:255|unique:bahan_bakus',
                 'nama_barang'   => 'required|string|max:255',
-                'satuan'        => 'required|string|max:255',
+                'satuan'        => 'required|string|in:PCS,GRAM,KG',
             ], $this->getValidationMessages());
 
             $bahanBaku = BahanBaku::create($validated);
@@ -199,7 +199,7 @@ class BahanBakuController extends Controller
                 'kategori'      => 'required|integer',
                 'sku_induk'     => 'required|string|max:255|unique:bahan_bakus,sku_induk,' . $bahanBaku->id,
                 'nama_barang'   => 'required|string|max:255',
-                'satuan'        => 'required|string|max:255',
+                'satuan'        => 'required|string|in:PCS,GRAM,KG',
             ], $this->getValidationMessages());
 
             // Store old values for logging

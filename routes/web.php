@@ -201,6 +201,7 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/force-sync', [InventoryBahanBakuController::class, 'forceSync'])->name('force-sync');
         Route::post('/verify-consistency', [InventoryBahanBakuController::class, 'verifyConsistency'])->name('verify-consistency');
         Route::post('/inventory-status', [InventoryBahanBakuController::class, 'getInventoryStatus'])->name('inventory-status');
+        Route::post('/bulk-update', [InventoryBahanBakuController::class, 'bulkUpdate'])->name('bulk-update');
         Route::get('/low-stock/{threshold?}', [InventoryBahanBakuController::class, 'getLowStock'])->name('low-stock');
     });
 
