@@ -31,31 +31,143 @@
 
 ### 📦 Stock Opname System (NEW PRIORITY)
 
-#### 1. Stock Opname Implementation
-- [ ] **Controller**: Buat `StockOpnameController.php`
-  - [ ] `index()` - Dashboard stock opname
-  - [ ] `create()` - Start new opname session
+#### 1. Stock Opname Implementation - COMPREHENSIVE FEATURE
+
+##### Phase 1: Database & Model Setup
+- [ ] **Migration**: Create `stock_opnames` table
+  - [ ] Fields: id, type (bahan_baku/finished_goods/sticker), reference_date, status, created_by, notes
+- [ ] **Migration**: Create `stock_opname_items` table  
+  - [ ] Fields: id, opname_id, item_id, item_type, system_qty, physical_qty, difference, unit, notes
+- [ ] **Migration**: Create `stock_adjustments` table
+  - [ ] Fields: id, opname_id, item_id, item_type, adjustment_qty, adjustment_type, reason, created_by
+- [ ] **Model**: Create `StockOpname.php` with relationships
+- [ ] **Model**: Create `StockOpnameItem.php` with relationships  
+- [ ] **Model**: Create `StockAdjustment.php` with relationships
+
+##### Phase 2: Backend Logic
+- [ ] **Controller**: Create `StockOpnameController.php`
+  - [ ] `index()` - List all opname sessions with filters
+  - [ ] `create()` - Create new opname session
   - [ ] `store()` - Save opname data
-  - [ ] `process()` - Process variances
-  - [ ] `approve()` - Approve adjustments
-  - [ ] `report()` - Generate reports
-- [ ] **Model**: Buat `StockOpname.php` dan `StockOpnameDetail.php`
-  - [ ] Relasi ke `Product` dan `BahanBaku`
-  - [ ] Fillable fields untuk opname data
-  - [ ] Accessor untuk variance calculations
-- [ ] **Migration**: Buat migrations
-  - [ ] `create_stock_opname_table`
-  - [ ] `create_stock_opname_details_table`
-- [ ] **Views**: Buat folder `resources/views/stock-opname/`
-  - [ ] `index.blade.php` - List opname sessions
-  - [ ] `create.blade.php` - New opname form
-  - [ ] `show.blade.php` - Detail view
-  - [ ] `report.blade.php` - Reports view
-- [ ] **Integration**:
-  - [ ] Auto calculation variances
-  - [ ] Adjustment approval workflow
-  - [ ] History tracking
-  - [ ] Mobile-friendly interface
+  - [ ] `show()` - Show opname detail with physical count input
+  - [ ] `edit()` - Edit opname session
+  - [ ] `update()` - Update opname data
+  - [ ] `destroy()` - Delete opname session
+  - [ ] `processVariances()` - Calculate and process variances
+  - [ ] `generateAdjustments()` - Create adjustment transactions
+  - [ ] `varianceReport()` - Generate variance reports
+  - [ ] `adjustmentHistory()` - Show adjustment history
+- [ ] **Service**: Create `StockOpnameService.php` 
+  - [ ] Business logic for opname calculations
+  - [ ] Variance analysis methods
+  - [ ] Stock adjustment processing
+  - [ ] Integration with inventory tables
+- [ ] **Requests**: Create validation classes
+  - [ ] `StoreStockOpnameRequest.php`
+  - [ ] `UpdateStockOpnameRequest.php`
+  - [ ] `ProcessVarianceRequest.php`
+
+##### Phase 3: Core Features Implementation
+- [ ] **Opname Bahan Baku**: Physical count for raw materials
+  - [ ] Auto-populate from `tb_inventory_bahan_baku`
+  - [ ] Calculate system vs physical differences
+  - [ ] Generate adjustment recommendations
+- [ ] **Opname Finished Goods**: Physical count for finished products  
+  - [ ] Auto-populate from `tb_finished_goods`
+  - [ ] Track production vs sales discrepancies
+  - [ ] Update finished goods stock
+- [ ] **Opname Sticker**: Physical count for sticker inventory
+  - [ ] Auto-populate from `tb_stiker`
+  - [ ] Track sticker usage vs purchase
+  - [ ] Update sticker stock levels
+- [ ] **Variance Calculations**: 
+  - [ ] Automatic difference calculations
+  - [ ] Percentage variance analysis
+  - [ ] Tolerance level settings
+- [ ] **Adjustment Transactions**: 
+  - [ ] Create stock correction entries
+  - [ ] Update respective inventory tables
+  - [ ] Maintain audit trail
+
+##### Phase 4: Frontend Views
+- [ ] **Main Views**: Create `resources/views/stock-opname/`
+  - [ ] `index.blade.php` - Dashboard with opname sessions list
+  - [ ] `create.blade.php` - Start new opname (select type & date)
+  - [ ] `show.blade.php` - Opname detail with physical count input
+  - [ ] `edit.blade.php` - Edit opname session
+  - [ ] `variance-report.blade.php` - Variance analysis report
+  - [ ] `adjustment-history.blade.php` - Stock adjustment history
+- [ ] **Partial Views**:
+  - [ ] `_opname-item-row.blade.php` - Individual item row
+  - [ ] `_variance-summary.blade.php` - Variance summary component
+  - [ ] `_adjustment-modal.blade.php` - Adjustment confirmation modal
+
+##### Phase 5: Menu Integration & Permissions
+- [ ] **Menu Integration**: Add to Transaction Tables section
+  - [ ] Update `menu-list.blade.php`
+  - [ ] Add Stock Opname menu item
+  - [ ] Set proper permissions check
+- [ ] **Routes**: Add comprehensive routes
+  - [ ] Resource routes for CRUD operations
+  - [ ] Custom routes for reports and processing
+  - [ ] API routes for AJAX operations
+- [ ] **Permissions**: Create opname-specific permissions
+  - [ ] `Stock Opname List`
+  - [ ] `Stock Opname Create`
+  - [ ] `Stock Opname Edit`
+  - [ ] `Stock Opname Delete`
+  - [ ] `Stock Opname Process`
+  - [ ] `Stock Opname Reports`
+
+##### Phase 6: Reports & Analytics
+- [ ] **Variance Reports**: 
+  - [ ] Summary of all discrepancies
+  - [ ] Item-wise variance analysis
+  - [ ] Trend analysis over time
+- [ ] **Adjustment Reports**: 
+  - [ ] History of all stock corrections
+  - [ ] Impact analysis on inventory
+  - [ ] Approval workflow tracking
+- [ ] **Export Functions**: 
+  - [ ] PDF export for variance reports
+  - [ ] Excel export for detailed analysis
+  - [ ] Print-friendly formats
+
+##### Phase 7: Advanced Features
+- [ ] **Mobile Interface**: 
+  - [ ] Responsive design for tablets
+  - [ ] Touch-friendly input methods
+  - [ ] Barcode scanning integration
+- [ ] **Workflow Management**: 
+  - [ ] Multi-step approval process
+  - [ ] Role-based access control
+  - [ ] Email notifications
+- [ ] **Integration Features**: 
+  - [ ] Auto-sync with inventory systems
+  - [ ] Real-time stock updates
+  - [ ] Activity logging
+
+##### Phase 8: Testing & Quality Assurance
+- [ ] **Unit Tests**: Test service layer methods
+- [ ] **Feature Tests**: Test complete opname workflow
+- [ ] **Manual Testing**: End-to-end user scenarios
+- [ ] **Data Integrity**: Ensure stock consistency
+- [ ] **Performance Testing**: Large dataset handling
+
+##### Priority Implementation Order:
+1. **Phase 1-2**: Database & Backend (Foundation)
+2. **Phase 3**: Core Features (Business Logic)
+3. **Phase 4-5**: Frontend & Menu (User Interface)
+4. **Phase 6**: Reports (Analytics)
+5. **Phase 7-8**: Advanced Features & Testing
+
+##### Estimated Timeline:
+- **Phase 1-2**: 3-4 days (Backend foundation)
+- **Phase 3**: 3-4 days (Core opname logic)
+- **Phase 4-5**: 3-4 days (Frontend & navigation)
+- **Phase 6**: 2-3 days (Reports & analytics)
+- **Phase 7-8**: 2-3 days (Advanced features & testing)
+- **Total**: 13-18 days for complete implementation
 
 ### 📦 Purchase Management
 
