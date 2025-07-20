@@ -584,6 +584,44 @@
                 };
             }
             
+            /**
+             * Calculate correct variance handling negative system stock
+             * 
+             * Business Logic:
+             * - If system stock is negative, it means we have over-allocated/over-used stock
+             * - Physical count should be compared against the shortage baseline
+             * - Any physical stock found when system is negative is a recovery/gain
+             * 
+             * @param {number} physicalStock
+             * @param {number} systemStock
+             * @return {number}
+             */
+            function calculateCorrectVariance(physicalStock, systemStock) {
+                // Convert to numbers to ensure proper calculation
+                physicalStock = parseFloat(physicalStock) || 0;
+                systemStock = parseFloat(systemStock) || 0;
+                
+                if (systemStock < 0) {
+                    // When system stock is negative:
+                    // - If physical = 0: We're still short by the absolute system stock amount
+                    // - If physical > 0: We recovered some stock, but still short by (abs(system) - physical)
+                    // - Real shortage = absolute system stock amount
+                    
+                    const realShortage = Math.abs(systemStock);
+                    
+                    if (physicalStock >= realShortage) {
+                        // Physical stock covers the shortage and more = surplus
+                        return physicalStock - realShortage;
+                    } else {
+                        // Still short = negative variance
+                        return physicalStock - realShortage;
+                    }
+                } else {
+                    // Normal calculation for positive or zero system stock
+                    return physicalStock - systemStock;
+                }
+            }
+            
             // Initialize on page load
             initializeItemsData();
             updateDisplay();
@@ -593,7 +631,7 @@
                 const itemId = $(this).data('item-id');
                 const stokSistem = parseFloat($(this).data('stok-sistem'));
                 const stokFisik = parseFloat($(this).val()) || 0;
-                const selisih = stokFisik - stokSistem;
+                const selisih = calculateCorrectVariance(stokFisik, stokSistem);
                 
                 // Update selisih display
                 const selisihDisplay = $(`.selisih-display[data-item-id="${itemId}"]`);

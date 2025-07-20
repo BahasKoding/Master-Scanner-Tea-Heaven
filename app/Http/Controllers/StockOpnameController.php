@@ -356,8 +356,8 @@ class StockOpnameController extends Controller
             }
             $item->save();
 
-            // Calculate variance
-            $selisih = $item->stok_fisik - $item->stok_sistem;
+            // Calculate variance using the correct logic (model will handle this automatically)
+            $selisih = $item->selisih;
             
             return response()->json([
                 'success' => true,
@@ -485,7 +485,14 @@ class StockOpnameController extends Controller
 
             // Add items data
             foreach ($items as $index => $item) {
-                $selisih = ($item->stok_fisik ?? 0) - $item->stok_sistem;
+                // Use the model's correct variance calculation
+                $selisih = $item->selisih ?? 0;
+                
+                // If selisih is not calculated yet, calculate it properly
+                if ($item->stok_fisik !== null && $selisih === 0 && $item->stok_fisik !== $item->stok_sistem) {
+                    $item->calculateSelisih();
+                    $selisih = $item->selisih;
+                }
                 
                 // Determine status
                 $status = 'Belum Input';
