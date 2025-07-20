@@ -46,21 +46,31 @@
         auth()->user()->can('Catatan Produksi List') ||
         auth()->user()->can('Inventory Bahan Baku List') ||
         auth()->user()->can('Finished Goods List') ||
-        auth()->user()->can('Sticker List');
+        auth()->user()->can('Sticker List') ||
+        auth()->user()->can('view-stock-opname');
 @endphp
 
 @if ($showTransactions)
     <li class="pc-item pc-caption">
         <label> Transaction Tables</label>
     </li>
-    <li class="pc-item pc-hasmenu">
-        <a href="#!" class="pc-link" data-bs-toggle="collapse" data-bs-target="#allTransactionsSubmenu"
-            aria-expanded="false" aria-controls="allTransactionsSubmenu">
+    @php
+        $isTransactionActive = request()->routeIs('purchase.*') || 
+                              request()->routeIs('purchase-sticker.*') || 
+                              request()->routeIs('catatan-produksi.*') || 
+                              request()->routeIs('inventory-bahan-baku.*') || 
+                              request()->routeIs('finished-goods.*') || 
+                              request()->routeIs('stickers.*') || 
+                              request()->routeIs('stock-opname.*');
+    @endphp
+    <li class="pc-item pc-hasmenu {{ $isTransactionActive ? 'pc-trigger' : '' }}">
+        <a href="#!" class="pc-link {{ $isTransactionActive ? 'active' : '' }}" data-bs-toggle="collapse" data-bs-target="#allTransactionsSubmenu"
+            aria-expanded="{{ $isTransactionActive ? 'true' : 'false' }}" aria-controls="allTransactionsSubmenu">
             <span class="pc-micon"><i class="ph-duotone ph-swap"></i></span>
             <span class="pc-mtext">All Transactions</span>
             <span class="pc-arrow"><i data-feather="chevron-right"></i></span>
         </a>
-        <ul class="pc-submenu collapse" id="allTransactionsSubmenu">
+        <ul class="pc-submenu collapse {{ $isTransactionActive ? 'show' : '' }}" id="allTransactionsSubmenu">
             <!-- Purchase & Procurement -->
             @can('Purchase List')
                 <li class="pc-item"><a class="pc-link" href="{{ route('purchase.index') }}">
@@ -95,6 +105,13 @@
                 <li class="pc-item"><a class="pc-link" href="{{ route('stickers.index') }}">
                         <span class="pc-mtext">Sticker Stock</span>
                     </a></li>
+            @endcan
+            @can('view-stock-opname')
+                <li class="pc-item {{ request()->routeIs('stock-opname.*') ? 'active' : '' }}">
+                    <a class="pc-link {{ request()->routeIs('stock-opname.*') ? 'active' : '' }}" href="{{ route('stock-opname.index') }}">
+                        <span class="pc-mtext">Stock Opname</span>
+                    </a>
+                </li>
             @endcan
 
             <!-- Reports & Analytics -->
@@ -444,6 +461,30 @@
             background: rgba(255, 255, 255, 0.08);
             border-radius: 6px;
         }
+    }
+
+    /* Active state styling for parent menu items */
+    .pc-hasmenu > .pc-link.active {
+        background: rgba(34, 139, 34, 0.2) !important; /* Green background with transparency */
+        color: #22c55e !important; /* Green text color */
+        border-radius: 6px;
+    }
+
+    .pc-hasmenu > .pc-link.active:hover {
+        background: rgba(34, 139, 34, 0.3) !important; /* Darker green on hover */
+    }
+
+    /* Active state styling for submenu items */
+    .pc-submenu .pc-item.active > .pc-link,
+    .pc-submenu .pc-link.active {
+        background: rgba(34, 139, 34, 0.2) !important; /* Green background */
+        color: #22c55e !important; /* Green text color */
+        border-radius: 4px;
+    }
+
+    .pc-submenu .pc-item.active > .pc-link:hover,
+    .pc-submenu .pc-link.active:hover {
+        background: rgba(34, 139, 34, 0.3) !important; /* Darker green on hover */
     }
 
     /* Arrow animation - works for both mobile and desktop */

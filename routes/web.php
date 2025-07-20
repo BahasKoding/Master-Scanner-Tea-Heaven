@@ -18,6 +18,7 @@ use App\Http\Controllers\PurchaseController;
 use App\Http\Controllers\PurchaseStickerController;
 use App\Http\Controllers\InventoryBahanBakuController;
 use App\Http\Controllers\ReportController;
+use App\Http\Controllers\StockOpnameController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -203,6 +204,24 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/inventory-status', [InventoryBahanBakuController::class, 'getInventoryStatus'])->name('inventory-status');
         Route::post('/bulk-update', [InventoryBahanBakuController::class, 'bulkUpdate'])->name('bulk-update');
         Route::get('/low-stock/{threshold?}', [InventoryBahanBakuController::class, 'getLowStock'])->name('low-stock');
+    });
+
+    // Stock Opname routes - untuk stock taking/opname inventory
+    Route::prefix('stock-opname')->name('stock-opname.')->group(function () {
+        Route::get('/', [StockOpnameController::class, 'index'])->name('index');
+        Route::get('/data', [StockOpnameController::class, 'data'])->name('data'); // Move data route before parameterized routes
+        Route::get('/statistics', [StockOpnameController::class, 'statistics'])->name('statistics');
+        Route::get('/create', [StockOpnameController::class, 'create'])->name('create');
+        Route::post('/', [StockOpnameController::class, 'store'])->name('store');
+        
+        // Individual item update route - must be before generic {stockOpname} routes
+        Route::put('/{stockOpname}/items/{itemId}', [StockOpnameController::class, 'updateItem'])->name('update-item');
+        
+        Route::get('/{stockOpname}', [StockOpnameController::class, 'show'])->name('show');
+        Route::get('/{stockOpname}/variance-analysis', [StockOpnameController::class, 'varianceAnalysis'])->name('variance-analysis');
+        Route::put('/{stockOpname}', [StockOpnameController::class, 'update'])->name('update');
+        Route::post('/{stockOpname}/process', [StockOpnameController::class, 'process'])->name('process');
+        Route::post('/{stockOpname}/export', [StockOpnameController::class, 'export'])->name('export');
     });
 
     // Sticker routes

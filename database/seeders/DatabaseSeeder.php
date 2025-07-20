@@ -50,7 +50,7 @@ class DatabaseSeeder extends Seeder
         $this->call([
             BahanBakuSeeder::class,
             ProductSeeder::class,
-            HistorySaleSeeder::class, // data 1 juli 2025
+            // HistorySaleSeeder::class, // data 1 juli 2025
         ]);
     }
 
@@ -169,6 +169,13 @@ class DatabaseSeeder extends Seeder
             'Reports View',
             'Reports Export',
 
+            // Stock Opname
+            'view-stock-opname',
+            'create-stock-opname', 
+            'edit-stock-opname',
+            'delete-stock-opname',
+            'process-stock-opname',
+
         ];
 
         foreach ($permissions as $permission) {
@@ -219,7 +226,11 @@ class DatabaseSeeder extends Seeder
             'Product List',
             'Product View',
             'Bahan Baku List',
-            'Bahan Baku View'
+            'Bahan Baku View',
+            // Stock Opname permissions for Operator
+            'view-stock-opname',
+            'create-stock-opname',
+            'edit-stock-opname'
         ])->get();
         $operator->syncPermissions($operatorPermissions);
     }

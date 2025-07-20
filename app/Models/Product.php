@@ -9,7 +9,13 @@ class Product extends Model
 {
     use HasFactory;
     protected $table = 'products';
-    protected $fillable = ['category_product', 'sku', 'packaging', 'name_product', 'label'];
+    protected $fillable = [
+        'category_product', 
+        'sku', 
+        'packaging', 
+        'name_product', 
+        'label',
+    ];
 
     /**
      * Mapping of category integers to category names
