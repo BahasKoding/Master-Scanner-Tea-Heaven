@@ -51,7 +51,8 @@ class FinishedGoods extends Model
 
     /**
      * Auto-update stok_keluar from HistorySale
-     * This method calculates total quantity sold from all sales records for this product
+     * FIXED: Only update if database value is 0 or inconsistent
+     * This preserves values updated by StockService
      */
     public function updateStokKeluarFromHistorySales()
     {
@@ -62,9 +63,40 @@ class FinishedGoods extends Model
                 return $this;
             }
 
-            $totalSales = 0;
+            $currentStokKeluar = $this->stok_keluar;
+            $dynamicStokKeluar = $this->calculateDynamicStokKeluar();
 
-            // Get all history sales that contain this product's SKU
+            // FIXED: Only override if database value is 0 but we have sales data
+            // This prevents overriding values that were updated by StockService
+            if ($currentStokKeluar == 0 && $dynamicStokKeluar > 0) {
+                $this->stok_keluar = $dynamicStokKeluar;
+                $this->recalculateLiveStock();
+                
+                Log::info("Updated stok_keluar from dynamic calculation for product_id {$this->product_id} (SKU: {$product->sku}): {$currentStokKeluar} -> {$dynamicStokKeluar}");
+            } else {
+                Log::info("Keeping database stok_keluar for product_id {$this->product_id} (SKU: {$product->sku}): database={$currentStokKeluar}, dynamic={$dynamicStokKeluar}");
+            }
+
+            return $this;
+        } catch (\Exception $e) {
+            Log::error("Failed to update stok_keluar from history sales for product_id {$this->product_id}: " . $e->getMessage());
+            return $this;
+        }
+    }
+
+    /**
+     * Calculate dynamic stok keluar without updating the model
+     * Helper method for comparison purposes
+     */
+    private function calculateDynamicStokKeluar()
+    {
+        try {
+            $product = $this->product;
+            if (!$product) {
+                return 0;
+            }
+
+            $totalSales = 0;
             $historySales = HistorySale::whereNotNull('no_sku')->get();
 
             foreach ($historySales as $sale) {
@@ -80,30 +112,25 @@ class FinishedGoods extends Model
                 }
             }
 
-            $this->stok_keluar = $totalSales;
-            $this->recalculateLiveStock();
-
-            Log::info("Auto-updated stok_keluar for product_id {$this->product_id} (SKU: {$product->sku}): {$totalSales}");
-
-            return $this;
+            return $totalSales;
         } catch (\Exception $e) {
-            Log::error("Failed to update stok_keluar from history sales for product_id {$this->product_id}: " . $e->getMessage());
-            return $this;
+            Log::error("Failed to calculate dynamic stok_keluar for product_id {$this->product_id}: " . $e->getMessage());
+            return 0;
         }
     }
 
     /**
      * Recalculate live_stock based on the formula:
      * live_stock = stok_awal + stok_masuk - stok_keluar - defective
+     * FIXED: Allow negative live_stock values for accurate representation
      */
     public function recalculateLiveStock()
     {
         $this->live_stock = $this->stok_awal + $this->stok_masuk - $this->stok_keluar - $this->defective;
-
-        // Ensure live_stock is not negative
+        
+        // Log if live stock is negative for monitoring purposes
         if ($this->live_stock < 0) {
-            Log::warning("Live stock calculation resulted in negative value for product_id {$this->product_id}. Setting to 0.");
-            $this->live_stock = 0;
+            Log::info("Live stock calculation resulted in negative value for product_id {$this->product_id}: {$this->live_stock}");
         }
 
         return $this;
@@ -158,11 +185,12 @@ class FinishedGoods extends Model
 
     /**
      * Get dynamic live_stock (calculated using dynamic values)
+     * FIXED: Allow negative values for accurate representation
      */
     public function getLiveStockDynamicAttribute()
     {
         $liveStock = $this->stok_awal + $this->stok_masuk_dynamic - $this->stok_keluar_dynamic - $this->defective;
-        return max(0, $liveStock); // Ensure not negative
+        return $liveStock; // Allow negative values
     }
 
     /**

@@ -8,9 +8,6 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
     <!-- [Page specific CSS] start -->
-    <!-- data tables css -->
-    <link rel="stylesheet" href="{{ URL::asset('build/css/plugins/datatables/dataTables.bootstrap5.min.css') }}">
-    <link rel="stylesheet" href="{{ URL::asset('build/css/plugins/datatables/buttons.bootstrap5.min.css') }}">
     <!-- Choices css -->
     <link rel="stylesheet" href="{{ URL::asset('build/css/plugins/choices.min.css') }}">
     <!-- [Page specific CSS] end -->
@@ -175,9 +172,23 @@
                     <div class="d-flex justify-content-between align-items-center flex-wrap">
                         <h5 class="mb-2 mb-sm-0">Daftar Finished Goods - Semua Produk</h5>
                         <div class="d-flex flex-wrap">
+                            <button id="sync-all" class="btn btn-primary me-2 mb-2 mb-sm-0">
+                                <i class="fas fa-sync"></i> Sync All Data
+                            </button>
                             <button id="clear-filters" class="btn btn btn-secondary me-2 mb-2 mb-sm-0">
                                 <i class="fas fa-filter"></i> Hapus Filter
                             </button>
+                        </div>
+                    </div>
+                    <!-- Progress bar for sync operation - hidden by default -->
+                    <div id="sync-progress-container" class="mt-3 d-none">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <span id="sync-status">Processing...</span>
+                            <span id="sync-percentage">0%</span>
+                        </div>
+                        <div class="progress" style="height: 20px;">
+                            <div id="sync-progress-bar" class="progress-bar progress-bar-striped progress-bar-animated" 
+                                 role="progressbar" style="width: 0%" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
                         </div>
                     </div>
                 </div>
@@ -301,6 +312,9 @@
 
     <!-- Choices JS -->
     <script src="{{ URL::asset('build/js/plugins/choices.min.js') }}"></script>
+    
+    <!-- SweetAlert2 -->
+    <script src="{{ URL::asset('build/js/plugins/sweetalert2.all.min.js') }}"></script>
 
     <script type="text/javascript">
         $(document).ready(function() {
@@ -461,7 +475,7 @@
                     .val()) || 0;
 
                 const liveStock = stokAwal + stokMasuk - stokKeluar - defective;
-                $(`.live-stock[data-product-id="${productId}"]`).text(Math.max(0, liveStock));
+                $(`.live-stock[data-product-id="${productId}"]`).text(liveStock);
 
                 return liveStock;
             }
@@ -472,79 +486,125 @@
                 calculateRowLiveStock(productId);
             });
 
-            // Update button click - only send manual input fields
-            $(document).on('click', '.update-btn', function() {
-                const productId = $(this).data('id');
+            // Function to update row data after successful update
+            function updateRowData(productId, data) {
+                // Update input values
+                $(`input[data-product-id="${productId}"][data-field="stok_awal"]`).val(data.stok_awal);
+                $(`input[data-product-id="${productId}"][data-field="stok_masuk"]`).val(data.stok_masuk);
+                $(`input[data-product-id="${productId}"][data-field="stok_keluar"]`).val(data.stok_keluar);
+                $(`input[data-product-id="${productId}"][data-field="defective"]`).val(data.defective);
+                
+                // Update live stock display
+                $(`.live-stock[data-product-id="${productId}"]`).text(data.live_stock);
+            }
 
-                // Only get values from manual input fields (enabled inputs)
-                const stokAwal = parseInt($(`input[data-product-id="${productId}"][data-field="stok_awal"]`)
-                    .val()) || 0;
-                const defective = parseInt($(
-                        `input[data-product-id="${productId}"][data-field="defective"]`)
-                    .val()) || 0;
+            // Fallback notification function
+            function showNotification(type, title, message) {
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: type,
+                        title: title,
+                        text: message,
+                        timer: type === 'success' ? 2000 : 0,
+                        showConfirmButton: type !== 'success'
+                    });
+                } else {
+                    // Fallback to browser alert if SweetAlert2 is not available
+                    alert(title + ': ' + message);
+                }
+            }
 
-                // Disable button during update
-                $(this).prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Updating...');
+            // Update button click - with better error handling
+            $(document).on('click', '.update-btn', function(e) {
+                e.preventDefault();
+                
+                const btn = $(this);
+                const productId = btn.data('id');
 
-                // Prepare form data - only send manual fields
-                const formData = new FormData();
-                formData.append('stok_awal', stokAwal);
-                formData.append('defective', defective);
-                formData.append('_method', 'PUT');
-                formData.append('_token', '{{ csrf_token() }}');
+                // Validate productId
+                if (!productId) {
+                    showNotification('error', 'Error', 'Product ID tidak ditemukan');
+                    return;
+                }
 
+                // Get values from manual input fields
+                const stokAwalInput = $(`input[data-product-id="${productId}"][data-field="stok_awal"]`);
+                const defectiveInput = $(`input[data-product-id="${productId}"][data-field="defective"]`);
+                
+                if (stokAwalInput.length === 0 || defectiveInput.length === 0) {
+                    showNotification('error', 'Error', 'Input field tidak ditemukan');
+                    return;
+                }
+
+                const stokAwal = parseInt(stokAwalInput.val()) || 0;
+                const defective = parseInt(defectiveInput.val()) || 0;
+
+                // Disable button and show loading state
+                btn.prop('disabled', true);
+                const originalText = btn.html();
+                btn.html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Menyimpan...');
+
+                // Send update request
                 $.ajax({
                     url: `/finished-goods/${productId}`,
                     method: 'POST',
-                    data: formData,
-                    processData: false,
-                    contentType: false,
+                    data: {
+                        _token: '{{ csrf_token() }}',
+                        _method: 'PUT',
+                        stok_awal: stokAwal,
+                        defective: defective
+                    },
+                    timeout: 30000, // 30 second timeout
                     success: function(response) {
-                        if (response.success) {
-                            // Show success message
-                            Swal.fire({
-                                title: 'Berhasil!',
-                                text: response.message,
-                                icon: 'success',
-                                timer: 1500,
-                                showConfirmButton: false,
-                                toast: true,
-                                position: 'top-end'
-                            });
+                        if (response && response.success) {
+                            showNotification('success', 'Berhasil!', response.message || 'Data berhasil diperbarui');
 
-                            // Reload table to get updated dynamic values
-                            table.ajax.reload(null, false);
+                            // Update the row with new data
+                            if (response.data) {
+                                updateRowData(productId, response.data);
+                            }
+                        } else {
+                            showNotification('error', 'Gagal!', response.message || 'Terjadi kesalahan');
                         }
                     },
-                    error: function(xhr) {
+                    error: function(xhr, status, error) {
+                        let errorMessage = 'Terjadi kesalahan saat menyimpan data';
+                        
                         if (xhr.status === 422) {
                             // Validation errors
-                            const errors = xhr.responseJSON.errors;
-                            const errorMessages = Object.values(errors).flat();
-
-                            Swal.fire({
-                                title: 'Mohon Periksa Input Anda',
-                                html: errorMessages.join('<br>'),
-                                icon: 'warning',
-                                confirmButtonText: 'Saya Mengerti',
-                                confirmButtonColor: '#3085d6'
-                            });
-                        } else {
-                            // Other errors
-                            Swal.fire({
-                                title: 'Gagal Memperbarui',
-                                text: xhr.responseJSON?.message ||
-                                    'Tidak dapat memperbarui stok saat ini.',
-                                icon: 'error',
-                                confirmButtonText: 'OK',
-                                confirmButtonColor: '#3085d6'
-                            });
+                            try {
+                                const errorResponse = JSON.parse(xhr.responseText);
+                                if (errorResponse.errors) {
+                                    const errorList = Object.values(errorResponse.errors).flat();
+                                    errorMessage = errorList.join(', ');
+                                } else if (errorResponse.message) {
+                                    errorMessage = errorResponse.message;
+                                }
+                            } catch (parseError) {
+                                errorMessage = 'Data tidak valid. Periksa input Anda.';
+                            }
+                        } else if (xhr.status === 500) {
+                            // Server error
+                            try {
+                                const errorResponse = JSON.parse(xhr.responseText);
+                                errorMessage = errorResponse.message || 'Terjadi kesalahan server';
+                            } catch (parseError) {
+                                errorMessage = 'Terjadi kesalahan server. Silahkan coba lagi.';
+                            }
+                        } else if (xhr.status === 404) {
+                            errorMessage = 'Produk tidak ditemukan';
+                        } else if (xhr.status === 0) {
+                            errorMessage = 'Tidak dapat terhubung ke server. Periksa koneksi internet Anda.';
+                        } else if (status === 'timeout') {
+                            errorMessage = 'Request timeout. Silahkan coba lagi.';
                         }
+
+                        showNotification('error', 'Error!', errorMessage);
                     },
                     complete: function() {
-                        // Re-enable button
-                        $(`.update-btn[data-id="${productId}"]`).prop('disabled', false).html(
-                            '<i class="fas fa-save"></i> Update');
+                        // Re-enable button and restore original text
+                        btn.prop('disabled', false);
+                        btn.html(originalText);
                     }
                 });
             });
@@ -583,18 +643,113 @@
             });
         });
         
-        // Auto-refresh table setiap 30 detik untuk real-time updates
-        setInterval(function() {
-            if (table) {
-                table.ajax.reload(null, false); // false = tidak reset pagination
+        // Chunked Sync All Data functionality with progress tracking
+        $('#sync-all').on('click', function() {
+            const syncBtn = $(this);
+            const progressContainer = $('#sync-progress-container');
+            const progressBar = $('#sync-progress-bar');
+            const progressPercentage = $('#sync-percentage');
+            const progressStatus = $('#sync-status');
+            
+            // Configuration
+            const chunkSize = 50; // Process 50 records at a time
+            
+            // Show loading state
+            syncBtn.prop('disabled', true)
+                  .html('<i class="fas fa-spinner fa-spin"></i> Syncing...');
+            
+            // Show progress bar
+            progressContainer.removeClass('d-none');
+            progressBar.css('width', '0%').attr('aria-valuenow', 0);
+            progressPercentage.text('0%');
+            progressStatus.text('Starting sync operation...');
+            
+            // Define recursive function to process chunks
+            function processChunk(offset = 0, totalRecords = null) {
+                $.ajax({
+                    url: '{{ route("finished-goods.sync") }}',
+                    type: 'POST',
+                    data: {
+                        _token: '{{ csrf_token() }}',
+                        offset: offset,
+                        chunk_size: chunkSize,
+                        total_records: totalRecords
+                    },
+                    success: function(response) {
+                        if (response.success) {
+                            // Update progress
+                            const progress = response.progress;
+                            progressBar.css('width', progress + '%').attr('aria-valuenow', progress);
+                            progressPercentage.text(progress + '%');
+                            
+                            // Update status message
+                            if (!response.completed) {
+                                progressStatus.text(`Processing ${response.processed_records} of ${response.total_records} records...`);
+                                
+                                // Process next chunk
+                                processChunk(response.next_offset, response.total_records);
+                            } else {
+                                // Sync completed
+                                progressStatus.text('Sync completed successfully!');
+                                
+                                // Show success notification
+                                Swal.fire({
+                                    title: 'Sync Complete!',
+                                    text: `Successfully processed ${response.total_records} records.`,
+                                    icon: 'success',
+                                    confirmButtonText: 'OK'
+                                }).then(() => {
+                                    // Full page refresh after user clicks OK
+                                    window.location.reload();
+                                });
+                                
+                                // Show 100% completion while waiting for user to click OK
+                                progressBar.css('width', '100%').attr('aria-valuenow', 100);
+                                progressPercentage.text('100%');
+                            }
+                        } else {
+                            handleSyncError(response.message || 'Sync failed');
+                        }
+                    },
+                    error: function(xhr) {
+                        handleSyncError(xhr.responseJSON?.message || 'Could not synchronize data. Please try again.');
+                    }
+                });
             }
-        }, 30000); // 30 detik
-
-        // Optional: Refresh saat tab menjadi aktif kembali
-        document.addEventListener('visibilitychange', function() {
-            if (!document.hidden && table) {
-                table.ajax.reload(null, false);
+            
+            // Handle sync errors
+            function handleSyncError(errorMessage) {
+                // Update status
+                progressStatus.text('Sync failed!');
+                progressBar.removeClass('progress-bar-animated').addClass('bg-danger');
+                
+                // Show error notification
+                Swal.fire({
+                    title: 'Sync Failed',
+                    text: errorMessage,
+                    icon: 'error',
+                    confirmButtonText: 'OK'
+                });
+                
+                // Reset UI after user acknowledges error
+                Swal.getConfirmButton().addEventListener('click', function() {
+                    // Hide progress bar
+                    progressContainer.addClass('d-none');
+                    progressBar.removeClass('bg-danger').addClass('progress-bar-animated');
+                    
+                    // Restore button state
+                    syncBtn.prop('disabled', false)
+                          .html('<i class="fas fa-sync"></i> Sync All Data');
+                });
             }
+            
+            // Start processing first chunk
+            processChunk();
+        });
+        
+        // Manual refresh functionality
+        $(document).on('click', '.refresh-btn', function() {
+            table.ajax.reload(null, false);
         });
     </script>
 

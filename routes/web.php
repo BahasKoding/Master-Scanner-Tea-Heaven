@@ -174,6 +174,7 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/statistics', [FinishedGoodsController::class, 'statistics'])->name('statistics');
         Route::get('/low-stock', [FinishedGoodsController::class, 'lowStock'])->name('low-stock');
         Route::post('/verify-consistency', [FinishedGoodsController::class, 'verifyConsistency'])->name('verify-consistency');
+        Route::get('/test-update/{productId}', [FinishedGoodsController::class, 'testUpdate'])->name('test-update');
     });
 
     Route::resource('bahan-baku', BahanBakuController::class);

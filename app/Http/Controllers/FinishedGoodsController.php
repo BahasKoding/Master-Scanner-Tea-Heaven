@@ -132,12 +132,18 @@ class FinishedGoodsController extends Controller
                         }
                     })
                     ->addColumn('stok_keluar_display', function ($row) {
-                        // Show dynamic value from HistorySale with improved validation
+                        // FIXED: Use database value first, then dynamic calculation as fallback
                         try {
+                            // If finished_goods record exists, use database value
+                            if ($row->finished_goods_id && $row->stok_keluar !== null) {
+                                return $row->stok_keluar; // Show actual database value (updated by StockService)
+                            }
+                            
+                            // Fallback: Calculate dynamic value for products without finished_goods record
                             $product = Product::find($row->product_id);
                             if (!$product) {
                                 Log::warning('Product not found for stok_keluar calculation', ['product_id' => $row->product_id]);
-                                return $row->stok_keluar ?? 0;
+                                return 0;
                             }
 
                             $totalSales = 0;
@@ -188,7 +194,7 @@ class FinishedGoodsController extends Controller
 
                             return $totalSales;
                         } catch (\Exception $e) {
-                            Log::error('Error calculating dynamic stok_keluar', [
+                            Log::error('Error calculating stok_keluar_display', [
                                 'product_id' => $row->product_id,
                                 'error' => $e->getMessage(),
                                 'trace' => $e->getTraceAsString()
@@ -200,8 +206,15 @@ class FinishedGoodsController extends Controller
                         return $row->defective ?? 0;
                     })
                     ->addColumn('live_stock_display', function ($row) {
-                        // Calculate dynamic live stock with improved validation
+                        // FIXED: Use database value first, then dynamic calculation as fallback
+                        // This allows negative values to be displayed correctly
                         try {
+                            // If finished_goods record exists, use database value
+                            if ($row->finished_goods_id && $row->live_stock !== null) {
+                                return $row->live_stock; // Show actual database value (can be negative)
+                            }
+                            
+                            // Fallback: Calculate dynamic live stock for products without finished_goods record
                             $stokAwal = $row->stok_awal ?? 0;
                             $stokMasuk = CatatanProduksi::where('product_id', $row->product_id)->sum('quantity');
                             $defective = $row->defective ?? 0;
@@ -243,9 +256,9 @@ class FinishedGoodsController extends Controller
                             }
 
                             $liveStock = $stokAwal + $stokMasuk - $stokKeluar - $defective;
-                            return max(0, $liveStock); // Ensure not negative
+                            return $liveStock; // FIXED: Allow negative values
                         } catch (\Exception $e) {
-                            Log::error('Error calculating dynamic live_stock', [
+                            Log::error('Error calculating live_stock_display', [
                                 'product_id' => $row->product_id,
                                 'error' => $e->getMessage()
                             ]);
@@ -441,11 +454,20 @@ class FinishedGoodsController extends Controller
                 'defective' => 'required|integer|min:0',
             ], $this->getValidationMessages());
 
+            // Verify numeric values before proceeding
+            if (!is_numeric($validated['stok_awal']) || !is_numeric($validated['defective'])) {
+                throw new \InvalidArgumentException('Stok awal dan defective harus berupa angka yang valid');
+            }
+
             // Get existing finished goods record or create new
             $finishedGoods = FinishedGoods::firstOrNew(['product_id' => $id]);
 
-            // Use FinishedGoodsService for consistent transaction handling
-            $finishedGoods = $this->finishedGoodsService->updateFinishedGoods($finishedGoods, $validated);
+            try {
+                // Use FinishedGoodsService for consistent transaction handling
+                $finishedGoods = $this->finishedGoodsService->updateFinishedGoods($finishedGoods, $validated);
+            } catch (\Exception $serviceError) {
+                throw new \RuntimeException('Terjadi kesalahan saat memproses data. ' . $serviceError->getMessage());
+            }
 
             // Log activity
             $action = $finishedGoods->wasRecentlyCreated ? 'create' : 'update';
@@ -453,11 +475,11 @@ class FinishedGoodsController extends Controller
                 ? 'Pengguna membuat finished goods baru untuk produk: ' . $product->name_product
                 : 'Pengguna memperbarui finished goods untuk produk: ' . $product->name_product;
 
-            addActivity('finished_goods', $action, $message . ' (via service layer)', $finishedGoods->id);
-
+            addActivity('finished_goods', $action, $message, $finishedGoods->id);
+            
             return response()->json([
                 'success' => true,
-                'message' => 'Berhasil! Data stok finished goods telah diperbarui dengan service layer.',
+                'message' => 'Berhasil! Data stok finished goods telah diperbarui.',
                 'data' => [
                     'id' => $finishedGoods->id,
                     'product_id' => $finishedGoods->product_id,
@@ -472,14 +494,28 @@ class FinishedGoodsController extends Controller
         } catch (ValidationException $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Terjadi Kesalahan',
+                'message' => 'Data tidak valid',
                 'errors' => $e->errors()
             ], 422);
-        } catch (\Exception $e) {
-            Log::error('Error saat memperbarui finished goods', ['error' => $e->getMessage()]);
+        } catch (\InvalidArgumentException $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Maaf! Terjadi kesalahan saat memperbarui finished goods. Silahkan coba lagi.'
+                'message' => 'Format data tidak valid. Pastikan stok awal dan defective berupa angka.',
+                'error' => $e->getMessage()
+            ], 400);
+        } catch (\RuntimeException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage() ?: 'Terjadi kesalahan saat memproses data. Silahkan coba lagi.'
+            ], 500);
+        } catch (\Exception $e) {
+            Log::error('Unexpected error during finished goods update', [
+                'product_id' => $id,
+                'error' => $e->getMessage()
+            ]);
+            return response()->json([
+                'success' => false,
+                'message' => 'Maaf! Terjadi kesalahan yang tidak terduga. Silahkan coba lagi.'
             ], 500);
         }
     }
@@ -494,26 +530,41 @@ class FinishedGoodsController extends Controller
 
     /**
      * Sync finished goods stock data for consistency check
+     * Implements chunked processing to prevent timeout with large datasets
      */
     public function sync(Request $request)
     {
         try {
+            // Get parameters for chunked processing
             $productId = $request->get('product_id');
+            $chunkSize = $request->get('chunk_size', 50); // Default 50 records per chunk
+            $offset = $request->get('offset', 0); // Starting offset
+            $totalRecords = $request->get('total_records'); // Total records to process
+            
+            // Process chunk
+            $syncResults = $this->finishedGoodsService->syncFinishedGoodsStock(
+                $productId,
+                $chunkSize,
+                $offset,
+                $totalRecords
+            );
+            
+            // If this is the first request (offset=0) or the last chunk, log the activity
+            if ($offset == 0 || $syncResults['completed']) {
+                $scope = $productId ? 'untuk produk ID: ' . $productId : 'untuk semua produk';
+                $progressInfo = $syncResults['completed'] ? 
+                    '(Completed 100%)' : 
+                    '(Started, estimated ' . $syncResults['total_records'] . ' records)';
+                    
+                addActivity(
+                    'finished_goods', 
+                    'sync', 
+                    'Pengguna melakukan sync finished goods stock ' . $scope . ' ' . $progressInfo, 
+                    null
+                );
+            }
 
-            $syncResults = $this->finishedGoodsService->syncFinishedGoodsStock($productId);
-
-            $successCount = collect($syncResults)->where('status', 'success')->count();
-            $errorCount = collect($syncResults)->where('status', 'error')->count();
-
-            // Log activity
-            $scope = $productId ? 'untuk produk ID: ' . $productId : 'untuk semua produk';
-            addActivity('finished_goods', 'sync', 'Pengguna melakukan sync finished goods stock ' . $scope . ' (Success: ' . $successCount . ', Error: ' . $errorCount . ')', null);
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Sync selesai. Berhasil: ' . $successCount . ', Gagal: ' . $errorCount,
-                'results' => $syncResults
-            ]);
+            return response()->json($syncResults);
         } catch (\Exception $e) {
             Log::error('Failed to sync finished goods stock', [
                 'error' => $e->getMessage(),
@@ -522,7 +573,8 @@ class FinishedGoodsController extends Controller
 
             return response()->json([
                 'success' => false,
-                'message' => 'Gagal melakukan sync data finished goods stock.'
+                'message' => 'Gagal melakukan sync data finished goods stock: ' . $e->getMessage(),
+                'error' => $e->getMessage()
             ], 500);
         }
     }
@@ -649,5 +701,25 @@ class FinishedGoodsController extends Controller
                 'message' => 'Gagal melakukan verifikasi konsistensi stock finished goods.'
             ], 500);
         }
+    }
+    
+    /**
+     * Test endpoint to verify update route functionality
+     * This is for diagnostic purposes only
+     */
+    public function testUpdate($productId)
+    {
+        Log::info('Test update route accessed', [
+            'product_id' => $productId,
+            'time' => now()->format('Y-m-d H:i:s'),
+            'method' => request()->method()
+        ]);
+        
+        return response()->json([
+            'success' => true,
+            'message' => 'Test route for updates is working properly',
+            'product_id' => $productId,
+            'timestamp' => now()->format('Y-m-d H:i:s')
+        ]);
     }
 }

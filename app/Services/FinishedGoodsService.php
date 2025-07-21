@@ -74,12 +74,6 @@ class FinishedGoodsService
     {
         return DB::transaction(function () use ($finishedGoods, $data) {
             try {
-                $oldData = [
-                    'stok_awal' => $finishedGoods->stok_awal,
-                    'defective' => $finishedGoods->defective,
-                    'live_stock' => $finishedGoods->live_stock
-                ];
-
                 // Update manual input values
                 $finishedGoods->stok_awal = $data['stok_awal'];
                 $finishedGoods->defective = $data['defective'];
@@ -87,30 +81,24 @@ class FinishedGoodsService
                 // Auto-calculate stock values from related data
                 $this->updateStockFromRelatedData($finishedGoods);
 
+                // Verify data integrity before save
+                if (!is_numeric($finishedGoods->stok_awal) || !is_numeric($finishedGoods->defective)) {
+                    throw new \InvalidArgumentException('Invalid numeric values for stok_awal or defective');
+                }
+
                 // Save the record
                 $finishedGoods->save();
 
                 // Trigger recalculation to ensure live_stock is updated
                 $finishedGoods->recalculateLiveStock();
 
-                Log::info('FinishedGoods updated successfully', [
-                    'finished_goods_id' => $finishedGoods->id,
-                    'product_id' => $finishedGoods->product_id,
-                    'old_data' => $oldData,
-                    'new_data' => [
-                        'stok_awal' => $finishedGoods->stok_awal,
-                        'defective' => $finishedGoods->defective,
-                        'live_stock' => $finishedGoods->live_stock
-                    ]
-                ]);
-
                 return $finishedGoods;
             } catch (\Exception $e) {
                 Log::error('Failed to update finished goods', [
-                    'finished_goods_id' => $finishedGoods->id,
-                    'error' => $e->getMessage(),
-                    'data' => $data,
-                    'trace' => $e->getTraceAsString()
+                    'finished_goods_id' => $finishedGoods->id ?? 'unknown',
+                    'product_id' => $finishedGoods->product_id ?? 'unknown',
+                    'error_message' => $e->getMessage(),
+                    'input_data' => $data
                 ]);
                 throw $e;
             }
@@ -157,6 +145,7 @@ class FinishedGoodsService
 
     /**
      * Update stock values from related data (CatatanProduksi and HistorySale)
+     * FIXED: Use database values first, then dynamic calculation as fallback
      *
      * @param FinishedGoods $finishedGoods
      * @return void
@@ -164,17 +153,23 @@ class FinishedGoodsService
     private function updateStockFromRelatedData(FinishedGoods $finishedGoods)
     {
         try {
-            // Update stok_masuk from CatatanProduksi
+            // Update stok_masuk from CatatanProduksi (always dynamic)
             $finishedGoods->updateStokMasukFromCatatanProduksi();
 
-            // Update stok_keluar from HistorySale
-            $finishedGoods->updateStokKeluarFromHistorySales();
+            // CRITICAL FIX: Ensure stok_keluar is always set (never null) before save
+            // For new records, stok_keluar might be null, which causes SQL error
+            if ($finishedGoods->stok_keluar === null) {
+                $finishedGoods->stok_keluar = 0;
+            }
 
-            Log::debug('Stock updated from related data', [
-                'product_id' => $finishedGoods->product_id,
-                'stok_masuk' => $finishedGoods->stok_masuk,
-                'stok_keluar' => $finishedGoods->stok_keluar
-            ]);
+            // Calculate dynamic stok_keluar for comparison
+            $dynamicStokKeluar = $this->calculateDynamicStokKeluar($finishedGoods->product_id);
+            
+            // FIXED: For stok_keluar, prioritize database value over dynamic calculation
+            // Only use dynamic calculation if database value is 0 but we have sales data
+            if ($finishedGoods->stok_keluar == 0 && $dynamicStokKeluar > 0) {
+                $finishedGoods->stok_keluar = $dynamicStokKeluar;
+            }
         } catch (\Exception $e) {
             Log::error('Failed to update stock from related data', [
                 'product_id' => $finishedGoods->product_id,
@@ -186,78 +181,138 @@ class FinishedGoodsService
 
     /**
      * Sync all finished goods stock data with related tables
+     * Process in chunks to prevent timeout with large datasets
      *
      * @param int|null $productId Specific product ID or null for all products
+     * @param int $chunkSize Size of each processing chunk
+     * @param int|null $offset Starting offset for processing
+     * @param int|null $totalRecords Total records to be processed (for progress tracking)
      * @return array
      */
-    public function syncFinishedGoodsStock($productId = null)
+    public function syncFinishedGoodsStock($productId = null, $chunkSize = 50, $offset = 0, $totalRecords = null)
     {
-        return DB::transaction(function () use ($productId) {
-            try {
-                $syncResults = [];
-
-                // Get products to sync
-                $query = Product::query();
-                if ($productId) {
-                    $query->where('id', $productId);
-                }
-                $products = $query->get();
-
-                foreach ($products as $product) {
-                    try {
-                        // Get or create finished goods record
-                        $finishedGoods = FinishedGoods::firstOrNew(['product_id' => $product->id]);
-
-                        // If it's a new record, set default values
-                        if (!$finishedGoods->exists) {
-                            $finishedGoods->stok_awal = 0;
-                            $finishedGoods->defective = 0;
-                        }
-
-                        // Update stock from related data
-                        $this->updateStockFromRelatedData($finishedGoods);
-
-                        // Save the record
-                        $finishedGoods->save();
-
-                        $syncResults[] = [
-                            'status' => 'success',
-                            'product_id' => $product->id,
-                            'product_name' => $product->name_product,
-                            'stok_masuk' => $finishedGoods->stok_masuk,
-                            'stok_keluar' => $finishedGoods->stok_keluar,
-                            'live_stock' => $finishedGoods->live_stock
-                        ];
-                    } catch (\Exception $e) {
-                        $syncResults[] = [
-                            'status' => 'error',
-                            'product_id' => $product->id,
-                            'product_name' => $product->name_product,
-                            'error' => $e->getMessage()
-                        ];
-                    }
-                }
-
-                $successCount = collect($syncResults)->where('status', 'success')->count();
-                $errorCount = collect($syncResults)->where('status', 'error')->count();
-
-                Log::info('Finished goods stock sync completed', [
-                    'total_products' => count($products),
-                    'success_count' => $successCount,
-                    'error_count' => $errorCount,
-                    'product_id_filter' => $productId
-                ]);
-
-                return $syncResults;
-            } catch (\Exception $e) {
-                Log::error('Failed to sync finished goods stock', [
-                    'product_id' => $productId,
-                    'error' => $e->getMessage(),
-                    'trace' => $e->getTraceAsString()
-                ]);
-                throw $e;
+        try {
+            // Get products to sync
+            $query = Product::query();
+            if ($productId) {
+                $query->where('id', $productId);
             }
-        });
+            
+            // Get total count if not provided (first call)
+            if ($totalRecords === null) {
+                $totalRecords = $query->count();
+            }
+            
+            // No records to process
+            if ($totalRecords == 0) {
+                return [
+                    'success' => true,
+                    'message' => 'No products found to sync',
+                    'progress' => 100,
+                    'completed' => true,
+                    'total_records' => 0,
+                    'processed_records' => 0,
+                    'results' => []
+                ];
+            }
+            
+            // Get chunk of products to process in this request
+            $products = $query->skip($offset)->take($chunkSize)->get();
+            $syncResults = [];
+            $processedCount = 0;
+            
+            // Process each product in the chunk using individual transactions
+            foreach ($products as $product) {
+                DB::beginTransaction();
+                try {
+                    // Get or create finished goods record
+                    $finishedGoods = FinishedGoods::firstOrNew(['product_id' => $product->id]);
+
+                    // If it's a new record, set default values
+                    if (!$finishedGoods->exists) {
+                        $finishedGoods->stok_awal = 0;
+                        $finishedGoods->defective = 0;
+                    }
+
+                    // Update stock from related data
+                    $this->updateStockFromRelatedData($finishedGoods);
+
+                    // Save the record
+                    $finishedGoods->save();
+                    DB::commit();
+                    
+                    $syncResults[] = [
+                        'status' => 'success',
+                        'product_id' => $product->id,
+                        'product_name' => $product->name_product,
+                        'stok_masuk' => $finishedGoods->stok_masuk,
+                        'stok_keluar' => $finishedGoods->stok_keluar,
+                        'live_stock' => $finishedGoods->live_stock
+                    ];
+                    $processedCount++;
+                } catch (\Exception $e) {
+                    DB::rollBack();
+                    $syncResults[] = [
+                        'status' => 'error',
+                        'product_id' => $product->id,
+                        'product_name' => $product->name_product,
+                        'error' => $e->getMessage()
+                    ];
+                    Log::error('Failed to sync individual finished goods', [
+                        'product_id' => $product->id,
+                        'error' => $e->getMessage()
+                    ]);
+                }
+            }
+
+            $successCount = collect($syncResults)->where('status', 'success')->count();
+            $errorCount = collect($syncResults)->where('status', 'error')->count();
+            
+            // Calculate progress
+            $newOffset = $offset + $chunkSize;
+            $isCompleted = $newOffset >= $totalRecords;
+            $progress = min(100, round(($newOffset / $totalRecords) * 100));
+            
+            Log::info('Finished goods stock sync chunk processed', [
+                'chunk_size' => $chunkSize,
+                'offset' => $offset,
+                'new_offset' => $newOffset,
+                'total_records' => $totalRecords,
+                'success_count' => $successCount,
+                'error_count' => $errorCount,
+                'progress' => $progress,
+                'completed' => $isCompleted
+            ]);
+
+            return [
+                'success' => true,
+                'message' => 'Processed ' . $processedCount . ' records (Success: ' . $successCount . ', Error: ' . $errorCount . ')',
+                'progress' => $progress,
+                'completed' => $isCompleted,
+                'total_records' => $totalRecords,
+                'processed_records' => $newOffset,
+                'next_offset' => $isCompleted ? null : $newOffset,
+                'results' => $syncResults
+            ];
+        } catch (\Exception $e) {
+            Log::error('Failed to sync finished goods stock chunk', [
+                'product_id' => $productId,
+                'offset' => $offset,
+                'chunk_size' => $chunkSize,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return [
+                'success' => false,
+                'message' => 'Error processing batch: ' . $e->getMessage(),
+                'total_records' => $totalRecords,
+                'processed_records' => $offset,
+                'progress' => $offset > 0 ? round(($offset / $totalRecords) * 100) : 0,
+                'completed' => false,
+                'error' => $e->getMessage()
+            ];
+        }
     }
 
     /**
@@ -591,6 +646,77 @@ class FinishedGoodsService
                 'error' => $e->getMessage()
             ]);
             throw $e;
+        }
+    }
+
+    /**
+     * Calculate dynamic stok keluar from HistorySale data
+     * This is used as fallback when database value is inconsistent
+     *
+     * @param int $productId
+     * @return int
+     */
+    private function calculateDynamicStokKeluar($productId)
+    {
+        try {
+            $product = Product::find($productId);
+            if (!$product) {
+                Log::warning('Product not found for dynamic stok_keluar calculation', ['product_id' => $productId]);
+                return 0;
+            }
+
+            $totalSales = 0;
+            $historySales = HistorySale::whereNotNull('no_sku')->get();
+
+            foreach ($historySales as $sale) {
+                try {
+                    $skuArray = is_string($sale->no_sku) ? json_decode($sale->no_sku, true) : $sale->no_sku;
+                    $qtyArray = is_string($sale->qty) ? json_decode($sale->qty, true) : $sale->qty;
+
+                    // Validate data integrity
+                    if (!is_array($skuArray) || !is_array($qtyArray)) {
+                        Log::warning('Invalid SKU or QTY data in HistorySale', [
+                            'sale_id' => $sale->id,
+                            'no_sku' => $sale->no_sku,
+                            'qty' => $sale->qty
+                        ]);
+                        continue;
+                    }
+
+                    // Ensure arrays have same length
+                    if (count($skuArray) !== count($qtyArray)) {
+                        Log::warning('SKU and QTY arrays length mismatch', [
+                            'sale_id' => $sale->id,
+                            'sku_count' => count($skuArray),
+                            'qty_count' => count($qtyArray)
+                        ]);
+                        continue;
+                    }
+
+                    foreach ($skuArray as $index => $sku) {
+                        if (trim($sku) === $product->sku) {
+                            $quantity = $qtyArray[$index] ?? 0;
+                            if (is_numeric($quantity) && $quantity > 0) {
+                                $totalSales += (int)$quantity;
+                            }
+                        }
+                    }
+                } catch (\Exception $saleError) {
+                    Log::error('Error processing individual sale for dynamic stok_keluar', [
+                        'sale_id' => $sale->id,
+                        'error' => $saleError->getMessage()
+                    ]);
+                    continue;
+                }
+            }
+
+            return $totalSales;
+        } catch (\Exception $e) {
+            Log::error('Error calculating dynamic stok_keluar', [
+                'product_id' => $productId,
+                'error' => $e->getMessage()
+            ]);
+            return 0;
         }
     }
 }
