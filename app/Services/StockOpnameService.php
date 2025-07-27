@@ -60,8 +60,13 @@ class StockOpnameService
             foreach ($items as $itemData) {
                 $item = StockOpnameItem::find($itemData['id']);
                 if ($item && $item->opname_id == $stockOpname->id) {
+                    // Get current live stock for accurate variance calculation
+                    $currentLiveStock = $this->getCurrentLiveStock($stockOpname->type, $item->item_id);
+                    
+                    // Update item data
                     $item->stok_fisik = $itemData['stok_fisik'];
-                    $item->selisih = $itemData['stok_fisik'] - $item->stok_sistem;
+                    $item->stok_sistem = $currentLiveStock; // Update to current live stock
+                    $item->selisih = $itemData['stok_fisik'] - $currentLiveStock; // Calculate based on live stock
                     $item->notes = $itemData['notes'] ?? null;
                     $item->save();
                 }
@@ -121,6 +126,9 @@ class StockOpnameService
      */
     public function getVarianceAnalysis(StockOpname $stockOpname): array
     {
+        // Refresh stok_sistem to current live stock before analysis
+        $this->refreshStokSistem($stockOpname);
+        
         $items = $stockOpname->items()->whereNotNull('stok_fisik')->get();
         
         $analysis = [
@@ -203,25 +211,55 @@ class StockOpnameService
      */
     private function populateItems(StockOpname $opname): void
     {
+        \Log::info('StockOpname: Starting populateItems', [
+            'opname_id' => $opname->id,
+            'type' => $opname->type
+        ]);
+        
         $items = $this->getItemsByType($opname->type);
+        
+        \Log::info('StockOpname: Items retrieved', [
+            'count' => $items->count(),
+            'type' => $opname->type
+        ]);
 
         if ($items->isEmpty()) {
+            \Log::warning('StockOpname: No items found, creating dummy item', [
+                'opname_id' => $opname->id,
+                'type' => $opname->type
+            ]);
             // Create at least one dummy item to prevent complete failure
             $this->createDummyItem($opname);
             return;
         }
 
         // Insert items
+        $insertedCount = 0;
         foreach ($items as $itemData) {
-            StockOpnameItem::create([
-                'opname_id' => $opname->id,
-                'item_id' => $itemData['item_id'],
-                'item_name' => $itemData['item_name'],
-                'item_sku' => $itemData['item_sku'] ?? null,
-                'stok_sistem' => $itemData['stok_sistem'],
-                'satuan' => $itemData['satuan']
-            ]);
+            try {
+                StockOpnameItem::create([
+                    'opname_id' => $opname->id,
+                    'item_id' => $itemData['item_id'],
+                    'item_name' => $itemData['item_name'],
+                    'item_sku' => $itemData['item_sku'] ?? null,
+                    'stok_sistem' => $itemData['stok_sistem'],
+                    'satuan' => $itemData['satuan']
+                ]);
+                $insertedCount++;
+            } catch (Exception $e) {
+                \Log::error('StockOpname: Failed to insert item', [
+                    'opname_id' => $opname->id,
+                    'item_data' => $itemData,
+                    'error' => $e->getMessage()
+                ]);
+            }
         }
+        
+        \Log::info('StockOpname: Items inserted successfully', [
+            'opname_id' => $opname->id,
+            'inserted_count' => $insertedCount,
+            'total_items' => $items->count()
+        ]);
     }
 
     /**
@@ -232,13 +270,21 @@ class StockOpnameService
      */
     private function getItemsByType(string $type): Collection
     {
+        \Log::info('StockOpname: Getting items by type', ['type' => $type]);
+        
         try {
             switch ($type) {
                 case 'bahan_baku':
+                    // Try to get from InventoryBahanBaku first
                     $inventories = InventoryBahanBaku::with('bahanBaku')->get();
+                    \Log::info('StockOpname: InventoryBahanBaku count', ['count' => $inventories->count()]);
+                    
                     if ($inventories->isEmpty()) {
+                        \Log::info('StockOpname: InventoryBahanBaku empty, using fallback to BahanBaku');
                         // Fallback: get from BahanBaku directly
                         $bahanBakus = \App\Models\BahanBaku::all();
+                        \Log::info('StockOpname: BahanBaku fallback count', ['count' => $bahanBakus->count()]);
+                        
                         return $bahanBakus->map(function ($bahanBaku) {
                             return [
                                 'item_id' => $bahanBaku->id,
@@ -249,21 +295,35 @@ class StockOpnameService
                             ];
                         });
                     }
-                    return $inventories->map(function ($inventory) {
+                    
+                    // Filter out inventories without bahanBaku relationship
+                    $validInventories = $inventories->filter(function ($inventory) {
+                        return $inventory->bahanBaku !== null;
+                    });
+                    
+                    \Log::info('StockOpname: Valid inventories count', ['count' => $validInventories->count()]);
+                    
+                    return $validInventories->map(function ($inventory) {
                         return [
                             'item_id' => $inventory->bahanBaku->id,
                             'item_name' => $inventory->bahanBaku->nama_barang ?? 'Unknown',
                             'item_sku' => $inventory->bahanBaku->sku_induk ?? '-',
-                            'stok_sistem' => $inventory->live_stok_gudang ?? 0, // From InventoryBahanBaku
+                            'stok_sistem' => $inventory->live_stok_gudang ?? 0,
                             'satuan' => $inventory->bahanBaku->satuan ?? 'kg'
                         ];
                     });
 
                 case 'finished_goods':
+                    // Try to get from FinishedGoods first
                     $finishedGoods = FinishedGoods::with('product')->get();
+                    \Log::info('StockOpname: FinishedGoods count', ['count' => $finishedGoods->count()]);
+                    
                     if ($finishedGoods->isEmpty()) {
+                        \Log::info('StockOpname: FinishedGoods empty, using fallback to Product');
                         // Fallback: get from Product directly
                         $products = \App\Models\Product::all();
+                        \Log::info('StockOpname: Product fallback count', ['count' => $products->count()]);
+                        
                         return $products->map(function ($product) {
                             return [
                                 'item_id' => $product->id,
@@ -274,18 +334,28 @@ class StockOpnameService
                             ];
                         });
                     }
-                    return $finishedGoods->map(function ($finished) {
+                    
+                    // Filter out finished goods without product relationship
+                    $validFinishedGoods = $finishedGoods->filter(function ($finished) {
+                        return $finished->product !== null;
+                    });
+                    
+                    \Log::info('StockOpname: Valid finished goods count', ['count' => $validFinishedGoods->count()]);
+                    
+                    return $validFinishedGoods->map(function ($finished) {
                         return [
                             'item_id' => $finished->product->id,
                             'item_name' => $finished->product->name_product ?? 'Unknown',
                             'item_sku' => $finished->product->sku ?? '-',
-                            'stok_sistem' => $finished->live_stock ?? 0, // From FinishedGoods
+                            'stok_sistem' => $finished->live_stock ?? 0,
                             'satuan' => 'pcs'
                         ];
                     });
 
                 case 'sticker':
                     $stickers = Sticker::all();
+                    \Log::info('StockOpname: Stickers count', ['count' => $stickers->count()]);
+                    
                     return $stickers->map(function ($sticker) {
                         return [
                             'item_id' => $sticker->id,
@@ -296,78 +366,317 @@ class StockOpnameService
                     });
 
                 default:
+                    \Log::warning('StockOpname: Unknown opname type', ['type' => $type]);
                     return collect([]);
             }
         } catch (Exception $e) {
-            // Return empty collection on any database error
+            // Log the error for debugging
+            \Log::error('StockOpname: Error getting items by type', [
+                'type' => $type,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
             return collect([]);
         }
     }
 
     /**
-     * Update system stock based on physical count
+     * Get current live stock for an item based on type and item_id
+     * This method provides real-time stock calculation instead of static snapshot
      *
-     * @param StockOpname $opname
-     * @return void
-     * @throws Exception
+     * @param string $type
+     * @param int $itemId
+     * @return int
      */
-    private function updateSystemStock(StockOpname $opname): void
+    public function getCurrentLiveStock(string $type, int $itemId): int
     {
-        $items = $opname->items()->whereNotNull('stok_fisik')->get();
-
-        foreach ($items as $item) {
-            if ($item->selisih == 0) continue; // No difference, skip
-
-            switch ($opname->type) {
+        try {
+            switch ($type) {
                 case 'bahan_baku':
-                    $this->updateBahanBakuStock($item);
-                    break;
+                    $inventory = InventoryBahanBaku::where('bahan_baku_id', $itemId)->first();
+                    return $inventory ? ($inventory->live_stok_gudang ?? 0) : 0;
 
                 case 'finished_goods':
-                    $this->updateFinishedGoodsStock($item);
-                    break;
+                    $finished = FinishedGoods::where('product_id', $itemId)->first();
+                    return $finished ? ($finished->live_stock ?? 0) : 0;
 
                 case 'sticker':
-                    $this->updateStickerStock($item);
-                    break;
+                    $sticker = Sticker::find($itemId);
+                    return $sticker ? ($sticker->stok_stiker ?? 0) : 0;
+
+                default:
+                    return 0;
             }
+        } catch (Exception $e) {
+            // Log error and return 0 as fallback
+            \Log::error('Error getting current live stock: ' . $e->getMessage(), [
+                'type' => $type,
+                'item_id' => $itemId
+            ]);
+            return 0;
         }
     }
 
     /**
-     * Update bahan baku stock
+     * Update stok_sistem for all items in an opname to current live stock
+     * This should be called before variance calculation to ensure accuracy
+     *
+     * @param StockOpname $opname
+     * @return array Returns summary of stock changes
+     */
+    public function refreshStokSistem(StockOpname $opname): array
+    {
+        $items = $opname->items;
+        $changes = [];
+        $totalChanges = 0;
+        
+        foreach ($items as $item) {
+            $originalStock = $item->stok_sistem;
+            $currentStock = $this->getCurrentLiveStock($opname->type, $item->item_id);
+            $stockChange = $currentStock - $originalStock;
+            
+            // Update stok_sistem to current live stock
+            $item->stok_sistem = $currentStock;
+            
+            // Track changes for notification
+            if ($stockChange != 0) {
+                $changes[] = [
+                    'item_name' => $item->item_name,
+                    'original_stock' => $originalStock,
+                    'current_stock' => $currentStock,
+                    'change' => $stockChange,
+                    'change_type' => $stockChange > 0 ? 'increase' : 'decrease'
+                ];
+                $totalChanges++;
+            }
+            
+            // Recalculate selisih if stok_fisik exists
+            if ($item->stok_fisik !== null) {
+                $item->selisih = $item->stok_fisik - $currentStock;
+            }
+            
+            $item->save();
+        }
+        
+        // Log stock changes for audit trail
+        if ($totalChanges > 0) {
+            \Log::info('StockOpname: Stock sistem refreshed with changes', [
+                'opname_id' => $opname->id,
+                'total_changes' => $totalChanges,
+                'changes' => $changes
+            ]);
+        }
+        
+        return [
+            'total_changes' => $totalChanges,
+            'changes' => $changes,
+            'message' => $totalChanges > 0 
+                ? "Stock sistem diperbarui untuk {$totalChanges} item karena ada perubahan transaksi"
+                : 'Stock sistem sudah up-to-date, tidak ada perubahan'
+        ];
+    }
+
+    /**
+     * Update system stock based on physical count using absolute values
+     * This method now uses transaction safety and comprehensive error handling
+     *
+     * @param StockOpname $opname
+     * @return array Returns summary of stock updates
+     * @throws Exception
+     */
+    private function updateSystemStock(StockOpname $opname): array
+    {
+        $items = $opname->items()->whereNotNull('stok_fisik')->get();
+        $updateSummary = [
+            'total_items' => $items->count(),
+            'updated_items' => 0,
+            'skipped_items' => 0,
+            'failed_items' => 0,
+            'errors' => []
+        ];
+
+        \Log::info('StockOpname: Starting system stock update', [
+            'opname_id' => $opname->id,
+            'opname_type' => $opname->type,
+            'total_items' => $updateSummary['total_items']
+        ]);
+
+        // Use database transaction for data consistency
+        \DB::beginTransaction();
+        
+        try {
+            foreach ($items as $item) {
+                try {
+                    // Skip items with no variance (already accurate)
+                    if ($item->selisih == 0) {
+                        $updateSummary['skipped_items']++;
+                        continue;
+                    }
+
+                    // Update stock based on opname type
+                    switch ($opname->type) {
+                        case 'bahan_baku':
+                            $this->updateBahanBakuStock($item);
+                            break;
+
+                        case 'finished_goods':
+                            $this->updateFinishedGoodsStock($item);
+                            break;
+
+                        case 'sticker':
+                            $this->updateStickerStock($item);
+                            break;
+                            
+                        default:
+                            throw new \Exception("Unsupported opname type: {$opname->type}");
+                    }
+                    
+                    $updateSummary['updated_items']++;
+                    
+                } catch (\Exception $e) {
+                    $updateSummary['failed_items']++;
+                    $updateSummary['errors'][] = [
+                        'item_id' => $item->item_id,
+                        'item_name' => $item->item_name,
+                        'error' => $e->getMessage()
+                    ];
+                    
+                    \Log::error('StockOpname: Failed to update individual item stock', [
+                        'item_id' => $item->item_id,
+                        'item_name' => $item->item_name,
+                        'error' => $e->getMessage()
+                    ]);
+                }
+            }
+            
+            // Commit transaction if all updates successful or acceptable error rate
+            if ($updateSummary['failed_items'] == 0 || 
+                ($updateSummary['failed_items'] / $updateSummary['total_items']) < 0.1) {
+                \DB::commit();
+                
+                \Log::info('StockOpname: System stock update completed successfully', $updateSummary);
+            } else {
+                \DB::rollback();
+                throw new \Exception('Too many failed stock updates, transaction rolled back');
+            }
+            
+        } catch (\Exception $e) {
+            \DB::rollback();
+            \Log::error('StockOpname: System stock update failed', [
+                'opname_id' => $opname->id,
+                'error' => $e->getMessage(),
+                'summary' => $updateSummary
+            ]);
+            throw $e;
+        }
+        
+        return $updateSummary;
+    }
+
+    /**
+     * Update bahan baku stock using absolute physical count value
+     * This method now uses proper stock adjustment logic with audit trail
      *
      * @param StockOpnameItem $item
      * @return void
      */
     private function updateBahanBakuStock(StockOpnameItem $item): void
     {
-        $inventory = InventoryBahanBaku::where('id_bahan_baku', $item->item_id)->first();
-        if ($inventory) {
-            // Update stok_masuk to reflect the physical count
-            $newStokMasuk = $inventory->stok_masuk + $item->selisih;
-            $inventory->stok_masuk = max(0, $newStokMasuk);
+        $inventory = InventoryBahanBaku::where('bahan_baku_id', $item->item_id)->first();
+        if (!$inventory) {
+            \Log::warning('StockOpname: InventoryBahanBaku not found for stock update', [
+                'item_id' => $item->item_id,
+                'item_name' => $item->item_name
+            ]);
+            return;
+        }
+
+        // Calculate what the new stok_masuk should be to achieve physical count
+        $currentLiveStock = $inventory->live_stok_gudang ?? 0;
+        $targetStock = $item->stok_fisik;
+        $stockAdjustment = $targetStock - $currentLiveStock;
+        
+        // Only adjust stok_masuk if there's a difference
+        if ($stockAdjustment != 0) {
+            $oldStokMasuk = $inventory->stok_masuk;
+            $newStokMasuk = max(0, $oldStokMasuk + $stockAdjustment);
+            
+            // Create audit trail before update
+            $this->createStockAdjustmentLog(
+                $item,
+                'bahan_baku',
+                $currentLiveStock,
+                $targetStock,
+                $stockAdjustment,
+                "Adjustment stok_masuk dari {$oldStokMasuk} ke {$newStokMasuk}"
+            );
+            
+            // Update the stock
+            $inventory->stok_masuk = $newStokMasuk;
             $inventory->save();
+            
+            \Log::info('StockOpname: Bahan baku stock updated', [
+                'item_id' => $item->item_id,
+                'item_name' => $item->item_name,
+                'old_stok_masuk' => $oldStokMasuk,
+                'new_stok_masuk' => $newStokMasuk,
+                'stock_adjustment' => $stockAdjustment,
+                'target_stock' => $targetStock
+            ]);
         }
     }
 
     /**
-     * Update finished goods stock
+     * Update finished goods stock using absolute physical count value
+     * This method now uses proper stock adjustment logic with audit trail
      *
      * @param StockOpnameItem $item
      * @return void
      */
     private function updateFinishedGoodsStock(StockOpnameItem $item): void
     {
-        $finished = FinishedGoods::where('id_product', $item->item_id)->first();
-        if ($finished) {
-            $finished->stok_finished_goods = $item->stok_fisik;
-            $finished->save();
+        $finishedGoods = FinishedGoods::where('product_id', $item->item_id)->first();
+        if (!$finishedGoods) {
+            \Log::warning('StockOpname: FinishedGoods not found for stock update', [
+                'item_id' => $item->item_id,
+                'item_name' => $item->item_name
+            ]);
+            return;
+        }
+
+        $currentLiveStock = $finishedGoods->live_stock ?? 0;
+        $targetStock = $item->stok_fisik;
+        $stockAdjustment = $targetStock - $currentLiveStock;
+        
+        // Only update if there's a difference
+        if ($stockAdjustment != 0) {
+            // Create audit trail before update
+            $this->createStockAdjustmentLog(
+                $item,
+                'finished_goods',
+                $currentLiveStock,
+                $targetStock,
+                $stockAdjustment,
+                "Direct adjustment live_stock dari {$currentLiveStock} ke {$targetStock}"
+            );
+            
+            // Update the stock directly to physical count
+            $finishedGoods->live_stock = $targetStock;
+            $finishedGoods->save();
+            
+            \Log::info('StockOpname: Finished goods stock updated', [
+                'item_id' => $item->item_id,
+                'item_name' => $item->item_name,
+                'old_live_stock' => $currentLiveStock,
+                'new_live_stock' => $targetStock,
+                'stock_adjustment' => $stockAdjustment
+            ]);
         }
     }
 
     /**
-     * Update sticker stock
+     * Update sticker stock using absolute physical count value
+     * This method now uses proper stock adjustment logic with audit trail
      *
      * @param StockOpnameItem $item
      * @return void
@@ -375,9 +684,93 @@ class StockOpnameService
     private function updateStickerStock(StockOpnameItem $item): void
     {
         $sticker = Sticker::find($item->item_id);
-        if ($sticker) {
-            $sticker->stok_stiker = $item->stok_fisik;
+        if (!$sticker) {
+            \Log::warning('StockOpname: Sticker not found for stock update', [
+                'item_id' => $item->item_id,
+                'item_name' => $item->item_name
+            ]);
+            return;
+        }
+
+        $currentStock = $sticker->stok_stiker ?? 0;
+        $targetStock = $item->stok_fisik;
+        $stockAdjustment = $targetStock - $currentStock;
+        
+        // Only update if there's a difference
+        if ($stockAdjustment != 0) {
+            // Create audit trail before update
+            $this->createStockAdjustmentLog(
+                $item,
+                'sticker',
+                $currentStock,
+                $targetStock,
+                $stockAdjustment,
+                "Direct adjustment stok_stiker dari {$currentStock} ke {$targetStock}"
+            );
+            
+            // Update the stock directly to physical count
+            $sticker->stok_stiker = $targetStock;
             $sticker->save();
+            
+            \Log::info('StockOpname: Sticker stock updated', [
+                'item_id' => $item->item_id,
+                'item_name' => $item->item_name,
+                'old_stok_stiker' => $currentStock,
+                'new_stok_stiker' => $targetStock,
+                'stock_adjustment' => $stockAdjustment
+            ]);
+        }
+    }
+
+    /**
+     * Create comprehensive audit trail for stock adjustments
+     * This method logs all stock changes with detailed information for compliance
+     *
+     * @param StockOpnameItem $item
+     * @param string $stockType
+     * @param float $oldStock
+     * @param float $newStock
+     * @param float $adjustment
+     * @param string $details
+     * @return void
+     */
+    private function createStockAdjustmentLog(
+        StockOpnameItem $item,
+        string $stockType,
+        float $oldStock,
+        float $newStock,
+        float $adjustment,
+        string $details
+    ): void {
+        try {
+            // Create detailed audit log
+            \Log::info('StockOpname: Stock Adjustment Audit Trail', [
+                'opname_id' => $item->opname_id,
+                'item_id' => $item->item_id,
+                'item_name' => $item->item_name,
+                'stock_type' => $stockType,
+                'adjustment_type' => $adjustment > 0 ? 'increase' : 'decrease',
+                'old_stock' => $oldStock,
+                'new_stock' => $newStock,
+                'adjustment_amount' => $adjustment,
+                'physical_count' => $item->stok_fisik,
+                'system_stock_before' => $item->stok_sistem,
+                'variance' => $item->selisih,
+                'details' => $details,
+                'user_id' => auth()->id() ?? 'system',
+                'timestamp' => now()->toDateTimeString(),
+                'ip_address' => request()->ip() ?? 'unknown'
+            ]);
+            
+            // TODO: In future, create StockAdjustment model record for database audit trail
+            // This would store the audit information in a dedicated table for reporting
+            
+        } catch (\Exception $e) {
+            \Log::error('StockOpname: Failed to create audit trail', [
+                'error' => $e->getMessage(),
+                'item_id' => $item->item_id,
+                'stock_type' => $stockType
+            ]);
         }
     }
 
@@ -499,6 +892,96 @@ class StockOpnameService
         }
 
         return $totalItems > 0 ? round($totalVariance / $totalItems, 2) : 0;
+    }
+
+    /**
+     * Check if there are concurrent transactions that might affect stock during opname
+     * This method helps identify potential stock changes during opname period
+     *
+     * @param StockOpname $opname
+     * @return array
+     */
+    public function checkConcurrentTransactions(StockOpname $opname): array
+    {
+        $warnings = [];
+        $opnameDate = $opname->created_at;
+        
+        try {
+            switch ($opname->type) {
+                case 'bahan_baku':
+                    // Check for recent purchases after opname creation
+                    $recentPurchases = \App\Models\Purchase::where('created_at', '>', $opnameDate)
+                        ->whereIn('bahan_baku_id', $opname->items->pluck('item_id'))
+                        ->count();
+                    
+                    if ($recentPurchases > 0) {
+                        $warnings[] = "Ada {$recentPurchases} transaksi pembelian bahan baku setelah opname dibuat";
+                    }
+                    break;
+                    
+                case 'finished_goods':
+                    // Check for recent production after opname creation
+                    $recentProduction = \App\Models\CatatanProduksi::where('created_at', '>', $opnameDate)
+                        ->whereIn('product_id', $opname->items->pluck('item_id'))
+                        ->count();
+                    
+                    // Check for recent sales after opname creation
+                    $recentSales = \App\Models\HistorySale::where('created_at', '>', $opnameDate)
+                        ->whereIn('product_id', $opname->items->pluck('item_id'))
+                        ->count();
+                    
+                    if ($recentProduction > 0) {
+                        $warnings[] = "Ada {$recentProduction} transaksi produksi setelah opname dibuat";
+                    }
+                    
+                    if ($recentSales > 0) {
+                        $warnings[] = "Ada {$recentSales} transaksi penjualan setelah opname dibuat";
+                    }
+                    break;
+                    
+                case 'sticker':
+                    // Check for recent sticker purchases (if applicable)
+                    // This would depend on your sticker purchase tracking system
+                    break;
+            }
+        } catch (Exception $e) {
+            \Log::error('Error checking concurrent transactions: ' . $e->getMessage());
+            $warnings[] = 'Tidak dapat memeriksa transaksi concurrent';
+        }
+        
+        return $warnings;
+    }
+
+    /**
+     * Get stock movement summary during opname period
+     * This helps understand what changed between opname creation and current time
+     *
+     * @param StockOpname $opname
+     * @return array
+     */
+    public function getStockMovementSummary(StockOpname $opname): array
+    {
+        $summary = [];
+        $opnameDate = $opname->created_at;
+        
+        foreach ($opname->items as $item) {
+            $currentStock = $this->getCurrentLiveStock($opname->type, $item->item_id);
+            $originalStock = $item->stok_sistem; // Original snapshot when opname was created
+            $movement = $currentStock - $originalStock;
+            
+            if ($movement != 0) {
+                $summary[] = [
+                    'item_id' => $item->item_id,
+                    'item_name' => $item->item_name,
+                    'original_stock' => $originalStock,
+                    'current_stock' => $currentStock,
+                    'movement' => $movement,
+                    'movement_type' => $movement > 0 ? 'increase' : 'decrease'
+                ];
+            }
+        }
+        
+        return $summary;
     }
 
     /**

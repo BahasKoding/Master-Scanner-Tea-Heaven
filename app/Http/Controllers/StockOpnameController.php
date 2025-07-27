@@ -180,6 +180,15 @@ class StockOpnameController extends Controller
      */
     public function show(StockOpname $stockOpname)
     {
+        // Refresh stok_sistem to current live stock before displaying
+        $refreshResult = $this->stockOpnameService->refreshStokSistem($stockOpname);
+        
+        // Add notification about stock changes
+        if ($refreshResult['total_changes'] > 0) {
+            session()->flash('info', $refreshResult['message']);
+            session()->flash('stock_changes', $refreshResult['changes']);
+        }
+        
         // Eager load items with their master data relationships based on opname type
         switch ($stockOpname->type) {
             case 'bahan_baku':
@@ -305,16 +314,24 @@ class StockOpnameController extends Controller
         try {
             $analysis = $this->stockOpnameService->getVarianceAnalysis($stockOpname);
             $recommendations = $this->stockOpnameService->getRecommendations($stockOpname);
-
+            
+            // Check for concurrent transactions
+            $concurrentWarnings = $this->stockOpnameService->checkConcurrentTransactions($stockOpname);
+            
+            // Get stock movement summary
+            $stockMovements = $this->stockOpnameService->getStockMovementSummary($stockOpname);
+            
             return response()->json([
-                'success' => true,
+                'status' => 'success',
                 'analysis' => $analysis,
-                'recommendations' => $recommendations
+                'recommendations' => $recommendations,
+                'concurrent_warnings' => $concurrentWarnings,
+                'stock_movements' => $stockMovements
             ]);
         } catch (Exception $e) {
             return response()->json([
-                'success' => false,
-                'message' => 'Gagal mengambil analisis variance: ' . $e->getMessage()
+                'status' => 'error',
+                'message' => 'Gagal menganalisis variance: ' . $e->getMessage()
             ], 500);
         }
     }
@@ -350,13 +367,19 @@ class StockOpnameController extends Controller
         ]);
 
         try {
+            // Get current live stock for accurate variance calculation
+            $currentLiveStock = $this->stockOpnameService->getCurrentLiveStock($stockOpname->type, $item->item_id);
+            
+            // Update item data with real-time stock
             $item->stok_fisik = $request->stok_fisik;
+            $item->stok_sistem = $currentLiveStock; // Update to current live stock
+            $item->selisih = $request->stok_fisik - $currentLiveStock; // Calculate based on live stock
             if ($request->filled('notes')) {
                 $item->notes = $request->notes;
             }
             $item->save();
 
-            // Calculate variance using the correct logic (model will handle this automatically)
+            // Get calculated variance
             $selisih = $item->selisih;
             
             return response()->json([
@@ -545,6 +568,28 @@ class StockOpnameController extends Controller
             return response()->json([
                 'status' => 'error',
                 'message' => 'Terjadi kesalahan saat mengekspor data: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Refresh stock sistem for all items in opname to current live stock
+     */
+    public function refreshStock(StockOpname $stockOpname)
+    {
+        try {
+            $refreshResult = $this->stockOpnameService->refreshStokSistem($stockOpname);
+            
+            return response()->json([
+                'status' => 'success',
+                'message' => $refreshResult['message'],
+                'total_changes' => $refreshResult['total_changes'],
+                'changes' => $refreshResult['changes']
+            ]);
+        } catch (Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Gagal refresh stock sistem: ' . $e->getMessage()
             ], 500);
         }
     }

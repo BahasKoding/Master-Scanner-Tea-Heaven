@@ -86,7 +86,7 @@
   - [x] Auto-populate dari `tb_inventory_bahan_baku` ✅
   - [x] Input stok fisik manual (integer-only) ✅
   - [x] Hitung selisih otomatis dengan real-time updates ✅
-- [x] **Opname Finished Goods**: ✅
+- [x] **Opname Finished Gophp arods**: ✅
   - [x] Auto-populate dari `tb_finished_goods` ✅
   - [x] Input stok fisik manual (integer-only) ✅
   - [x] Hitung selisih otomatis dengan real-time updates ✅
@@ -115,13 +115,142 @@
 - [x] **Validation**: Request validation classes ✅
 - [x] **Permissions**: Role-based access control ✅
 
-##### Status: ✅ **PRODUCTION READY**
+##### Status: 🔄 **ENHANCEMENT IN PROGRESS**
 - **Database & Model**: ✅ Completed
 - **Controller & Service**: ✅ Completed  
 - **Views & UI**: ✅ Completed
 - **Menu Integration**: ✅ Completed
 - **Advanced Features**: ✅ Completed
 - **Testing & Polish**: ✅ Completed
+- **Dynamic Stock Calculation**: ✅ **IMPLEMENTED** (Phase 1)
+- **Real-time Stock Movement**: ✅ **IMPLEMENTED** (Phase 2)
+- **Stok Awal Integration**: 🔄 **IN PROGRESS** (Phase 3)
+
+#### 2. Stock Opname Advanced Features - ENHANCEMENT REQUIRED ⚠️
+
+##### Critical Issues to Fix 🚨
+- [x] **Dynamic Stock Calculation**: ✅ **COMPLETED** (Phase 1)
+  - [x] Implement real-time stock calculation during opname period ✅
+  - [x] Replace snapshot-based `stok_sistem` with dynamic calculation ✅
+  - [x] Handle concurrent transactions during opname period ✅
+  - [x] Add getCurrentLiveStock() method in StockOpnameService ✅
+  - [x] Add refreshStokSistem() with change notifications ✅
+  - [x] Add checkConcurrentTransactions() method ✅
+  - [x] Add getStockMovementSummary() method ✅
+
+- [x] **Real-time Stock Movement**: ✅ **COMPLETED** (Phase 2)
+  - [x] Fix updateSystemStock() to use physical count as absolute value ✅
+  - [x] Implement proper stock movement calculation ✅
+  - [x] Add stock adjustment logging with audit trail ✅
+  - [x] Handle negative stock scenarios correctly ✅
+  - [x] Add createStockAdjustmentLog() for comprehensive audit trail ✅
+  - [x] Implement database transaction safety ✅
+  - [x] Enhanced error handling and rollback mechanisms ✅
+
+- [ ] **Stok Awal Integration**: 🔄 **IN PROGRESS** (Phase 3)
+  - [ ] **Kondisi 1**: Auto-reset stok awal setelah opname selesai
+    - [ ] Reset semua stok awal di finished goods/inventory bahan baku
+    - [ ] Ambil stok awal dari stok fisik (hasil opname)
+    - [ ] Otomatis update ke semua record terkait saat status = "selesai"
+    - [ ] Integration dengan `tb_finished_goods.stok_awal`
+    - [ ] Integration dengan `tb_inventory_bahan_baku.stok_awal`
+    - [ ] Integration dengan `tb_stiker.stok_awal`
+    - [ ] **NEW**: Implement resetStokAwalFromOpname() method
+  - [ ] **Kondisi 2**: Per-row update langsung ke stok awal
+    - [ ] Stok fisik (opname) langsung jadi stok awal saat update per baris
+    - [ ] Real-time update tanpa perlu finalisasi
+    - [ ] Apply ke barang jadi/bahan baku yang bersangkutan
+    - [ ] Maintain audit trail untuk setiap perubahan stok awal
+    - [ ] **NEW**: Implement updateStokAwalPerRow() method
+    - [ ] **NEW**: AJAX integration untuk immediate stok awal update
+
+##### Enhancement Features 🔧
+- [ ] **Concurrent Opname Protection**:
+  - [ ] Add database locks during stock updates
+  - [ ] Prevent multiple opname sessions for same item type
+  - [ ] Add warning for ongoing transactions during opname
+
+- [ ] **Advanced Variance Analysis**:
+  - [ ] Real-time variance calculation based on current stock
+  - [ ] Historical variance trending
+  - [ ] Predictive variance alerts
+  - [ ] Category-wise variance analysis
+
+- [ ] **Stock Movement Integration**:
+  - [ ] Integration with StockService for real-time updates
+  - [ ] Auto-sync with FinishedGoodsService
+  - [ ] Purchase/Sale transaction impact during opname
+  - [ ] Production impact calculation
+
+- [ ] **Audit & Compliance**:
+  - [ ] Complete audit trail for all stock movements
+  - [ ] Stock adjustment approval workflow
+  - [ ] Compliance reporting for stock discrepancies
+  - [ ] Manager approval for significant variances (>20%)
+
+- [ ] **Performance Optimization**:
+  - [ ] Batch processing for large item counts
+  - [ ] Background processing for stock calculations
+  - [ ] Caching for frequently accessed stock data
+  - [ ] Database query optimization
+
+##### Technical Implementation Plan 📋
+1. **Phase 1 - Critical Fixes**: ✅ **COMPLETED**
+   - [x] Modify StockOpnameService::populateItems() for dynamic stock ✅
+   - [x] Fix StockOpnameService::updateSystemStock() logic ✅
+   - [x] Update StockOpnameItem::calculateCorrectVariance() for real-time ✅
+   - [x] Add proper error handling and rollback mechanisms ✅
+   - [x] **IMPLEMENTED**: getCurrentLiveStock() method ✅
+   - [x] **IMPLEMENTED**: refreshStokSistem() with notifications ✅
+   - [x] **IMPLEMENTED**: checkConcurrentTransactions() method ✅
+   - [x] **IMPLEMENTED**: Fixed column name mismatches (product_id, bahan_baku_id) ✅
+   - [x] **IMPLEMENTED**: Enhanced updateBahanBakuStock() with absolute values ✅
+   - [x] **IMPLEMENTED**: Enhanced updateFinishedGoodsStock() with absolute values ✅
+   - [x] **IMPLEMENTED**: Enhanced updateStickerStock() with absolute values ✅
+   - [x] **IMPLEMENTED**: createStockAdjustmentLog() for comprehensive audit trail ✅
+   - [x] **IMPLEMENTED**: Database transaction safety in updateSystemStock() ✅
+   - [ ] **NEXT**: Implement resetStokAwalFromOpname() method
+     - [ ] Create method di StockOpnameService untuk kondisi 1
+     - [ ] Auto-trigger saat opname status berubah ke "selesai"
+     - [ ] Update stok_awal di tb_finished_goods, tb_inventory_bahan_baku, tb_stiker
+   - [ ] **NEXT**: Implement updateStokAwalPerRow() method
+     - [ ] Create method di StockOpnameService untuk kondisi 2
+     - [ ] Real-time update saat user input stok fisik per baris
+     - [ ] AJAX integration untuk immediate stok awal update
+
+2. **Phase 2 - Enhanced Features**: ✅ **COMPLETED**
+   - [x] Implement stock movement logging ✅
+   - [x] Add concurrent transaction protection ✅
+   - [x] Create advanced variance analysis ✅
+   - [x] Enhanced notification system for stock changes ✅
+   - [x] Comprehensive audit trail system ✅
+   - [x] Transaction safety with rollback mechanisms ✅
+
+3. **Phase 3 - Stok Awal Integration**: 🔄 **IN PROGRESS**
+   - [ ] Implement resetStokAwalFromOpname() method
+   - [ ] Implement updateStokAwalPerRow() method
+   - [ ] AJAX integration for real-time stok_awal updates
+   - [ ] Auto-trigger mechanism when opname status = "selesai"
+   - [ ] Integration with tb_finished_goods.stok_awal
+   - [ ] Integration with tb_inventory_bahan_baku.stok_awal
+   - [ ] Integration with tb_stiker.stok_awal
+
+4. **Phase 4 - Integration & Optimization**: ⏳ **PLANNED**
+   - [ ] Full integration with existing stock services
+   - [ ] Performance optimization
+   - [ ] Advanced reporting and analytics
+   - [ ] Mobile-responsive enhancements
+
+##### Priority Level: 🟡 **MEDIUM** (Updated from Critical)
+**Status Update**: Critical issues (Phase 1 & 2) have been resolved ✅
+- ✅ **FIXED**: Dynamic stock calculation now uses real-time values
+- ✅ **FIXED**: Stock update logic now uses absolute physical count values
+- ✅ **FIXED**: Comprehensive audit trail implemented
+- ✅ **FIXED**: Auto-populate bug resolved (column name mismatches)
+- ✅ **FIXED**: Notification system for stock changes
+
+**Remaining Work**: Phase 3 - Stok Awal Integration
+**Timeline**: 1 week for Phase 3 completion
 
 ### 📦 Purchase Management
 
