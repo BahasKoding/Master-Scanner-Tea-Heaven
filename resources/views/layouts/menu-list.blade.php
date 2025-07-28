@@ -12,7 +12,7 @@
 
 <!-- Master Tables -->
 @php
-    $showMasterData = auth()->user()->can('Product List') || auth()->user()->can('Bahan Baku List');
+    $showMasterData = auth()->check() && (auth()->user()->can('Product List') || auth()->user()->can('Bahan Baku List'));
 @endphp
 
 @if ($showMasterData)

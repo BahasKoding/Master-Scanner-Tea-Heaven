@@ -222,11 +222,6 @@ class InventoryBahanBakuController extends Controller
             // Add bahan baku information to the response
             $inventoryBahanBaku->bahan_baku_id = $bahanBakuId;
 
-            Log::info('Permintaan edit inventory bahan baku diterima via service', [
-                'bahan_baku_id' => $bahanBakuId,
-                'nama_barang' => $inventoryBahanBaku->bahan_baku->nama_barang,
-                'inventory_bahan_baku' => $inventoryBahanBaku->toArray()
-            ]);
 
             // Log activity
             addActivity('inventory_bahan_baku', 'edit', 'Pengguna melihat form edit inventory bahan baku untuk: ' . $inventoryBahanBaku->bahan_baku->nama_barang, $bahanBakuId);
@@ -396,7 +391,6 @@ class InventoryBahanBakuController extends Controller
     private function autoSyncInventoryData()
     {
         try {
-            Log::info('Auto-syncing inventory bahan baku data to ensure consistency');
 
             $bahanBakus = BahanBaku::all();
             $syncedCount = 0;
@@ -414,7 +408,6 @@ class InventoryBahanBakuController extends Controller
                 }
             }
 
-            Log::info("Auto-sync completed: {$syncedCount} bahan baku items synchronized");
         } catch (\Exception $e) {
             Log::error('Auto-sync inventory failed', [
                 'error' => $e->getMessage(),

@@ -187,8 +187,6 @@ class ProductController extends Controller
             // Find the product
             $product = Product::findOrFail($id);
 
-            Log::info('Permintaan edit produk diterima', ['product' => $product->toArray()]);
-
             // Log activity
             addActivity('product', 'edit', 'Pengguna melihat form edit produk: ' . $product->name_product, $product->id);
 

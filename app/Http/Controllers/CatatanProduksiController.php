@@ -255,21 +255,6 @@ class CatatanProduksiController extends Controller
             ->orderBy('name_product')
             ->get();
 
-        // Debug logging to check packaging data
-        Log::info('Products for catatan produksi', [
-            'count' => $products->count(),
-            'products' => $products->map(function ($product) {
-                return [
-                    'id' => $product->id,
-                    'name_product' => $product->name_product,
-                    'sku' => $product->sku,
-                    'packaging' => $product->packaging,
-                    'packaging_is_null' => is_null($product->packaging),
-                    'packaging_is_empty' => empty($product->packaging)
-                ];
-            })->toArray()
-        ]);
-
         return $products;
     }
 
@@ -561,12 +546,6 @@ class CatatanProduksiController extends Controller
             $productId = $request->input('product_id');
             $syncResults = $this->productionService->syncProductionData($productId);
 
-            Log::info('Production data sync requested', [
-                'product_id' => $productId,
-                'results' => $syncResults,
-                'user_id' => auth()->user()->id ?? null
-            ]);
-
             // Log activity
             $message = $productId
                 ? "Pengguna melakukan sync data produksi untuk produk ID: {$productId}"
@@ -601,11 +580,6 @@ class CatatanProduksiController extends Controller
             $filters = $request->only(['product_id', 'start_date', 'end_date', 'bahan_baku_id']);
             $statistics = $this->productionService->getProductionStatistics($filters);
 
-            Log::info('Production statistics requested', [
-                'filters' => $filters,
-                'user_id' => auth()->id()
-            ]);
-
             // Log activity
             addActivity('catatan_produksi', 'statistics', 'Pengguna melihat statistik catatan produksi', null);
 
@@ -636,12 +610,6 @@ class CatatanProduksiController extends Controller
         try {
             $productId = $request->input('product_id');
             $consistencyResults = $this->productionService->verifyProductionConsistency($productId);
-
-            Log::info('Production consistency check requested', [
-                'product_id' => $productId,
-                'results' => $consistencyResults,
-                'user_id' => auth()->user()->id ?? null
-            ]);
 
             // Log activity
             $message = $productId

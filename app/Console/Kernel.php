@@ -13,6 +13,12 @@ class Kernel extends ConsoleKernel
     protected function schedule(Schedule $schedule): void
     {
         // $schedule->command('inspire')->hourly();
+        
+        // Clean up old log files daily at 2 AM
+        $schedule->command('logs:clear --days=7 --force')
+                 ->daily()
+                 ->at('02:00')
+                 ->description('Clean up log files older than 7 days');
     }
 
     /**

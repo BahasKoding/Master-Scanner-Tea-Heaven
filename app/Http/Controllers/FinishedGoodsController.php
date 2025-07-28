@@ -142,7 +142,6 @@ class FinishedGoodsController extends Controller
                             // Fallback: Calculate dynamic value for products without finished_goods record
                             $product = Product::find($row->product_id);
                             if (!$product) {
-                                Log::warning('Product not found for stok_keluar calculation', ['product_id' => $row->product_id]);
                                 return 0;
                             }
 
@@ -156,21 +155,11 @@ class FinishedGoodsController extends Controller
 
                                     // Validate data integrity
                                     if (!is_array($skuArray) || !is_array($qtyArray)) {
-                                        Log::warning('Invalid SKU or QTY data in HistorySale', [
-                                            'sale_id' => $sale->id,
-                                            'no_sku' => $sale->no_sku,
-                                            'qty' => $sale->qty
-                                        ]);
                                         continue;
                                     }
 
                                     // Ensure arrays have same length
                                     if (count($skuArray) !== count($qtyArray)) {
-                                        Log::warning('SKU and QTY arrays length mismatch', [
-                                            'sale_id' => $sale->id,
-                                            'sku_count' => count($skuArray),
-                                            'qty_count' => count($qtyArray)
-                                        ]);
                                         continue;
                                     }
 
@@ -184,10 +173,6 @@ class FinishedGoodsController extends Controller
                                         }
                                     }
                                 } catch (\Exception $saleError) {
-                                    Log::error('Error processing individual sale for stok_keluar', [
-                                        'sale_id' => $sale->id,
-                                        'error' => $saleError->getMessage()
-                                    ]);
                                     continue;
                                 }
                             }
@@ -416,12 +401,6 @@ class FinishedGoodsController extends Controller
                 'product_name' => $finishedGoods->product->name_product,
                 'product_sku' => $finishedGoods->product->sku,
             ];
-
-            Log::info('Permintaan edit finished goods diterima via service', [
-                'product_id' => $productId,
-                'product_name' => $finishedGoods->product->name_product,
-                'finished_goods' => $responseData
-            ]);
 
             // Log activity
             addActivity('finished_goods', 'edit', 'Pengguna melihat form edit finished goods untuk produk: ' . $finishedGoods->product->name_product, $productId);
@@ -709,11 +688,7 @@ class FinishedGoodsController extends Controller
      */
     public function testUpdate($productId)
     {
-        Log::info('Test update route accessed', [
-            'product_id' => $productId,
-            'time' => now()->format('Y-m-d H:i:s'),
-            'method' => request()->method()
-        ]);
+
         
         return response()->json([
             'success' => true,

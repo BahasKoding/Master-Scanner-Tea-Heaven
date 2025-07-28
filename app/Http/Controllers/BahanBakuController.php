@@ -170,8 +170,6 @@ class BahanBakuController extends Controller
     public function edit(BahanBaku $bahanBaku)
     {
         try {
-            Log::info('Permintaan edit bahan baku diterima', ['bahan_baku' => $bahanBaku->toArray()]);
-
             // Log activity
             addActivity('bahan-baku', 'edit', 'Pengguna melihat form edit bahan baku: ' . $bahanBaku->nama_barang, $bahanBaku->id);
 
@@ -201,9 +199,6 @@ class BahanBakuController extends Controller
                 'nama_barang'   => 'required|string|max:255',
                 'satuan'        => 'required|string|in:PCS,GRAM,KG',
             ], $this->getValidationMessages());
-
-            // Store old values for logging
-            $oldValues = $bahanBaku->toArray();
 
             $bahanBaku->update($validated);
 

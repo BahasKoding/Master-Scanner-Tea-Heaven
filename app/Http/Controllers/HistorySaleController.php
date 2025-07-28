@@ -340,7 +340,7 @@ class HistorySaleController extends Controller
                 'message' => 'Riwayat penjualan berhasil dihapus'
             ]);
         } catch (\Exception $e) {
-            \Illuminate\Support\Facades\Log::error('Error in destroy method: ' . $e->getMessage(), [
+            Log::error('Error in destroy method: ' . $e->getMessage(), [
                 'id' => $id,
                 'trace' => $e->getTraceAsString()
             ]);
@@ -416,7 +416,6 @@ class HistorySaleController extends Controller
 
             // If requesting all records but there are too many, limit it
             if ($requestingAllRecords && $totalRecords > $maxRecordsForExport) {
-                Log::warning("Large data export attempted. Total records: {$totalRecords}, limiting to {$maxRecordsForExport}");
                 $length = $maxRecordsForExport;
                 $requestingAllRecords = false;
             }
@@ -668,7 +667,6 @@ class HistorySaleController extends Controller
             $exportDescription .= " ({$totalRecords} data)";
 
             addActivity('sales', 'export', $exportDescription, null);
-            Log::info("Export completed successfully for {$totalRecords} records");
 
             return response()->json([
                 'status' => 'success',
