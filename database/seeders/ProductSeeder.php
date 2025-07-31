@@ -29,6 +29,7 @@ class ProductSeeder extends Seeder
 
     /**
      * Process product file data from master_product_seeder.md
+     * Format expected: Line Number, SKU, Product Name, Pack Code, Category, Pack Size
      */
     private function processProductFile()
     {
@@ -71,19 +72,35 @@ class ProductSeeder extends Seeder
                     $this->command->info("📍 Memproses baris ke-{$lineNumber} dari " . count($lines) . " total...");
                 }
 
-                // Pastikan ada minimal 5 kolom: Category, SKU, Pack Code, Product Name, Pack Size
-                if (count($columns) < 5) {
-                    $skippedLines++;
-                    $reason = "Baris {$lineNumber} tidak valid (hanya " . count($columns) . " kolom): " . substr($line, 0, 100) . "...";
-                    $skippedReasons[] = $reason;
-                    continue;
+                // Format baru dari master_product_seeder.md: 
+                // [0] = Line Number (ignore), [1] = SKU, [2] = Product Name, [3] = Pack Code, [4] = Category, [5] = Pack Size
+                // Pastikan ada minimal 6 kolom dalam format baru
+                if (count($columns) < 6) {
+                    // Cek jika mungkin ini adalah baris dengan format lama (5 kolom)
+                    if (count($columns) == 5) {
+                        // Coba konversi dari format lama (category, sku, packcode, productname, packsize)
+                        $lineNumber = $index + 1; // Line number dari indeks
+                        $category = trim($columns[0]);
+                        $sku = trim($columns[1]);
+                        $packCode = trim($columns[2]);
+                        $productName = trim($columns[3]);
+                        $packSize = trim($columns[4]);
+                        
+                        $this->command->info("⚠️ Baris {$lineNumber} menggunakan format lama, mencoba konversi...");
+                    } else {
+                        $skippedLines++;
+                        $reason = "Baris {$lineNumber} tidak valid (hanya " . count($columns) . " kolom): " . substr($line, 0, 100) . "...";
+                        $skippedReasons[] = $reason;
+                        continue;
+                    }
+                } else {
+                    // Format baru: nomor baris, SKU, nama produk, pack code, kategori, pack size
+                    $sku = trim($columns[1]);
+                    $productName = trim($columns[2]);
+                    $packCode = trim($columns[3]);
+                    $category = trim($columns[4]);
+                    $packSize = trim($columns[5]);
                 }
-
-                $category = trim($columns[0]);
-                $sku = trim($columns[1]);
-                $packCode = trim($columns[2]);
-                $productName = trim($columns[3]);
-                $packSize = trim($columns[4]);
 
                 // Validasi SKU (harus ada dan tidak kosong)
                 if (empty($sku)) {
@@ -188,21 +205,29 @@ class ProductSeeder extends Seeder
      */
     private function getCategoryId($categoryName)
     {
-        // Mapping kategori ke ID (sesuaikan dengan data kategori yang ada)
+        // Mapping kategori ke ID (sesuaikan dengan data kategori yang ada di master_product_seeder.md)
         $categoryMapping = [
             'CLASSIC TEA COLLECTION' => 1,
             'PURE TISANE' => 2,
             'ARTISAN TEA' => 3,
             'JAPANESE TEA' => 4,
+            'JAPANESE TEABAGS' => 4, // Masukkan ke kategori JAPANESE TEA
             'CHINESE TEA' => 5,
             'PURE POWDER' => 6,
             'SWEET POWDER' => 7,
             'LATTE POWDER' => 8,
             'EMPTY' => 9,
             'CRAFTED TEAS' => 10,
+            'TEA WARE' => 10, // Masukkan ke kategori CRAFTED TEAS
             'UNKNOWN CATEGORY' => 11,
+            '-' => 11, // Kategori yang kosong dianggap UNKNOWN
         ];
 
+        // Debug
+        if (!isset($categoryMapping[$categoryName])) {
+            $this->command->warn("⚠️ Kategori tidak dikenal: '{$categoryName}' - menggunakan default category ID 11");
+        }
+        
         return $categoryMapping[$categoryName] ?? 11; // Default ke ID 11 untuk unknown
     }
 
@@ -211,13 +236,13 @@ class ProductSeeder extends Seeder
      */
     private function getLabelId($labelName)
     {
-        // Mapping label ke ID (sesuai dengan Product::getLabelOptions())
+        // Mapping label ke ID (sesuai dengan Product::getLabelOptions() dan master_product_seeder.md)
         $labelMapping = [
             '-' => 0,
             'EXTRA SMALL PACK (15-100 GRAM)' => 1,
             'SMALL PACK (50-250 GRAM)' => 2,
             'MEDIUM PACK (500 GRAM)' => 3,
-            'BIG PACK (1 KILO)' => 4,
+            'BIG PACK (1 Kg)' => 4,          // Format baru: 'Kg' bukan 'KILO'
             'TIN CANISTER SERIES' => 5,
             'REFILL PACK, SAMPLE & GIFT' => 6,
             'CRAFTED TEAS' => 7,
@@ -227,6 +252,11 @@ class ProductSeeder extends Seeder
             'HERBATA NON LABEL 500 GR-1000 GR' => 11,
         ];
 
+        // Debug
+        if (!isset($labelMapping[$labelName])) {
+            $this->command->warn("⚠️ Label tidak dikenal: '{$labelName}' - menggunakan default label ID 0");
+        }
+        
         return $labelMapping[$labelName] ?? 0; // Default ke ID 0 untuk "-"
     }
 
@@ -241,6 +271,11 @@ class ProductSeeder extends Seeder
             $this->command->info("✅ Batch berhasil ({$productsData[0]['sku']} - {$productsData[count($productsData) - 1]['sku']}) = " . count($productsData) . " records");
         } catch (\Exception $e) {
             $this->command->error("❌ Gagal menyimpan batch pada sekitar baris {$lineNumber}: " . $e->getMessage());
+            
+            // Debug info - print the first failed record
+            if (isset($productsData[0])) {
+                $this->command->warn("⚠️ Contoh data batch yang gagal: " . json_encode($productsData[0], JSON_UNESCAPED_UNICODE));
+            }
 
             // Coba insert satu per satu untuk mengetahui data mana yang bermasalah
             foreach ($productsData as $singleRecord) {

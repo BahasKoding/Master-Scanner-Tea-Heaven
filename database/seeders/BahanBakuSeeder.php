@@ -294,11 +294,32 @@ class BahanBakuSeeder extends Seeder
             ['kategori' => 19, 'sku_induk' => 'BX6', 'nama_barang' => 'BOX 25X17X10', 'satuan' => 'PCS'],
             ['kategori' => 19, 'sku_induk' => 'BX7', 'nama_barang' => 'BOX 35X25X20', 'satuan' => 'PCS'],
             ['kategori' => 19, 'sku_induk' => 'BX8', 'nama_barang' => 'BOX 50X35X25', 'satuan' => 'PCS'],
+
+            // Additional entries
+            ['kategori' => 11, 'sku_induk' => 'LC', 'nama_barang' => 'LOW CAFFEINE', 'satuan' => 'GRAM'],
+            ['kategori' => 11, 'sku_induk' => 'EP1', 'nama_barang' => 'ALU FOIL 12X18', 'satuan' => 'PCS'],
+            ['kategori' => 11, 'sku_induk' => 'EP5', 'nama_barang' => 'ALU FOIL 25 X 35', 'satuan' => 'PCS'],
+            ['kategori' => 11, 'sku_induk' => 'EPMA', 'nama_barang' => '12 X 18 BARISTA MATCHA A', 'satuan' => 'PCS'],
+            ['kategori' => 11, 'sku_induk' => 'EPMB', 'nama_barang' => '12 X 18 BAKER MATCHA B', 'satuan' => 'PCS'],
+            ['kategori' => 11, 'sku_induk' => 'EPMU', 'nama_barang' => '12 X 18 UJI CULINARY MATCHA', 'satuan' => 'PCS'],
+            ['kategori' => 11, 'sku_induk' => 'EPMC', 'nama_barang' => '12 X 18 CEREMONIAL MATCHA', 'satuan' => 'PCS'],
         ];
 
-        // Insert data
+        // Insert data with progress reporting
+        $totalToInsert = count($bahan_bakus);
+        $insertedCount = 0;
+
+        $this->command->info("Starting to seed $totalToInsert bahan baku records...");
+
         foreach ($bahan_bakus as $bahan_baku) {
             BahanBaku::create($bahan_baku);
+            $insertedCount++;
+
+            if ($insertedCount % 100 === 0) {
+                $this->command->info("Processed $insertedCount / $totalToInsert records...");
+            }
         }
+
+        $this->command->info("Finished seeding. Total records inserted: $insertedCount");
     }
 }
