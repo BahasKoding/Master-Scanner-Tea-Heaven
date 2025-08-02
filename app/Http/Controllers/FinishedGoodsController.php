@@ -52,269 +52,32 @@ class FinishedGoodsController extends Controller
     /**
      * Display a listing of the resource.
      */
+
+    /**
+     * Display the main view with filters
+     */
     public function index(Request $request)
     {
         if ($request->ajax()) {
-            try {
-                // Query semua produk dengan LEFT JOIN ke finished_goods
-                $query = Product::leftJoin('finished_goods', 'products.id', '=', 'finished_goods.product_id')
-                    ->select([
-                        'products.id as product_id',
-                        'products.sku',
-                        'products.name_product',
-                        'products.packaging',
-                        'products.category_product',
-                        'products.label',
-                        'finished_goods.id as finished_goods_id',
-                        'finished_goods.stok_awal',
-                        'finished_goods.stok_masuk',
-                        'finished_goods.stok_keluar',
-                        'finished_goods.defective',
-                        'finished_goods.live_stock',
-                        'finished_goods.created_at as fg_created_at',
-                        'finished_goods.updated_at as fg_updated_at'
-                    ]);
-
-                // Apply filters
-                if ($request->has('product_id') && !empty($request->product_id)) {
-                    $query->where('products.id', $request->product_id);
-                }
-
-                if ($request->has('category_product') && !empty($request->category_product)) {
-                    $query->where('products.category_product', $request->category_product);
-                }
-
-                if ($request->has('label') && !empty($request->label)) {
-                    $query->where('products.label', $request->label);
-                }
-
-                if ($request->has('sku') && !empty($request->sku)) {
-                    $query->where('products.sku', 'like', '%' . $request->sku . '%');
-                }
-
-                $dataTable = DataTables::of($query)
-                    ->addIndexColumn()
-                    ->orderColumn('name_product', function ($query, $order) {
-                        $query->orderBy('products.name_product', $order);
-                    })
-                    ->addColumn('action', function ($row) {
-                        return $row->product_id;
-                    })
-                    ->addColumn('category_name', function ($row) {
-                        try {
-                            $categories = Product::getCategoryOptions();
-                            return $categories[$row->category_product] ?? 'Unknown Category';
-                        } catch (\Exception $e) {
-                            Log::error('Error getting category name', ['error' => $e->getMessage()]);
-                            return 'Unknown Category';
-                        }
-                    })
-                    ->addColumn('label_name', function ($row) {
-                        try {
-                            $labels = Product::getLabelOptions();
-                            return $labels[$row->label] ?? '-';
-                        } catch (\Exception $e) {
-                            Log::error('Error getting label name', ['error' => $e->getMessage()]);
-                            return '-';
-                        }
-                    })
-                    ->addColumn('stok_awal_display', function ($row) {
-                        return $row->stok_awal ?? 0;
-                    })
-                    ->addColumn('stok_masuk_display', function ($row) {
-                        // Show dynamic value from CatatanProduksi
-                        try {
-                            $dynamicValue = CatatanProduksi::where('product_id', $row->product_id)->sum('quantity');
-                            return $dynamicValue;
-                        } catch (\Exception $e) {
-                            Log::error('Error calculating dynamic stok_masuk', ['error' => $e->getMessage()]);
-                            return $row->stok_masuk ?? 0;
-                        }
-                    })
-                    ->addColumn('stok_keluar_display', function ($row) {
-                        // FIXED: Use database value first, then dynamic calculation as fallback
-                        try {
-                            // If finished_goods record exists, use database value
-                            if ($row->finished_goods_id && $row->stok_keluar !== null) {
-                                return $row->stok_keluar; // Show actual database value (updated by StockService)
-                            }
-                            
-                            // Fallback: Calculate dynamic value for products without finished_goods record
-                            $product = Product::find($row->product_id);
-                            if (!$product) {
-                                return 0;
-                            }
-
-                            $totalSales = 0;
-                            $historySales = HistorySale::whereNotNull('no_sku')->get();
-
-                            foreach ($historySales as $sale) {
-                                try {
-                                    $skuArray = is_string($sale->no_sku) ? json_decode($sale->no_sku, true) : $sale->no_sku;
-                                    $qtyArray = is_string($sale->qty) ? json_decode($sale->qty, true) : $sale->qty;
-
-                                    // Validate data integrity
-                                    if (!is_array($skuArray) || !is_array($qtyArray)) {
-                                        continue;
-                                    }
-
-                                    // Ensure arrays have same length
-                                    if (count($skuArray) !== count($qtyArray)) {
-                                        continue;
-                                    }
-
-                                    foreach ($skuArray as $index => $sku) {
-                                        // Validate SKU exists in products table
-                                        if (trim($sku) === $product->sku) {
-                                            $quantity = $qtyArray[$index] ?? 0;
-                                            if (is_numeric($quantity) && $quantity > 0) {
-                                                $totalSales += (int)$quantity;
-                                            }
-                                        }
-                                    }
-                                } catch (\Exception $saleError) {
-                                    continue;
-                                }
-                            }
-
-                            return $totalSales;
-                        } catch (\Exception $e) {
-                            Log::error('Error calculating stok_keluar_display', [
-                                'product_id' => $row->product_id,
-                                'error' => $e->getMessage(),
-                                'trace' => $e->getTraceAsString()
-                            ]);
-                            return $row->stok_keluar ?? 0;
-                        }
-                    })
-                    ->addColumn('defective_display', function ($row) {
-                        return $row->defective ?? 0;
-                    })
-                    ->addColumn('live_stock_display', function ($row) {
-                        // FIXED: Use database value first, then dynamic calculation as fallback
-                        // This allows negative values to be displayed correctly
-                        try {
-                            // If finished_goods record exists, use database value
-                            if ($row->finished_goods_id && $row->live_stock !== null) {
-                                return $row->live_stock; // Show actual database value (can be negative)
-                            }
-                            
-                            // Fallback: Calculate dynamic live stock for products without finished_goods record
-                            $stokAwal = $row->stok_awal ?? 0;
-                            $stokMasuk = CatatanProduksi::where('product_id', $row->product_id)->sum('quantity');
-                            $defective = $row->defective ?? 0;
-
-                            $product = Product::find($row->product_id);
-                            $stokKeluar = 0;
-
-                            if ($product) {
-                                $historySales = HistorySale::whereNotNull('no_sku')->get();
-
-                                foreach ($historySales as $sale) {
-                                    try {
-                                        $skuArray = is_string($sale->no_sku) ? json_decode($sale->no_sku, true) : $sale->no_sku;
-                                        $qtyArray = is_string($sale->qty) ? json_decode($sale->qty, true) : $sale->qty;
-
-                                        // Validate data integrity
-                                        if (!is_array($skuArray) || !is_array($qtyArray)) {
-                                            continue;
-                                        }
-
-                                        // Ensure arrays have same length
-                                        if (count($skuArray) !== count($qtyArray)) {
-                                            continue;
-                                        }
-
-                                        foreach ($skuArray as $index => $sku) {
-                                            if (trim($sku) === $product->sku) {
-                                                $quantity = $qtyArray[$index] ?? 0;
-                                                if (is_numeric($quantity) && $quantity > 0) {
-                                                    $stokKeluar += (int)$quantity;
-                                                }
-                                            }
-                                        }
-                                    } catch (\Exception $saleError) {
-                                        // Skip problematic sales data
-                                        continue;
-                                    }
-                                }
-                            }
-
-                            $liveStock = $stokAwal + $stokMasuk - $stokKeluar - $defective;
-                            return $liveStock; // FIXED: Allow negative values
-                        } catch (\Exception $e) {
-                            Log::error('Error calculating live_stock_display', [
-                                'product_id' => $row->product_id,
-                                'error' => $e->getMessage()
-                            ]);
-                            return $row->live_stock ?? 0;
-                        }
-                    })
-                    ->filterColumn('name_product', function ($query, $keyword) {
-                        $query->where('products.name_product', 'like', "%{$keyword}%");
-                    })
-                    ->filterColumn('sku', function ($query, $keyword) {
-                        $query->where('products.sku', 'like', "%{$keyword}%");
-                    })
-                    ->rawColumns(['action'])
-                    ->smart(true)
-                    ->startsWithSearch()
-                    ->make(true);
-
-                return $dataTable;
-            } catch (\Exception $e) {
-                Log::error('DataTables Ajax error in FinishedGoods index', [
-                    'error' => $e->getMessage(),
-                    'file' => $e->getFile(),
-                    'line' => $e->getLine(),
-                    'trace' => $e->getTraceAsString(),
-                    'request' => $request->all()
-                ]);
-
-                return response()->json([
-                    'draw' => intval($request->get('draw')),
-                    'recordsTotal' => 0,
-                    'recordsFiltered' => 0,
-                    'data' => [],
-                    'error' => 'Terjadi kesalahan saat memuat data. Silakan refresh halaman atau hubungi administrator.'
-                ], 200); // Return 200 to prevent DataTables error popup
-            }
+            return $this->getProductsData($request);
         }
 
         try {
-            // Get all products for dropdown
-            $products = Product::orderBy('name_product')->get();
-
-            // Get category options
+            // Get data for filters
+            $products = Product::orderBy('name_product')->get(['id', 'name_product']);
             $categories = Product::getCategoryOptions();
-
-            // Get label options
             $labels = Product::getLabelOptions();
 
-            // Get initial data for the view with pagination
-            $items = [
-                'Daftar Finished Goods' => route('finished-goods.index'),
-            ];
-
-            // Log activity
-            addActivity('finished_goods', 'view', 'Pengguna melihat daftar finished goods', null);
-
-            return view('finished-goods.index', compact('items', 'products', 'categories', 'labels'));
-        } catch (\Exception $e) {
-            // Log the error
-            Log::error('Failed to load data for Finished Goods index', [
-                'error' => $e->getMessage(),
-                'file' => $e->getFile(),
-                'line' => $e->getLine(),
-                'trace' => $e->getTraceAsString()
-            ]);
-
-            // Return view with error message
             return view('finished-goods.index', [
                 'items' => ['Daftar Finished Goods' => route('finished-goods.index')],
-                'products' => [],
-                'categories' => [],
-                'labels' => [],
+                'products' => $products,
+                'categories' => $categories,
+                'labels' => $labels
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Failed to load finished goods index', ['error' => $e->getMessage()]);
+            return view('finished-goods.index', [
                 'error_message' => 'Gagal memuat data. Silakan coba refresh halaman.'
             ]);
         }
@@ -697,4 +460,176 @@ class FinishedGoodsController extends Controller
             'timestamp' => now()->format('Y-m-d H:i:s')
         ]);
     }
+
+    /* helper method Arif*/
+    protected function getProductsData(Request $request)
+    {
+        try {
+            $query = $this->buildBaseQuery();
+            $this->applyFilters($query, $request);
+            
+            $perPage = $request->per_page ?? 25;
+            $products = $query->paginate($perPage);
+
+            return response()->json([
+                'data' => $this->transformProducts($products->getCollection()),
+                'current_page' => $products->currentPage(),
+                'last_page' => $products->lastPage(),
+                'total' => $products->total(),
+                'per_page' => $products->perPage()
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Failed to get products data', [
+                'error' => $e->getMessage(),
+                'request' => $request->all()
+            ]);
+            
+            return response()->json([
+                'error' => 'Terjadi kesalahan saat memuat data',
+                'data' => [],
+                'total' => 0
+            ], 500);
+        }
+    }
+
+    protected function buildBaseQuery()
+    {
+        return Product::with([
+            'finishedGoods' => function($query) {
+                $query->select(['id', 'product_id', 'stok_awal', 'stok_masuk', 'stok_keluar', 'defective', 'live_stock']);
+            },
+            'catatanProduksi' => function($query) {
+                $query->select(['id', 'product_id', 'quantity']);
+            },
+            'sales' => function($query) {
+                $query->select(['id', 'no_sku', 'qty']);
+            }
+        ])->select([
+            'products.id',
+            'products.sku',
+            'products.name_product',
+            'products.category_product',
+            'products.label'
+        ]);
+    }
+
+    protected function applyFilters($query, Request $request)
+    {
+        $filters = [
+            'product_id' => fn($q, $v) => $q->where('products.id', $v),
+            'category_product' => fn($q, $v) => $q->where('products.category_product', $v),
+            'label' => fn($q, $v) => $q->where('products.label', $v),
+            'sku' => fn($q, $v) => $q->where('products.sku', 'like', '%'.$v.'%'),
+            'name_product' => fn($q, $v) => $q->where('products.name_product', 'like', '%'.$v.'%')
+        ];
+
+        foreach ($filters as $key => $filter) {
+            if ($request->filled($key)) {
+                $filter($query, $request->input($key));
+            }
+        }
+
+        return $query;
+    }
+
+    protected function transformProducts($products)
+    {
+        return $products->map(function($product) {
+
+            $stokMasuk = $product->catatanProduksi->sum('quantity') ?? 0;
+            
+            $stokKeluar = $this->calculateStockOut($product);
+            
+            $liveStock = $this->calculateLiveStock($product);
+            
+            return [
+                'id' => $product->id,
+                'sku' => $product->sku,
+                'name_product' => $product->name_product,
+                'category_name' => $product->category_name,
+                'label_name' => $product->label_name,
+                'stok_awal' => $product->finishedGoods->stok_awal ?? 0,
+                'stok_masuk' => $stokMasuk,
+                'stok_keluar' => $stokKeluar,
+                'defective' => $product->finishedGoods->defective ?? 0,
+                'live_stock' => $liveStock
+            ];
+        });
+    }
+
+    protected function calculateStockOut($product)
+    {
+        try {
+            if ($product->finishedGoods && $product->finishedGoods->stok_keluar !== null) {
+                return $product->finishedGoods->stok_keluar;
+            }
+
+            $totalSales = 0;
+            
+            foreach ($product->sales as $sale) {
+                try {
+                    $skuArray = json_decode($sale->no_sku, true) ?: [];
+                    $qtyArray = json_decode($sale->qty, true) ?: [];
+                    
+                    foreach ($skuArray as $index => $sku) {
+                        if (trim($sku) === $product->sku && isset($qtyArray[$index])) {
+                            $totalSales += max(0, (int)$qtyArray[$index]);
+                        }
+                    }
+                } catch (\Exception $e) {
+                    Log::debug('Sale data error', ['sale_id' => $sale->id]);
+                }
+            }
+
+            return $totalSales;
+
+        } catch (\Exception $e) {
+            Log::error('Error calculating stock out', ['product_id' => $product->id]);
+            return 0;
+        }
+    }
+
+    protected function calculateLiveStock($product)
+    {
+        try {
+            if ($product->finishedGoods && $product->finishedGoods->live_stock !== null) {
+                return $product->finishedGoods->live_stock;
+            }
+
+            $stokAwal = $product->finishedGoods->stok_awal ?? 0;
+            $stokMasuk = $product->catatanProduksi->sum('quantity') ?? 0;
+            $defective = $product->finishedGoods->defective ?? 0;
+            $stokKeluar = $this->calculateStockOut($product);
+
+            return $stokAwal + $stokMasuk - $stokKeluar - $defective;
+
+        } catch (\Exception $e) {
+            Log::error('Error calculating live stock', ['product_id' => $product->id]);
+            return 0;
+        }
+    }
+
+     /**
+     * Sync all stock data
+     */
+    public function syncAll(Request $request)
+    {
+        try {
+            
+            return response()->json([
+                'success' => true,
+                'message' => 'Sync process started'
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Failed to sync stock data', ['error' => $e->getMessage()]);
+            return response()->json([
+                'success' => false,
+                'message' => 'Sync failed'
+            ], 500);
+        }
+    }
+
+
 }

@@ -145,4 +145,13 @@ class Product extends Model
 
         return $salesHistory;
     }
+
+    /* tambahan Arif */
+    public function sales()
+    {
+        return $this->hasMany(HistorySale::class)
+            ->whereNotNull('no_sku')
+            ->whereRaw("JSON_CONTAINS(no_sku, ?)", [json_encode($this->sku)]);
+    }
+
 }

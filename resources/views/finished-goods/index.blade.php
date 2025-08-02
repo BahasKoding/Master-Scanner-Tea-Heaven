@@ -278,10 +278,17 @@
                                     <th>Aksi</th>
                                 </tr>
                             </thead>
-                            <tbody>
+                            <tbody id="products-body">
                                 <!-- Data will be loaded via AJAX -->
                             </tbody>
                         </table>
+                         <div class="pagination-container">
+                            <nav>
+                                <ul class="pagination justify-content-center">
+                                    <!-- Pagination akan diisi via AJAX -->
+                                </ul>
+                            </nav>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -318,332 +325,234 @@
 
     <script type="text/javascript">
         $(document).ready(function() {
-            // Initialize choices for select inputs
-            var filterProductChoices = new Choices('#filter-product', {
-                searchEnabled: true,
-                searchPlaceholderValue: "Cari produk",
-                itemSelectText: '',
-                placeholder: true,
-                placeholderValue: "Semua produk"
-            });
-
-            // Initialize DataTable
-            var table = $('#finishedGoods-table').DataTable({
-                processing: true,
-                serverSide: true,
-                ajax: {
-                    url: "{{ route('finished-goods.data') }}",
-                    type: "POST",
-                    data: function(d) {
-                        d.product_id = $('#filter-product').val();
-                        d.category_product = $('#filter-category').val();
-                        d.label = $('#filter-label').val();
-                        d._token = "{{ csrf_token() }}";
-                        return d;
-                    }
-                },
-                columns: [{
-                        data: 'DT_RowIndex',
-                        name: 'DT_RowIndex',
-                        orderable: false,
-                        searchable: false
-                    },
-                    {
-                        data: 'sku',
-                        name: 'sku'
-                    },
-                    {
-                        data: 'name_product',
-                        name: 'name_product'
-                    },
-                    {
-                        data: 'stok_awal_display',
-                        name: 'stok_awal_display',
-                        render: function(data, type, row) {
-                            return `<input type="number" class="form-control form-control-sm stock-input" 
-                                    data-field="stok_awal" data-product-id="${row.product_id}" 
-                                    value="${data}" min="0" style="width: 80px;">`;
-                        }
-                    },
-                    {
-                        data: 'stok_masuk_display',
-                        name: 'stok_masuk_display',
-                        render: function(data, type, row) {
-                            return `<input type="number" class="form-control form-control-sm stock-input auto-field" 
-                                    data-field="stok_masuk" data-product-id="${row.product_id}" 
-                                    value="${data}" min="0" style="width: 80px;" readonly disabled>
-                                    <small class="text-muted d-block">Auto</small>`;
-                        }
-                    },
-                    {
-                        data: 'stok_keluar_display',
-                        name: 'stok_keluar_display',
-                        render: function(data, type, row) {
-                            return `<input type="number" class="form-control form-control-sm stock-input auto-field" 
-                                    data-field="stok_keluar" data-product-id="${row.product_id}" 
-                                    value="${data}" min="0" style="width: 80px;" readonly disabled>
-                                    <small class="text-muted d-block">Auto</small>`;
-                        }
-                    },
-                    {
-                        data: 'defective_display',
-                        name: 'defective_display',
-                        render: function(data, type, row) {
-                            return `<input type="number" class="form-control form-control-sm stock-input" 
-                                    data-field="defective" data-product-id="${row.product_id}" 
-                                    value="${data}" min="0" style="width: 80px;">`;
-                        }
-                    },
-                    {
-                        data: 'live_stock_display',
-                        name: 'live_stock_display',
-                        render: function(data, type, row) {
-                            return `<span class="badge bg-primary live-stock" data-product-id="${row.product_id}">${data}</span>
-                                    <small class="text-muted d-block">Auto</small>`;
-                        }
-                    },
-                    {
-                        data: 'action',
-                        name: 'action',
-                        orderable: false,
-                        searchable: false,
-                        render: function(data, type, row) {
-                            return `
-                                <button type="button" class="btn btn-sm btn-success update-btn" data-id="${row.product_id}">
-                                    <i class="fas fa-save"></i> Update
-                                </button>
-                                <button type="button" class="btn btn-sm btn-secondary reset-btn" data-id="${row.product_id}">
-                                    <i class="fas fa-undo"></i> Reset
-                                </button>
-                            `;
-                        }
-                    }
-                ],
-                order: [
-                    [2, 'asc']
-                ],
-                pageLength: 25,
-                dom: 'Bfrtip',
-                buttons: [{
-                        extend: 'copy',
-                        text: '<i class="fas fa-copy"></i> Salin',
-                        className: 'btn btn-secondary'
-                    },
-                    {
-                        extend: 'excel',
-                        text: '<i class="fas fa-file-excel"></i> Excel',
-                        className: 'btn btn-success'
-                    },
-                    {
-                        extend: 'print',
-                        text: '<i class="fas fa-print"></i> Cetak',
-                        className: 'btn btn-info'
-                    }
-                ]
-            });
-
-            // Apply filters when dropdown values change
+            let currentPage = 1;
+            const perPage = 25;
+            
+            // Load initial data
+            loadProducts();
+            
+            // Filter change handler with debounce
+            let filterTimeout;
             $('#filter-product, #filter-category, #filter-label').on('change', function() {
-                table.ajax.reload();
+                clearTimeout(filterTimeout);
+                filterTimeout = setTimeout(() => {
+                    currentPage = 1;
+                    loadProducts();
+                }, 300);
             });
-
-            // Clear filters function
-            $('#clear-filters').on('click', function() {
-                // Reset product filter
-                filterProductChoices.setChoiceByValue('');
-
-                // Reset category and label filters
-                $('#filter-category').val('').trigger('change');
-                $('#filter-label').val('').trigger('change');
-
-                // Reload table
-                table.ajax.reload();
-            });
-
-            // Function to calculate live stock for a specific row
-            function calculateRowLiveStock(productId) {
-                // Only get values from enabled inputs (manual inputs)
-                const stokAwal = parseInt($(`input[data-product-id="${productId}"][data-field="stok_awal"]`)
-                    .val()) || 0;
-                const defective = parseInt($(`input[data-product-id="${productId}"][data-field="defective"]`)
-                    .val()) || 0;
-
-                // Get auto values from disabled inputs (just for display, but actual calculation will be server-side)
-                const stokMasuk = parseInt($(`input[data-product-id="${productId}"][data-field="stok_masuk"]`)
-                    .val()) || 0;
-                const stokKeluar = parseInt($(`input[data-product-id="${productId}"][data-field="stok_keluar"]`)
-                    .val()) || 0;
-
-                const liveStock = stokAwal + stokMasuk - stokKeluar - defective;
-                $(`.live-stock[data-product-id="${productId}"]`).text(liveStock);
-
-                return liveStock;
-            }
-
-            // Live stock calculation when input changes (only for enabled inputs)
-            $(document).on('input', '.stock-input:not([disabled])', function() {
-                const productId = $(this).data('product-id');
-                calculateRowLiveStock(productId);
-            });
-
-            // Function to update row data after successful update
-            function updateRowData(productId, data) {
-                // Update input values
-                $(`input[data-product-id="${productId}"][data-field="stok_awal"]`).val(data.stok_awal);
-                $(`input[data-product-id="${productId}"][data-field="stok_masuk"]`).val(data.stok_masuk);
-                $(`input[data-product-id="${productId}"][data-field="stok_keluar"]`).val(data.stok_keluar);
-                $(`input[data-product-id="${productId}"][data-field="defective"]`).val(data.defective);
+            
+            // Function to load products
+            function loadProducts() {
+                $('#loading-spinner').show();
                 
-                // Update live stock display
-                $(`.live-stock[data-product-id="${productId}"]`).text(data.live_stock);
-            }
-
-            // Fallback notification function
-            function showNotification(type, title, message) {
-                if (typeof Swal !== 'undefined') {
-                    Swal.fire({
-                        icon: type,
-                        title: title,
-                        text: message,
-                        timer: type === 'success' ? 2000 : 0,
-                        showConfirmButton: type !== 'success'
-                    });
-                } else {
-                    // Fallback to browser alert if SweetAlert2 is not available
-                    alert(title + ': ' + message);
-                }
-            }
-
-            // Update button click - with better error handling
-            $(document).on('click', '.update-btn', function(e) {
-                e.preventDefault();
-                
-                const btn = $(this);
-                const productId = btn.data('id');
-
-                // Validate productId
-                if (!productId) {
-                    showNotification('error', 'Error', 'Product ID tidak ditemukan');
-                    return;
-                }
-
-                // Get values from manual input fields
-                const stokAwalInput = $(`input[data-product-id="${productId}"][data-field="stok_awal"]`);
-                const defectiveInput = $(`input[data-product-id="${productId}"][data-field="defective"]`);
-                
-                if (stokAwalInput.length === 0 || defectiveInput.length === 0) {
-                    showNotification('error', 'Error', 'Input field tidak ditemukan');
-                    return;
-                }
-
-                const stokAwal = parseInt(stokAwalInput.val()) || 0;
-                const defective = parseInt(defectiveInput.val()) || 0;
-
-                // Disable button and show loading state
-                btn.prop('disabled', true);
-                const originalText = btn.html();
-                btn.html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Menyimpan...');
-
-                // Send update request
                 $.ajax({
-                    url: `/finished-goods/${productId}`,
+                    url: '/products',
+                    type: 'GET',
+                    data: {
+                        page: currentPage,
+                        per_page: perPage,
+                        product_id: $('#filter-product').val(),
+                        category_product: $('#filter-category').val(),
+                        label: $('#filter-label').val()
+                    },
+                    success: function(response) {
+                        renderProducts(response.data);
+                        renderPagination(response);
+                        $('#loading-spinner').hide();
+                    },
+                    error: function() {
+                        $('#loading-spinner').hide();
+                        alert('Gagal memuat data');
+                    }
+                });
+            }
+            
+            // Render products to table
+            function renderProducts(products) {
+                const $tbody = $('#products-body');
+                $tbody.empty();
+                
+                if (products.length === 0) {
+                    $tbody.append('<tr><td colspan="9" class="text-center">Tidak ada data</td></tr>');
+                    return;
+                }
+                
+                products.forEach((product, index) => {
+                    const rowNum = (currentPage - 1) * perPage + index + 1;
+                    
+                    // Format angka untuk tampilan
+                    const formatNumber = (num) => {
+                        return num !== null && num !== undefined ? num : 0;
+                    };
+                    
+                    const stokAwal = formatNumber(product.stok_awal);
+                    const stokMasuk = formatNumber(product.stok_masuk);
+                    const stokKeluar = formatNumber(product.stok_keluar);
+                    const defective = formatNumber(product.defective);
+                    const liveStock = formatNumber(product.live_stock);
+                    
+                    const row = `
+                        <tr data-id="${product.id}">
+                            <td>${rowNum}</td>
+                            <td>${product.sku}</td>
+                            <td>${product.name_product}</td>
+                            <td>
+                                <input type="number" class="form-control form-control-sm stock-input" 
+                                    data-field="stok_awal" value="${stokAwal}" min="0">
+                            </td>
+                            <td>
+                                <input type="number" class="form-control form-control-sm auto-field" 
+                                    value="${stokMasuk}" readonly>
+                                <small class="text-muted">Auto</small>
+                            </td>
+                            <td>
+                                <input type="number" class="form-control form-control-sm auto-field" 
+                                    value="${stokKeluar}" readonly>
+                                <small class="text-muted">Auto</small>
+                            </td>
+                            <td>
+                                <input type="number" class="form-control form-control-sm stock-input" 
+                                    data-field="defective" value="${defective}" min="0">
+                            </td>
+                            <td>
+                                <span class="badge bg-primary live-stock">${liveStock}</span>
+                                <small class="text-muted">Auto</small>
+                            </td>
+                            <td>
+                                <button class="btn btn-sm btn-success update-btn">Update</button>
+                                <button class="btn btn-sm btn-secondary reset-btn">Reset</button>
+                            </td>
+                        </tr>
+                    `;
+                    $tbody.append(row);
+                });
+            }
+            // Render pagination
+            function renderProducts(products) {
+                const $tbody = $('#products-body');
+                $tbody.empty();
+                
+                if (products.length === 0) {
+                    $tbody.append('<tr><td colspan="9" class="text-center">Tidak ada data</td></tr>');
+                    return;
+                }
+                
+                products.forEach((product, index) => {
+                    const rowNum = (currentPage - 1) * perPage + index + 1;
+                    
+                    // Pastikan semua nilai stok memiliki default 0
+                    const stokAwal = product.stok_awal ?? 0;
+                    const stokMasuk = product.stok_masuk ?? 0;
+                    const stokKeluar = product.stok_keluar ?? 0;
+                    const defective = product.defective ?? 0;
+                    const liveStock = product.live_stock ?? 0;
+                    
+                    const row = `
+                        <tr data-id="${product.id}">
+                            <td>${rowNum}</td>
+                            <td>${product.sku}</td>
+                            <td>${product.name_product}</td>
+                            <td>
+                                <input type="number" class="form-control form-control-sm stock-input" 
+                                    data-field="stok_awal" value="${stokAwal}" min="0">
+                            </td>
+                            <td>
+                                <input type="number" class="form-control form-control-sm auto-field" 
+                                    value="${stokMasuk}" readonly>
+                                <small class="text-muted">Auto</small>
+                            </td>
+                            <td>
+                                <input type="number" class="form-control form-control-sm auto-field" 
+                                    value="${stokKeluar}" readonly>
+                                <small class="text-muted">Auto</small>
+                            </td>
+                            <td>
+                                <input type="number" class="form-control form-control-sm stock-input" 
+                                    data-field="defective" value="${defective}" min="0">
+                            </td>
+                            <td>
+                                <span class="badge bg-primary live-stock">${liveStock}</span>
+                                <small class="text-muted">Auto</small>
+                            </td>
+                            <td>
+                                <button class="btn btn-sm btn-success update-btn">Update</button>
+                                <button class="btn btn-sm btn-secondary reset-btn">Reset</button>
+                            </td>
+                        </tr>
+                    `;
+                    $tbody.append(row);
+                });
+            }
+
+            // Pagination click handler
+            $(document).on('click', '.page-link', function(e) {
+                e.preventDefault();
+                currentPage = parseInt($(this).data('page'));
+                loadProducts();
+            });
+            
+            // Live stock calculation
+            $(document).on('input', '.stock-input', function() {
+                const $row = $(this).closest('tr');
+                const stokAwal = parseInt($row.find('[data-field="stok_awal"]').val()) || 0;
+                const stokMasuk = parseInt($row.find('[data-field="stok_masuk"]').val()) || 0;
+                const stokKeluar = parseInt($row.find('[data-field="stok_keluar"]').val()) || 0;
+                const defective = parseInt($row.find('[data-field="defective"]').val()) || 0;
+                
+                const liveStock = stokAwal + stokMasuk - stokKeluar - defective;
+                $row.find('.live-stock').text(liveStock);
+            });
+            
+            // Update button handler
+           $(document).on('click', '.update-btn', function() {
+                const $row = $(this).closest('tr');
+                const productId = $row.data('id');
+                
+                // Ambil nilai dengan default 0 jika null/undefined
+                const stokAwal = parseInt($row.find('[data-field="stok_awal"]').val()) || 0;
+                const defective = parseInt($row.find('[data-field="defective"]').val()) || 0;
+                
+                // Tampilkan loading
+                $(this).html('<i class="fas fa-spinner fa-spin"></i> Updating...').prop('disabled', true);
+                
+                $.ajax({
+                    url: `/finished-goods/${productId}/update`,
                     method: 'POST',
                     data: {
                         _token: '{{ csrf_token() }}',
-                        _method: 'PUT',
                         stok_awal: stokAwal,
                         defective: defective
                     },
-                    timeout: 30000, // 30 second timeout
                     success: function(response) {
-                        if (response && response.success) {
-                            showNotification('success', 'Berhasil!', response.message || 'Data berhasil diperbarui');
-
-                            // Update the row with new data
-                            if (response.data) {
-                                updateRowData(productId, response.data);
-                            }
+                        if (response.success) {
+                            // Update tampilan dengan data terbaru dari server
+                            $row.find('[data-field="stok_awal"]').val(response.data.stok_awal);
+                            $row.find('[data-field="defective"]').val(response.data.defective);
+                            $row.find('.live-stock').text(response.data.live_stock);
+                            
+                            Swal.fire('Success', response.message, 'success');
                         } else {
-                            showNotification('error', 'Gagal!', response.message || 'Terjadi kesalahan');
+                            Swal.fire('Error', response.message, 'error');
                         }
                     },
-                    error: function(xhr, status, error) {
-                        let errorMessage = 'Terjadi kesalahan saat menyimpan data';
-                        
-                        if (xhr.status === 422) {
-                            // Validation errors
-                            try {
-                                const errorResponse = JSON.parse(xhr.responseText);
-                                if (errorResponse.errors) {
-                                    const errorList = Object.values(errorResponse.errors).flat();
-                                    errorMessage = errorList.join(', ');
-                                } else if (errorResponse.message) {
-                                    errorMessage = errorResponse.message;
-                                }
-                            } catch (parseError) {
-                                errorMessage = 'Data tidak valid. Periksa input Anda.';
-                            }
-                        } else if (xhr.status === 500) {
-                            // Server error
-                            try {
-                                const errorResponse = JSON.parse(xhr.responseText);
-                                errorMessage = errorResponse.message || 'Terjadi kesalahan server';
-                            } catch (parseError) {
-                                errorMessage = 'Terjadi kesalahan server. Silahkan coba lagi.';
-                            }
-                        } else if (xhr.status === 404) {
-                            errorMessage = 'Produk tidak ditemukan';
-                        } else if (xhr.status === 0) {
-                            errorMessage = 'Tidak dapat terhubung ke server. Periksa koneksi internet Anda.';
-                        } else if (status === 'timeout') {
-                            errorMessage = 'Request timeout. Silahkan coba lagi.';
-                        }
-
-                        showNotification('error', 'Error!', errorMessage);
+                    error: function(xhr) {
+                        Swal.fire('Error', 'Failed to update data', 'error');
                     },
                     complete: function() {
-                        // Re-enable button and restore original text
-                        btn.prop('disabled', false);
-                        btn.html(originalText);
+                        $('.update-btn').html('Update').prop('disabled', false);
                     }
                 });
             });
-
-            // Reset button click - only reset manual fields
+            
+            // Reset button handler
             $(document).on('click', '.reset-btn', function() {
-                const productId = $(this).data('id');
-
-                Swal.fire({
-                    title: 'Reset Data Manual?',
-                    text: "Apakah Anda yakin ingin mereset data stok manual (Stok Awal & Defective) ke 0?",
-                    icon: 'question',
-                    showCancelButton: true,
-                    confirmButtonColor: '#3085d6',
-                    cancelButtonColor: '#d33',
-                    confirmButtonText: 'Ya, Reset!',
-                    cancelButtonText: 'Batal'
-                }).then((result) => {
-                    if (result.isConfirmed) {
-                        // Reset only manual input fields to 0
-                        $(`input[data-product-id="${productId}"][data-field="stok_awal"]`).val(0);
-                        $(`input[data-product-id="${productId}"][data-field="defective"]`).val(0);
-                        calculateRowLiveStock(productId);
-
-                        Swal.fire({
-                            title: 'Direset!',
-                            text: 'Data stok manual telah direset ke 0.',
-                            icon: 'success',
-                            timer: 1500,
-                            showConfirmButton: false,
-                            toast: true,
-                            position: 'top-end'
-                        });
-                    }
-                });
+                const $row = $(this).closest('tr');
+                $row.find('[data-field="stok_awal"]').val(0);
+                $row.find('[data-field="defective"]').val(0);
+                $row.find('.live-stock').text(0);
             });
         });
-        
-        // Chunked Sync All Data functionality with progress tracking
+                // Chunked Sync All Data functionality with progress tracking
         $('#sync-all').on('click', function() {
             const syncBtn = $(this);
             const progressContainer = $('#sync-progress-container');
