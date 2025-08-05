@@ -478,7 +478,7 @@ class FinishedGoodsController extends Controller
     }
 
     /* helper method Arif */
-        protected function applyFilters($query, $request)
+    protected function applyFilters($query, $request)
     {
         $filters = [
             'product_id' => 'products.id',
