@@ -126,7 +126,7 @@
             <h6 class="mb-3">Ringkasan Sistem</h6>
         </div>
 
-        <div class="col-xl-3 col-lg-6 col-md-6 col-sm-6 col-12 mb-3">
+        <div class="col-xl-4 col-lg-6 col-md-6 col-sm-6 col-12 mb-3">
             <div class="card border">
                 <div class="card-body p-3">
                     <div class="d-flex justify-content-between align-items-center">
@@ -147,7 +147,7 @@
             </div>
         </div>
 
-        <div class="col-xl-3 col-lg-6 col-md-6 col-sm-6 col-12 mb-3">
+        <div class="col-xl-4 col-lg-6 col-md-6 col-sm-6 col-12 mb-3">
             <div class="card border">
                 <div class="card-body p-3">
                     <div class="d-flex justify-content-between align-items-center">
@@ -165,7 +165,7 @@
         </div>
 
         @if ($roleInfo['is_admin'] && $masterData['total_users'] !== null)
-            <div class="col-xl-3 col-lg-6 col-md-6 col-sm-6 col-12 mb-3">
+            <div class="col-xl-4 col-lg-6 col-md-6 col-sm-6 col-12 mb-3">
                 <div class="card border">
                     <div class="card-body p-3">
                         <div class="d-flex justify-content-between align-items-center">
@@ -182,7 +182,7 @@
                 </div>
             </div>
         @else
-            <div class="col-xl-3 col-lg-6 col-md-6 col-sm-6 col-12 mb-3">
+            <div class="col-xl-4 col-lg-6 col-md-6 col-sm-6 col-12 mb-3">
                 <div class="card border">
                     <div class="card-body p-3">
                         <div class="d-flex justify-content-between align-items-center">
@@ -199,31 +199,6 @@
                 </div>
             </div>
         @endif
-
-        <div class="col-xl-3 col-lg-6 col-md-6 col-sm-6 col-12 mb-3">
-            <div class="card border">
-                <div class="card-body p-3">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <p class="text-muted mb-1 small">Stiker Perlu Order</p>
-                            <h4
-                                class="mb-0 {{ $masterData['stickers_need_order'] > 0 ? 'text-danger' : 'text-success' }}">
-                                {{ number_format($masterData['stickers_need_order']) }}
-                            </h4>
-                            @if ($masterData['stickers_need_order'] > 0)
-                                <small class="text-danger">
-                                    <i class="ti ti-alert-triangle"></i> Sisa < 30 </small>
-                                    @else
-                                        <small class="text-success">Stiker masih aman</small>
-                            @endif
-                        </div>
-                        <div class="text-{{ $masterData['stickers_need_order'] > 0 ? 'danger' : 'success' }}">
-                            <i class="ti ti-sticker fs-3"></i>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
     </div>
 
     <!-- Activity Statistics -->
@@ -499,20 +474,12 @@
                             </div>
                         @endif
                         @can('Catatan Produksi List')
-                            <div class="col-6 mb-2">
+                            <div class="col-12 mb-2">
                                 <a href="{{ route('catatan-produksi.index') }}" class="btn btn-sm btn-outline-info w-100">
                                     <i class="ph-duotone ph-factory me-1"></i><span class="d-none d-sm-inline">Produksi</span>
                                 </a>
                             </div>
                         @endcan
-                        @can('Sticker List')
-                            <div class="col-6 mb-2">
-                                <a href="{{ route('stickers.index') }}" class="btn btn-sm btn-outline-warning w-100">
-                                    <i class="ti ti-sticker me-1"></i><span class="d-none d-sm-inline">Stiker</span>
-                                </a>
-                            </div>
-                        @endcan
-                    </div>
                 </div>
             </div>
         </div>

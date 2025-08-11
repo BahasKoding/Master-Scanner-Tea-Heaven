@@ -8,7 +8,6 @@ use App\Models\HistorySale;
 use App\Models\Product;
 use App\Models\BahanBaku;
 use App\Models\User;
-use App\Models\Sticker;
 use App\Models\Backend\Activity;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -63,8 +62,7 @@ class DashboardController extends Controller
                 'total_products' => 0,
                 'total_bahan_baku' => 0,
                 'total_users' => 0, // Only for admins
-                'products_low_stock' => 0,
-                'stickers_need_order' => 0
+                'products_low_stock' => 0
             ];
 
             // Basic data available to all roles
@@ -77,11 +75,6 @@ class DashboardController extends Controller
                 $masterData['total_bahan_baku'] = BahanBaku::count();
             } catch (\Exception $e) {
                 Log::error('BahanBaku count error: ' . $e->getMessage());
-            }
-            try {
-                $masterData['stickers_need_order'] = Sticker::where('stok_awal', '<', 30)->count();
-            } catch (\Exception $e) {
-                Log::error('Sticker count error: ' . $e->getMessage());
             }
 
             // Sensitive data only for admins
@@ -289,7 +282,6 @@ class DashboardController extends Controller
                     'total_bahan_baku' => 0,
                     'total_users' => null,
                     'products_low_stock' => 0,
-                    'stickers_need_order' => 0,
                 ],
                 'activityData' => [
                     'sales_count' => 0,

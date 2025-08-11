@@ -656,6 +656,147 @@ class FinishedGoodsService
     }
 
     /**
+     * Bulk update all finished goods stock data with chunking
+     * Updates stok_masuk, stok_keluar, and live_stock for all records
+     *
+     * @param int $chunkSize Size of each processing chunk
+     * @param int $offset Starting offset for processing
+     * @param int|null $totalRecords Total records to be processed
+     * @return array
+     */
+    public function bulkUpdateAllStock($chunkSize = 50, $offset = 0, $totalRecords = null)
+    {
+        try {
+            // Get all products that need stock updates
+            $query = Product::query();
+            
+            // Get total count if not provided (first call)
+            if ($totalRecords === null) {
+                $totalRecords = $query->count();
+            }
+            
+            // No records to process
+            if ($totalRecords == 0) {
+                return [
+                    'success' => true,
+                    'message' => 'No products found to update',
+                    'progress' => 100,
+                    'completed' => true,
+                    'total_records' => 0,
+                    'processed_records' => 0,
+                    'results' => []
+                ];
+            }
+            
+            // Get chunk of products to process
+            $products = $query->skip($offset)->take($chunkSize)->get();
+            $updateResults = [];
+            $successCount = 0;
+            $errorCount = 0;
+            
+            // Process each product in the chunk
+            foreach ($products as $product) {
+                DB::beginTransaction();
+                try {
+                    // Get or create finished goods record
+                    $finishedGoods = FinishedGoods::firstOrNew(['product_id' => $product->id]);
+
+                    // If it's a new record, set default values
+                    if (!$finishedGoods->exists) {
+                        $finishedGoods->stok_awal = 0;
+                        $finishedGoods->defective = 0;
+                        $finishedGoods->stok_keluar = 0; // Ensure stok_keluar is set
+                    }
+
+                    // Update all stock values from related data
+                    $this->updateStockFromRelatedData($finishedGoods);
+                    
+                    // Force recalculation of live stock
+                    $finishedGoods->recalculateLiveStock();
+
+                    // Save the record
+                    $finishedGoods->save();
+                    DB::commit();
+                    
+                    $updateResults[] = [
+                        'status' => 'success',
+                        'product_id' => $product->id,
+                        'product_name' => $product->name_product,
+                        'sku' => $product->sku,
+                        'stok_awal' => $finishedGoods->stok_awal,
+                        'stok_masuk' => $finishedGoods->stok_masuk,
+                        'stok_keluar' => $finishedGoods->stok_keluar,
+                        'defective' => $finishedGoods->defective,
+                        'live_stock' => $finishedGoods->live_stock
+                    ];
+                    $successCount++;
+                } catch (\Exception $e) {
+                    DB::rollBack();
+                    $updateResults[] = [
+                        'status' => 'error',
+                        'product_id' => $product->id,
+                        'product_name' => $product->name_product,
+                        'sku' => $product->sku,
+                        'error' => $e->getMessage()
+                    ];
+                    $errorCount++;
+                    
+                    Log::error('Failed to bulk update individual finished goods', [
+                        'product_id' => $product->id,
+                        'error' => $e->getMessage()
+                    ]);
+                }
+            }
+            
+            // Calculate progress
+            $newOffset = $offset + $chunkSize;
+            $isCompleted = $newOffset >= $totalRecords;
+            $progress = min(100, round(($newOffset / $totalRecords) * 100));
+            
+            Log::info('Bulk update finished goods chunk processed', [
+                'chunk_size' => $chunkSize,
+                'offset' => $offset,
+                'new_offset' => $newOffset,
+                'total_records' => $totalRecords,
+                'success_count' => $successCount,
+                'error_count' => $errorCount,
+                'progress' => $progress,
+                'completed' => $isCompleted
+            ]);
+
+            return [
+                'success' => true,
+                'message' => "Updated {$successCount} records successfully" . ($errorCount > 0 ? " with {$errorCount} errors" : ""),
+                'progress' => $progress,
+                'completed' => $isCompleted,
+                'total_records' => $totalRecords,
+                'processed_records' => $newOffset,
+                'next_offset' => $isCompleted ? null : $newOffset,
+                'success_count' => $successCount,
+                'error_count' => $errorCount,
+                'results' => $updateResults
+            ];
+        } catch (\Exception $e) {
+            Log::error('Failed to bulk update finished goods stock', [
+                'offset' => $offset,
+                'chunk_size' => $chunkSize,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return [
+                'success' => false,
+                'message' => 'Error processing bulk update: ' . $e->getMessage(),
+                'total_records' => $totalRecords,
+                'processed_records' => $offset,
+                'progress' => $offset > 0 ? round(($offset / $totalRecords) * 100) : 0,
+                'completed' => false,
+                'error' => $e->getMessage()
+            ];
+        }
+    }
+
+    /**
      * Calculate dynamic stok keluar from HistorySale data
      * This is used as fallback when database value is inconsistent
      *

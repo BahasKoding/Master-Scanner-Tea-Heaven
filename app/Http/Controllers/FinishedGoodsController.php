@@ -461,6 +461,54 @@ class FinishedGoodsController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Bulk update all finished goods stock data
+     * Implements chunked processing to prevent timeout with large datasets
+     */
+    public function bulkUpdateAll(Request $request)
+    {
+        try {
+            // Get parameters for chunked processing
+            $chunkSize = $request->get('chunk_size', 50); // Default 50 records per chunk
+            $offset = $request->get('offset', 0); // Starting offset
+            $totalRecords = $request->get('total_records'); // Total records to process
+            
+            // Process chunk using service
+            $updateResults = $this->finishedGoodsService->bulkUpdateAllStock(
+                $chunkSize,
+                $offset,
+                $totalRecords
+            );
+            
+            // Log activity for first request or completion
+            if ($offset == 0 || $updateResults['completed']) {
+                $progressInfo = $updateResults['completed'] ? 
+                    '(Completed 100%)' : 
+                    '(Started, estimated ' . $updateResults['total_records'] . ' records)';
+                    
+                addActivity(
+                    'finished_goods', 
+                    'bulk_update', 
+                    'Pengguna melakukan bulk update semua finished goods stock ' . $progressInfo, 
+                    null
+                );
+            }
+
+            return response()->json($updateResults);
+        } catch (\Exception $e) {
+            Log::error('Failed to bulk update all finished goods stock', [
+                'error' => $e->getMessage(),
+                'request' => $request->all()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal melakukan bulk update finished goods stock: ' . $e->getMessage(),
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
     
     /**
      * Test endpoint to verify update route functionality

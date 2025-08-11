@@ -172,6 +172,9 @@
                     <div class="d-flex justify-content-between align-items-center flex-wrap">
                         <h5 class="mb-2 mb-sm-0">Daftar Finished Goods - Semua Produk</h5>
                         <div class="d-flex flex-wrap">
+                            <button id="update-all" class="btn btn-success me-2 mb-2 mb-sm-0">
+                                <i class="fas fa-save"></i> Update All
+                            </button>
                             <button id="sync-all" class="btn btn-primary me-2 mb-2 mb-sm-0">
                                 <i class="fas fa-sync"></i> Sync All Data
                             </button>
@@ -180,7 +183,7 @@
                             </button>
                         </div>
                     </div>
-                    <!-- Progress bar for sync operation - hidden by default -->
+                    <!-- Progress bar for sync/update operations - hidden by default -->
                     <div id="sync-progress-container" class="mt-3 d-none">
                         <div class="d-flex justify-content-between align-items-center mb-1">
                             <span id="sync-status">Processing...</span>
@@ -190,6 +193,10 @@
                             <div id="sync-progress-bar" class="progress-bar progress-bar-striped progress-bar-animated" 
                                  role="progressbar" style="width: 0%" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
                         </div>
+                        <small class="text-muted">
+                            <i class="fas fa-info-circle"></i> 
+                            Proses chunking 50 data per batch untuk menghindari timeout pada dataset besar
+                        </small>
                     </div>
                 </div>
                 <div class="card-body">
@@ -640,6 +647,156 @@
                         });
                     }
                 });
+            });
+        });
+        
+        // Bulk Update All functionality with progress tracking
+        $('#update-all').on('click', function() {
+            const updateBtn = $(this);
+            const progressContainer = $('#sync-progress-container');
+            const progressBar = $('#sync-progress-bar');
+            const progressPercentage = $('#sync-percentage');
+            const progressStatus = $('#sync-status');
+            
+            // Configuration
+            const chunkSize = 50; // Process 50 records at a time
+            
+            // Show confirmation dialog
+            Swal.fire({
+                title: 'Update All Stock Data?',
+                text: 'Ini akan mengupdate stok masuk, stok keluar, dan live stock untuk semua produk. Proses ini mungkin memakan waktu beberapa menit.',
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#28a745',
+                cancelButtonColor: '#d33',
+                confirmButtonText: 'Ya, Update Semua!',
+                cancelButtonText: 'Batal'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    // Show loading state
+                    updateBtn.prop('disabled', true)
+                          .html('<i class="fas fa-spinner fa-spin"></i> Updating...');
+                    
+                    // Show progress bar
+                    progressContainer.removeClass('d-none');
+                    progressBar.css('width', '0%').attr('aria-valuenow', 0);
+                    progressPercentage.text('0%');
+                    progressStatus.text('Starting bulk update operation...');
+                    
+                    // Define recursive function to process chunks
+                    function processUpdateChunk(offset = 0, totalRecords = null) {
+                        $.ajax({
+                            url: '{{ route("finished-goods.bulk-update-all") }}',
+                            type: 'POST',
+                            data: {
+                                _token: '{{ csrf_token() }}',
+                                offset: offset,
+                                chunk_size: chunkSize,
+                                total_records: totalRecords
+                            },
+                            success: function(response) {
+                                if (response.success) {
+                                    // Update progress
+                                    const progress = response.progress;
+                                    progressBar.css('width', progress + '%').attr('aria-valuenow', progress);
+                                    progressPercentage.text(progress + '%');
+                                    
+                                    // Update status message
+                                    if (!response.completed) {
+                                        progressStatus.text(`Updating ${response.processed_records} of ${response.total_records} records...`);
+                                        
+                                        // Process next chunk
+                                        processUpdateChunk(response.next_offset, response.total_records);
+                                    } else {
+                                        // Update completed
+                                        progressStatus.text('Bulk update completed successfully!');
+                                        
+                                        // Show success notification
+                                        Swal.fire({
+                                            title: 'Update Complete!',
+                                            html: `
+                                                <p>Successfully updated <strong>${response.total_records}</strong> records.</p>
+                                                <p>Success: <span class="text-success">${response.success_count || 0}</span> | 
+                                                   Errors: <span class="text-danger">${response.error_count || 0}</span></p>
+                                            `,
+                                            icon: 'success',
+                                            confirmButtonText: 'OK'
+                                        }).then(() => {
+                                            // Hide progress bar first
+                                            progressContainer.addClass('d-none');
+                                            progressBar.removeClass('bg-danger').addClass('progress-bar-animated');
+                                            
+                                            // Restore button state
+                                            updateBtn.prop('disabled', false)
+                                                  .html('<i class="fas fa-save"></i> Update All');
+                                            
+                                            // Reload table with error handling and delay
+                                            setTimeout(() => {
+                                                try {
+                                                    // Check if table is still valid before reloading
+                                                    if (table && typeof table.ajax === 'object' && typeof table.ajax.reload === 'function') {
+                                                        table.ajax.reload(function(json) {
+                                                            console.log('Table reloaded successfully after bulk update');
+                                                            if (!json || json.error) {
+                                                                console.warn('Table reload returned error or empty data');
+                                                                // Try one more time with full refresh
+                                                                setTimeout(() => {
+                                                                    window.location.reload();
+                                                                }, 1000);
+                                                            }
+                                                        }, false);
+                                                    } else {
+                                                        console.error('DataTable object is not valid, performing full page refresh');
+                                                        window.location.reload();
+                                                    }
+                                                } catch (error) {
+                                                    console.error('Table reload error:', error);
+                                                    // Fallback: full page refresh if table reload fails
+                                                    window.location.reload();
+                                                }
+                                            }, 500);
+                                        });
+                                        
+                                        // Show 100% completion while waiting for user to click OK
+                                        progressBar.css('width', '100%').attr('aria-valuenow', 100);
+                                        progressPercentage.text('100%');
+                                    }
+                                } else {
+                                    handleUpdateError(response.message || 'Bulk update failed');
+                                }
+                            },
+                            error: function(xhr) {
+                                handleUpdateError(xhr.responseJSON?.message || 'Could not update data. Please try again.');
+                            }
+                        });
+                    }
+                    
+                    // Handle update errors
+                    function handleUpdateError(errorMessage) {
+                        // Update status
+                        progressStatus.text('Bulk update failed!');
+                        progressBar.removeClass('progress-bar-animated').addClass('bg-danger');
+                        
+                        // Show error notification
+                        Swal.fire({
+                            title: 'Update Failed',
+                            text: errorMessage,
+                            icon: 'error',
+                            confirmButtonText: 'OK'
+                        }).then(() => {
+                            // Hide progress bar
+                            progressContainer.addClass('d-none');
+                            progressBar.removeClass('bg-danger').addClass('progress-bar-animated');
+                            
+                            // Restore button state
+                            updateBtn.prop('disabled', false)
+                                  .html('<i class="fas fa-save"></i> Update All');
+                        });
+                    }
+                    
+                    // Start processing first chunk
+                    processUpdateChunk();
+                }
             });
         });
         
