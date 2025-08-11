@@ -114,262 +114,244 @@
     <!-- [Page Specific JS] start -->
     <!-- datatable Js -->
     <script src="{{ URL::asset('build/js/plugins/jquery-3.6.0.min.js') }}"></script>
-    <!-- SweetAlert2 -->
     <script src="{{ URL::asset('build/js/plugins/sweetalert2.all.min.js') }}"></script>
     <script src="{{ URL::asset('build/js/plugins/dataTables.min.js') }}"></script>
     <script src="{{ URL::asset('build/js/plugins/dataTables.bootstrap5.min.js') }}"></script>
+    
     <script>
+        'use strict';
+        
+        /** SweetAlert2 toast helper */
         function toast(header, message, icon) {
-            // Map jQuery Toast icons to SweetAlert2 icons
-            let swalIcon = icon;
-            if (icon === 'error') swalIcon = 'error';
-            else if (icon === 'success') swalIcon = 'success';
-            else if (icon === 'warning') swalIcon = 'warning';
-            else if (icon === 'info') swalIcon = 'info';
-            else swalIcon = 'info';
-
-            Swal.fire({
-                title: header,
-                text: message,
-                icon: swalIcon,
-                timer: 3000,
-                timerProgressBar: true,
-                toast: true,
-                position: 'top-end',
-                showConfirmButton: false
+        let swalIcon = 'info';
+        if (icon === 'error') swalIcon = 'error';
+        else if (icon === 'success') swalIcon = 'success';
+        else if (icon === 'warning') swalIcon = 'warning';
+        else if (icon === 'info') swalIcon = 'info';
+        
+        Swal.fire({
+            title: header,
+            text: message,
+            icon: swalIcon,
+            timer: 3000,
+            timerProgressBar: true,
+            toast: true,
+            position: 'top-end',
+            showConfirmButton: false
+        });
+        }
+        
+        $(document).ready(function () {
+        const addPermissionModal = document.getElementById('addPermissionModal');
+        const nameInput = document.getElementById('name');
+        
+        /** DataTable init */
+        window.permissionsDataTable = $('#permissions-table').DataTable({
+            processing: true,
+            serverSide: true,
+            ajax: {
+            url: '{{ route('permissions.data') }}',
+            type: 'POST',
+            headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
+            data: function (d) {
+                d.hash = btoa(JSON.stringify(d));
+            },
+            dataSrc: function (json) {
+                return json.data;
+            }
+            },
+            select: true,
+            columns: [
+            {
+                data: null,
+                searchable: false,
+                orderable: false,
+                render: function (data, type, row, meta) { return meta.row + 1; }
+            },
+            { data: 'name', name: 'name' },
+            { data: 'guard_name', name: 'guard_name' },
+            { data: 'created_at', name: 'created_at' },
+            { data: 'updated_at', name: 'updated_at' },
+            { data: 'actions', name: 'actions' }
+            ]
+        });
+        
+        /** Fokus input saat modal add dibuka */
+        if (addPermissionModal) {
+            addPermissionModal.addEventListener('shown.bs.modal', function () {
+            if (nameInput) nameInput.focus();
             });
         }
-        // Define editPermission function in the global scope
+        
+        /** Save helper */
+        function savePermission(formData, closeAfterSave) {
+            $.ajax({
+            url: '{{ route('permissions.store') }}',
+            method: 'POST',
+            data: formData,
+            processData: false,
+            contentType: false,
+            headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
+            success: function (response) {
+                if (response.status === 'success') {
+                window.permissionsDataTable.ajax.reload();
+                if (closeAfterSave) {
+                    $('#addPermissionModal').modal('hide');
+                }
+                $('#permissionForm')[0].reset();
+                toast('Success', response.message || 'Permission added.', 'success');
+                } else {
+                toast('Error', response.message || 'Error adding permission', 'error');
+                }
+            },
+            error: function () {
+                toast('Error', 'An error occurred while saving the permission', 'error');
+            }
+            });
+        }
+        
+        /** Edit fetcher */
         function editPermission(permissionId) {
             fetch(`{{ route('permissions.edit', ':id') }}`.replace(':id', permissionId), {
-                    headers: {
-                        'X-CSRF-TOKEN': '{{ csrf_token() }}',
-                        'Accept': 'application/json'
-                    }
-                })
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error('Permission not found');
-                    }
-                    return response.json();
-                })
-                .then(data => {
-                    // Check if data is directly available or nested in a data property
-                    const permissionData = data.data || data;
-                    if (permissionData && permissionData.name && permissionData.guard_name) {
-                        $('#editPermissionModal').modal('show');
-                        $('#edit-permission-id').val(permissionId); // Use the permissionId passed to the function
-                        $('#edit-name').val(permissionData.name);
-                        $('#edit-guard_name').val(permissionData.guard_name);
-
-                        // Add data attributes to store original values
-                        $('#edit-name').attr('data-original', permissionData.name);
-                        $('#edit-guard_name').attr('data-original', permissionData.guard_name);
-                    } else {
-                        throw new Error('Invalid permission data received');
-                    }
-                })
-                .catch(error => {
-                    toast('Error', error.message, 'error');
-                });
+            headers: {
+                'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                'Accept': 'application/json'
+            }
+            })
+            .then((response) => {
+            if (!response.ok) throw new Error('Permission not found');
+            return response.json();
+            })
+            .then((data) => {
+            const permissionData = data.data || data;
+            if (permissionData && permissionData.name && permissionData.guard_name) {
+                $('#editPermissionModal').modal('show');
+                $('#edit-permission-id').val(permissionId);
+                $('#edit-name').val(permissionData.name).attr('data-original', permissionData.name);
+                $('#edit-guard_name').val(permissionData.guard_name).attr('data-original', permissionData.guard_name);
+            } else {
+                throw new Error('Invalid permission data received');
+            }
+            })
+            .catch((error) => {
+            toast('Error', error.message, 'error');
+            });
         }
-
-        $(document).ready(function() {
-            var addPermissionModal = document.getElementById('addPermissionModal');
-            var nameInput = document.getElementById('name');
+        
+        /** Delete helper */
+        function deletePermission(permissionId) {
+            fetch(`{{ route('permissions.destroy', '') }}/${permissionId}`, {
+            method: 'DELETE',
+            headers: {
+                'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
+            }
+            })
+            .then((response) => response.json())
+            .then((data) => {
+            if (data.status === 'success') {
+                toast('Success', data.message || 'Permission deleted.', 'success');
+                window.permissionsDataTable.ajax.reload();
+            } else {
+                toast('Error', data.message || 'Failed to delete permission', 'error');
+            }
+            })
+            .catch(() => {
+            toast('Error', 'An unexpected error occurred.', 'error');
+            });
+        }
+        
+        /** Events */
+        // Save & Close
+        $('#saveClosePermissionBtn').on('click', function () {
+            const formData = new FormData($('#permissionForm')[0]);
+            savePermission(formData, true);
         });
-
-        $(document).ready(function() {
-            // Initialize DataTable
-            window.permissionsDataTable = $('#permissions-table').DataTable({
-                processing: true,
-                serverSide: true,
-                ajax: {
-                    url: '{{ route('permissions.data') }}',
-                    type: 'POST',
-                    headers: {
-                        'X-CSRF-TOKEN': '{{ csrf_token() }}'
-                    },
-                    data: function(d) {
-                        d.hash = btoa(JSON.stringify(d));
-                    },
-                    // Add this option to prevent caching
-                    dataSrc: function(json) {
-                        return json.data;
-                    }
-                },
-                select: true,
-                columns: [{
-                        data: null,
-                        searchable: false,
-                        orderable: false,
-                        render: function(data, type, row, meta) {
-                            return meta.row + 1;
-                        }
-                    },
-                    {
-                        data: 'name',
-                        name: 'name'
-                    },
-                    {
-                        data: 'guard_name',
-                        name: 'guard_name'
-                    },
-                    {
-                        data: 'created_at',
-                        name: 'created_at'
-                    },
-                    {
-                        data: 'updated_at',
-                        name: 'updated_at'
-                    },
-                    {
-                        data: 'actions',
-                        name: 'actions'
-                    }
-                ]
-            });
-
-            if (addPermissionModal) {
-                addPermissionModal.addEventListener('shown.bs.modal', function() {
-                    nameInput.focus();
+        
+        // Save & Add New
+        $('#saveNewPermissionBtn').on('click', function () {
+            const formData = new FormData($('#permissionForm')[0]);
+            savePermission(formData, false);
+        });
+        
+        // Edit button (delegation)
+        $(document).on('click', '.edit-permission', function () {
+            const permissionId = $(this).data('id');
+            if (permissionId) {
+            editPermission(permissionId);
+            } else {
+            toast('Error', 'Unable to edit permission. No permission ID found.', 'error');
+            }
+        });
+        
+        // Update permission
+        $('#updatePermissionBtn').on('click', function () {
+            const permissionId = $('#edit-permission-id').val();
+            const jsonData = {
+            name: $('#edit-name').val(),
+            guard_name: $('#edit-guard_name').val()
+            };
+        
+            const isChanged =
+            jsonData.name !== $('#edit-name').attr('data-original') ||
+            jsonData.guard_name !== $('#edit-guard_name').attr('data-original');
+        
+            if (!isChanged) {
+            $('#editPermissionModal').modal('hide');
+            return;
+            }
+        
+            $.ajax({
+            url: `{{ route('permissions.update', '') }}/${permissionId}`,
+            method: 'PUT',
+            data: JSON.stringify({
+                data: jsonData,
+                hash: btoa(JSON.stringify(jsonData))
+            }),
+            processData: false,
+            contentType: 'application/json',
+            headers: {
+                'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                'Accept': 'application/json'
+            },
+            success: function (data) {
+                if (data.status === 'success') {
+                window.permissionsDataTable.ajax.reload();
+                $('#editPermissionModal').modal('hide');
+                toast('Success', data.message || 'Permission updated.', 'success');
+                } else if (data.status === 'fail' && data.message) {
+                $.each(data.message, function (index, value) {
+                    toast('Error', value, 'error');
                 });
-            }
-
-            // Save and Close button click event
-            $('#saveClosePermissionBtn').on('click', function() {
-                var formData = new FormData($('#permissionForm')[0]);
-                savePermission(formData, true);
-            });
-
-            // Save and New Data button click event
-            $('#saveNewPermissionBtn').on('click', function() {
-                var formData = new FormData($('#permissionForm')[0]);
-                savePermission(formData, false);
-            });
-
-            function savePermission(formData, closeAfterSave) {
-                $.ajax({
-                    url: '{{ route('permissions.store') }}',
-                    method: 'POST',
-                    data: formData,
-                    processData: false,
-                    contentType: false,
-                    headers: {
-                        'X-CSRF-TOKEN': '{{ csrf_token() }}'
-                    },
-                    success: function(response) {
-                        if (response.status === 'success') {
-                            window.permissionsDataTable.ajax.reload();
-                            if (closeAfterSave) {
-                                $('#addPermissionModal').modal('hide');
-                                $('#permissionForm')[0].reset();
-                            } else {
-                                $('#permissionForm')[0].reset();
-                            }
-                        } else {
-                            toast('Error', 'Error adding permission', 'error');
-                        }
-                    },
-                    error: function(xhr, status, error) {
-                        toast('Error', 'An error occurred while saving the permission', 'error');
-                    }
-                });
-            }
-
-            // Use event delegation for edit buttons
-            $(document).on('click', '.edit-permission', function() {
-                var permissionId = $(this).data('id');
-                console.log('Edit button clicked, permissionId:', permissionId);
-                if (permissionId) {
-                    editPermission(permissionId);
                 } else {
-                    console.error('No permission ID found');
-                    toast('Error', 'Unable to edit permission. No permission ID found.', 'error');
+                toast('Warning', data.message || 'Update warning.', 'warning');
                 }
-            });
-
-            // Update permission functionality
-            $('#updatePermissionBtn').on('click', function() {
-                var permissionId = $('#edit-permission-id').val();
-                var formData = new FormData($('#editPermissionForm')[0]);
-                var jsonData = {
-                    name: $('#edit-name').val(),
-                    guard_name: $('#edit-guard_name').val()
-                };
-
-                // Only proceed if there are changes
-                if (jsonData.name !== $('#edit-name').attr('data-original') ||
-                    jsonData.guard_name !== $('#edit-guard_name').attr('data-original')) {
-                    $.ajax({
-                        url: `{{ route('permissions.update', '') }}/${permissionId}`,
-                        method: 'PUT',
-                        data: JSON.stringify({
-                            data: jsonData,
-                            hash: btoa(JSON.stringify(jsonData))
-                        }),
-                        processData: false,
-                        contentType: 'application/json',
-                        headers: {
-                            'X-CSRF-TOKEN': '{{ csrf_token() }}',
-                            'Accept': 'application/json'
-                        },
-                        success: function(data) {
-
-                            if (data.status === 'success') {
-                                window.permissionsDataTable.ajax.reload();
-                                $('#editPermissionModal').modal('hide');
-                                toast('Success', data.message, 'success');
-                            } else if (data.status === 'fail') {
-                                var dataEach = data.message;
-                                $.each(dataEach, function(index, value) {
-                                    toast('error', value, 'error');
-                                });
-                            } else {
-                                toast('Warning', data.message, 'warning');
-                            }
-                        },
-                        error: function(xhr, status, error) {
-
-                        }
-                    });
-                } else {
-                    $('#editPermissionModal').modal('hide');
-                }
-            });
-
-            // Add this new event listener for delete buttons
-            $(document).on('click', '.delete-permission', function() {
-                var permissionId = $(this).data('id');
-                if (confirm('Are you sure you want to delete this permission?')) {
-                    deletePermission(permissionId);
-                }
-            });
-
-            // Add this new function to handle permission deletion
-            function deletePermission(permissionId) {
-                fetch(`{{ route('permissions.destroy', '') }}/${permissionId}`, {
-                        method: 'DELETE',
-                        headers: {
-                            'X-CSRF-TOKEN': '{{ csrf_token() }}',
-                            'Accept': 'application/json',
-                            'Content-Type': 'application/json'
-                        }
-                    })
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.status == 'success') {
-                            toast('Success', data.message, 'success');
-                            // Refresh DataTable without reloading the page
-                            window.permissionsDataTable.ajax.reload();
-                        } else {
-                            toast('Error', data.message, 'error');
-                        }
-                    })
-                    .catch(error => {
-                        toast('Error', error, 'error');
-                    });
+            },
+            error: function () {
+                toast('Error', 'An error occurred while updating the permission.', 'error');
             }
+            });
+        });
+        
+        // Delete button (delegation) + confirm dialog
+        $(document).on('click', '.delete-permission', function () {
+            const permissionId = $(this).data('id');
+            Swal.fire({
+            title: 'Are you sure?',
+            text: "You won't be able to revert this!",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#3085d6',
+            cancelButtonColor: '#d33',
+            confirmButtonText: 'Yes, delete it!'
+            }).then((result) => {
+            if (result.isConfirmed) {
+                deletePermission(permissionId);
+            }
+            });
+        });
         });
     </script>
+    
 @endsection

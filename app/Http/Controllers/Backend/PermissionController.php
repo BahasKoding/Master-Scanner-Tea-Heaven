@@ -180,6 +180,14 @@ class PermissionController extends Controller
             $permissionName = $permission->name;
             $permissionId = $permission->id;
 
+            // Check if the permission is assigned to any roles
+            if ($permission->roles()->count() > 0) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Permission cannot be deleted because it is assigned to one or more roles.'
+                ], 422); // 422 Unprocessable Entity
+            }
+
             $permission->delete();
 
             // Log activity
@@ -240,8 +248,8 @@ class PermissionController extends Controller
                 'created_at' => $permission->created_at->format('Y-m-d H:i:s'),
                 'updated_at' => $permission->updated_at->format('Y-m-d H:i:s'),
                 'actions' => '
-                    <button onclick="editPermission(' . $permission->id . ')" class="btn btn-sm btn-primary">Edit</button>
-                    <button onclick="deletePermission(' . $permission->id . ')" class="btn btn-sm btn-danger">Delete</button>
+                    <button class="btn btn-sm btn-primary edit-permission" data-id="' . $permission->id . '">Edit</button>
+                    <button class="btn btn-sm btn-danger delete-permission" data-id="' . $permission->id . '">Delete</button>
                 '
             ];
         });
