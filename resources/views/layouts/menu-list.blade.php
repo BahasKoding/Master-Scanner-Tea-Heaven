@@ -46,7 +46,7 @@
         auth()->user()->can('Catatan Produksi List') ||
         auth()->user()->can('Inventory Bahan Baku List') ||
         auth()->user()->can('Finished Goods List') ||
-        auth()->user()->can('Sticker List') ||
+        // auth()->user()->can('Sticker List') ||
         auth()->user()->can('view-stock-opname');
 @endphp
 
@@ -77,11 +77,11 @@
                         <span class="pc-mtext">Purchase Items</span>
                     </a></li>
             @endcan
-            @can('Purchase Stiker List')
+            {{-- @can('Purchase Stiker List')
                 <li class="pc-item"><a class="pc-link" href="{{ route('purchase-sticker.index') }}">
                         <span class="pc-mtext">Purchase Stiker</span>
                     </a></li>
-            @endcan
+            @endcan --}}
 
             <!-- Production -->
             @can('Catatan Produksi List')
@@ -101,11 +101,11 @@
                         <span class="pc-mtext">Finished Goods Stock</span>
                     </a></li>
             @endcan
-            @can('Sticker List')
+            {{-- @can('Sticker List')
                 <li class="pc-item"><a class="pc-link" href="{{ route('stickers.index') }}">
                         <span class="pc-mtext">Sticker Stock</span>
                     </a></li>
-            @endcan
+            @endcan --}}
             @can('view-stock-opname')
                 <li class="pc-item {{ request()->routeIs('stock-opname.*') ? 'active' : '' }}">
                     <a class="pc-link {{ request()->routeIs('stock-opname.*') ? 'active' : '' }}" href="{{ route('stock-opname.index') }}">

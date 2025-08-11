@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Log;
+use App\Models\Purchase;
 
 class FinishedGoods extends Model
 {
@@ -28,8 +29,37 @@ class FinishedGoods extends Model
     }
 
     /**
-     * Auto-update stok_masuk from CatatanProduksi
-     * This method calculates total quantity from all production records for this product
+     * Auto-update stok_masuk from both CatatanProduksi and Purchase (finished_goods)
+     * This method calculates total quantity from production records AND purchases
+     */
+    public function updateStokMasukFromAllSources()
+    {
+        try {
+            // Get total from production records
+            $totalProduction = CatatanProduksi::where('product_id', $this->product_id)
+                ->sum('quantity');
+
+            // Get total from finished_goods purchases
+            $totalPurchases = Purchase::where('bahan_baku_id', $this->product_id)
+                ->where('kategori', 'finished_goods')
+                ->sum('total_stok_masuk');
+
+            // Combine both sources
+            $this->stok_masuk = $totalProduction + $totalPurchases;
+            $this->recalculateLiveStock();
+
+            Log::info("Auto-updated stok_masuk for product_id {$this->product_id}: Production={$totalProduction}, Purchases={$totalPurchases}, Total={$this->stok_masuk}");
+
+            return $this;
+        } catch (\Exception $e) {
+            Log::error("Failed to update stok_masuk from all sources for product_id {$this->product_id}: " . $e->getMessage());
+            return $this;
+        }
+    }
+
+    /**
+     * DEPRECATED: Use updateStokMasukFromAllSources() instead
+     * Auto-update stok_masuk from CatatanProduksi only
      */
     public function updateStokMasukFromCatatanProduksi()
     {
@@ -137,12 +167,21 @@ class FinishedGoods extends Model
     }
 
     /**
-     * Get dynamic stok_masuk (calculated from CatatanProduksi)
+     * Get dynamic stok_masuk (calculated from CatatanProduksi + Purchase finished_goods)
+     * FIXED: Now combines both production and purchase sources
      */
     public function getStokMasukDynamicAttribute()
     {
         try {
-            return CatatanProduksi::where('product_id', $this->product_id)->sum('quantity');
+            // Get total from production records
+            $totalProduction = CatatanProduksi::where('product_id', $this->product_id)->sum('quantity');
+            
+            // Get total from finished_goods purchases
+            $totalPurchases = Purchase::where('bahan_baku_id', $this->product_id)
+                ->where('kategori', 'finished_goods')
+                ->sum('total_stok_masuk');
+            
+            return $totalProduction + $totalPurchases;
         } catch (\Exception $e) {
             Log::error("Error calculating dynamic stok_masuk for product_id {$this->product_id}: " . $e->getMessage());
             return $this->stok_masuk ?? 0;
@@ -195,10 +234,11 @@ class FinishedGoods extends Model
 
     /**
      * Sync all stock values with their dynamic counterparts
+     * FIXED: Now uses combined sources for stok_masuk
      */
     public function syncStockValues()
     {
-        $this->updateStokMasukFromCatatanProduksi();
+        $this->updateStokMasukFromAllSources();
         $this->updateStokKeluarFromHistorySales();
         $this->save();
 

@@ -121,19 +121,19 @@ class DatabaseSeeder extends Seeder
             'Finished Goods View',
 
             // Stickers
-            'Sticker List',
-            'Sticker Create',
-            'Sticker Update',
-            'Sticker Delete',
-            'Sticker View',
-            'Sticker Export',
+            // 'Sticker List',
+            // 'Sticker Create',
+            // 'Sticker Update',
+            // 'Sticker Delete',
+            // 'Sticker View',
+            // 'Sticker Export',
 
             // Purchase Stiker
-            'Purchase Stiker List',
-            'Purchase Stiker Create',
-            'Purchase Stiker Update',
-            'Purchase Stiker Delete',
-            'Purchase Stiker View',
+            // 'Purchase Stiker List',
+            // 'Purchase Stiker Create',
+            // 'Purchase Stiker Update',
+            // 'Purchase Stiker Delete',
+            // 'Purchase Stiker View',
 
             // Purchase
             'Purchase List',

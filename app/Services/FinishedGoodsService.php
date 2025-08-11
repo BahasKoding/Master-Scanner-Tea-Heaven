@@ -144,8 +144,8 @@ class FinishedGoodsService
     }
 
     /**
-     * Update stock values from related data (CatatanProduksi and HistorySale)
-     * FIXED: Use database values first, then dynamic calculation as fallback
+     * Update stock values from related data (CatatanProduksi, Purchase, and HistorySale)
+     * FIXED: Now properly combines production and purchase data for stok_masuk
      *
      * @param FinishedGoods $finishedGoods
      * @return void
@@ -153,8 +153,8 @@ class FinishedGoodsService
     private function updateStockFromRelatedData(FinishedGoods $finishedGoods)
     {
         try {
-            // Update stok_masuk from CatatanProduksi (always dynamic)
-            $finishedGoods->updateStokMasukFromCatatanProduksi();
+            // FIXED: Update stok_masuk from ALL sources (CatatanProduksi + Purchase)
+            $finishedGoods->updateStokMasukFromAllSources();
 
             // CRITICAL FIX: Ensure stok_keluar is always set (never null) before save
             // For new records, stok_keluar might be null, which causes SQL error
@@ -327,8 +327,12 @@ class FinishedGoodsService
             $product = Product::findOrFail($productId);
             $finishedGoods = FinishedGoods::where('product_id', $productId)->first();
 
-            // Calculate dynamic values
+            // Calculate dynamic values from all sources
             $stokMasukFromProduksi = CatatanProduksi::where('product_id', $productId)->sum('quantity');
+            $stokMasukFromPurchases = Purchase::where('bahan_baku_id', $productId)
+                ->where('kategori', 'finished_goods')
+                ->sum('total_stok_masuk');
+            $totalStokMasuk = $stokMasukFromProduksi + $stokMasukFromPurchases;
             $stokKeluarFromSales = $this->calculateStokKeluarFromSales($product);
 
             // Get production statistics
@@ -361,8 +365,10 @@ class FinishedGoodsService
                 ],
                 'dynamic_calculations' => [
                     'stok_masuk_from_produksi' => $stokMasukFromProduksi,
+                    'stok_masuk_from_purchases' => $stokMasukFromPurchases,
+                    'total_stok_masuk_combined' => $totalStokMasuk,
                     'stok_keluar_from_sales' => $stokKeluarFromSales,
-                    'calculated_live_stock' => max(0, ($finishedGoods->stok_awal ?? 0) + $stokMasukFromProduksi - $stokKeluarFromSales - ($finishedGoods->defective ?? 0))
+                    'calculated_live_stock' => max(0, ($finishedGoods->stok_awal ?? 0) + $totalStokMasuk - $stokKeluarFromSales - ($finishedGoods->defective ?? 0))
                 ],
                 'production_statistics' => [
                     'total_production_records' => $productionStats->total_production_records ?? 0,

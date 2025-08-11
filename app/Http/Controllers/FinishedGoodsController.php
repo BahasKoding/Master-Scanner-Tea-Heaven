@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\FinishedGoods;
 use App\Models\Product;
+use App\Models\Purchase;
 use App\Models\CatatanProduksi;
 use App\Models\HistorySale;
 use App\Services\FinishedGoodsService;
@@ -539,7 +540,21 @@ class FinishedGoodsController extends Controller
     protected function getStokMasuk($row)
     {
         try {
-            return CatatanProduksi::where('product_id', $row->product_id)->sum('quantity');
+            // Get total from production records
+            $totalProduction = CatatanProduksi::where('product_id', $row->product_id)
+                ->sum('quantity');
+            
+            // Get total from finished_goods purchases
+            $totalPurchases = Purchase::where('bahan_baku_id', $row->product_id)
+                ->where('kategori', 'finished_goods')
+                ->sum('total_stok_masuk');
+            
+            // Combine both sources (same logic as FinishedGoods model)
+            $combinedTotal = $totalProduction + $totalPurchases;
+            
+            Log::debug("Calculated stok_masuk for product_id {$row->product_id}: Production={$totalProduction}, Purchases={$totalPurchases}, Total={$combinedTotal}");
+            
+            return $combinedTotal;
         } catch (\Exception $e) {
             Log::error('Error calculating dynamic stok_masuk', ['error' => $e->getMessage()]);
             return $row->stok_masuk ?? 0;

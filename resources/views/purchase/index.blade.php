@@ -360,7 +360,87 @@
                         </div>
 
                         <hr>
-                        <h6>Detail Penerimaan Barang</h6>
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h6 class="mb-0">Detail Penerimaan Barang</h6>
+                            <button type="button" class="btn btn-sm btn-outline-info" data-bs-toggle="collapse" data-bs-target="#calculationGuide" aria-expanded="false">
+                                <i class="fas fa-question-circle"></i> Panduan Kalkulasi
+                            </button>
+                        </div>
+                        
+                        <!-- Calculation Guide Collapsible -->
+                        <div class="collapse" id="calculationGuide">
+                            <div class="card card-body bg-light mb-3">
+                                <h6 class="text-primary"><i class="fas fa-info-circle"></i> Cara Menghitung Stok Masuk</h6>
+                                
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <h6 class="text-success">📋 Rumus Dasar:</h6>
+                                        <div class="bg-white p-3 rounded border">
+                                            <strong class="text-primary">Total Stok Masuk = Qty Masuk - Defect + Retur</strong>
+                                        </div>
+                                        
+                                        <h6 class="text-info mt-3">📝 Penjelasan:</h6>
+                                        <ul class="list-unstyled">
+                                            <li><strong>Qty Masuk:</strong> Jumlah barang yang benar-benar diterima dari supplier</li>
+                                            <li><strong>Defect:</strong> Barang rusak/cacat yang tidak bisa dipakai (dikurangi dari stok)</li>
+                                            <li><strong>Retur:</strong> Barang tambahan yang dikirim supplier untuk menutupi kekurangan atau penggantian (ditambah ke stok)</li>
+                                        </ul>
+                                        
+                                        <div class="alert alert-warning mt-2">
+                                            <small><strong>⚠️ Penting:</strong> "Retur" di sini bukan berarti mengembalikan barang ke supplier, tapi <strong>menerima barang tambahan</strong> dari supplier untuk menutupi kekurangan pengiriman sebelumnya.</small>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="col-md-6">
+                                        <h6 class="text-warning">💡 Contoh Kasus:</h6>
+                                        
+                                        <div class="bg-white p-3 rounded border mb-2">
+                                            <strong>Kasus Normal:</strong><br>
+                                            • Beli: 1000 pcs<br>
+                                            • Masuk: 1000 pcs<br>
+                                            • Defect: 20 pcs<br>
+                                            • Retur: 0 pcs<br>
+                                            <span class="text-success"><strong>= 1000 - 20 + 0 = 980 pcs</strong></span>
+                                        </div>
+                                        
+                                        <div class="bg-white p-3 rounded border mb-2">
+                                            <strong>Kasus Ada Retur (Pengiriman Bertahap):</strong><br>
+                                            <em>Cerita: Anda pesan 500 pcs, tapi supplier hanya kirim 470 pcs dulu. Kemudian supplier kirim sisanya 30 pcs di pengiriman kedua.</em><br><br>
+                                            • Beli: 500 pcs<br>
+                                            • Masuk (pengiriman 1): 470 pcs<br>
+                                            • Defect: 10 pcs (dari 470 pcs yang masuk)<br>
+                                            • Retur (pengiriman 2): 30 pcs (sisanya dari supplier)<br>
+                                            <span class="text-success"><strong>= 470 - 10 + 30 = 490 pcs</strong></span><br>
+                                            <small class="text-info">💡 Total akhir: 490 pcs (sesuai pesanan 500 pcs dikurangi 10 pcs defect)</small>
+                                        </div>
+                                        
+                                        <div class="bg-white p-3 rounded border">
+                                            <strong>Kasus Pengiriman Kurang:</strong><br>
+                                            • Beli: 1000 pcs<br>
+                                            • Masuk: 950 pcs<br>
+                                            • Defect: 5 pcs<br>
+                                            • Retur: 0 pcs<br>
+                                            <span class="text-success"><strong>= 950 - 5 + 0 = 945 pcs</strong></span>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="row mt-3">
+                                    <div class="col-12">
+                                        <h6 class="text-danger">⚠️ Hal yang Perlu Diperhatikan:</h6>
+                                        <div class="bg-white p-3 rounded border">
+                                            <ul class="mb-0">
+                                                <li><strong>Defect tidak boleh lebih besar dari Qty Masuk</strong> - Tidak mungkin barang rusak lebih banyak dari yang diterima</li>
+                                                <li><strong>Retur tidak boleh lebih besar dari Qty Masuk</strong> - Tidak bisa mengembalikan lebih dari yang diterima</li>
+                                                <li><strong>Total Defect + Retur tidak boleh lebih dari Qty Masuk</strong> - Gabungan keduanya tidak boleh melebihi barang masuk</li>
+                                                <li><strong>Total Stok Masuk tidak boleh negatif</strong> - Hasil akhir harus positif atau nol</li>
+                                                <li><strong>Rate Defect/Retur >50% akan diberi peringatan</strong> - Tingkat terlalu tinggi, perlu dicek ulang</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                         <div class="row">
                             <div class="col-md-4">
                                 <div class="mb-3">
@@ -388,11 +468,35 @@
                             </div>
                         </div>
 
-                        <div class="alert alert-info">
-                            <strong>Total Stok Masuk:</strong> <span id="total_stok_display">0</span> <span
-                                id="satuan_display"></span>
-                            <br><small>Formula: Qty Masuk - Defect + Retur</small>
+                        <div class="alert alert-info" id="calculation_info">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div class="flex-grow-1">
+                                    <strong>Total Stok Masuk:</strong> <span id="total_stok_display">0</span> <span id="satuan_display"></span>
+                                    <br><small>Formula: <span id="calculation_formula">Qty Masuk - Defect + Retur</span></small>
+                                    <div id="calculation_rates" class="mt-2" style="display: none;">
+                                        <small>
+                                            <span class="badge bg-secondary me-2">Defect Rate: <span id="defect_rate">0%</span></span>
+                                            <span class="badge bg-secondary">Return Rate: <span id="return_rate">0%</span></span>
+                                        </small>
+                                    </div>
+                                </div>
+                                <button type="button" class="btn btn-sm btn-outline-primary ms-2" onclick="showQuickGuide()" title="Lihat Panduan Cepat">
+                                    <i class="fas fa-lightbulb"></i>
+                                </button>
+                            </div>
+                            
+                            <!-- Quick Tip Display -->
+                            <div id="quick_tip" class="mt-2" style="display: none;">
+                                <div class="bg-white p-2 rounded border">
+                                    <small class="text-muted">
+                                        <strong>💡 Tips:</strong> <span id="tip_content">Masukkan data secara berurutan untuk hasil yang akurat</span>
+                                    </small>
+                                </div>
+                            </div>
                         </div>
+                        
+                        <!-- Calculation Validation Alerts -->
+                        <div id="calculation_alerts"></div>
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
@@ -699,11 +803,14 @@
                     table.draw();
                 });
 
-                // Calculate total stock on input change
-                $('#qty_barang_masuk, #barang_defect_tanpa_retur, #barang_diretur_ke_supplier').on('input',
-                    function() {
+                // Calculate total stock and validate on input change
+                $('#qty_pembelian, #qty_barang_masuk, #barang_defect_tanpa_retur, #barang_diretur_ke_supplier').on('input',
+                    debounce(function() {
                         calculateTotalStock();
-                    });
+                        validateCalculationsRealTime();
+                        showContextualTips();
+                    }, 500)
+                );
 
                 // Handle item selection change - attach to document to handle dynamically recreated elements
                 $(document).on('change', '#bahan_baku_id', function() {
@@ -1196,7 +1303,194 @@
             var defect = parseInt($('#barang_defect_tanpa_retur').val()) || 0;
             var retur = parseInt($('#barang_diretur_ke_supplier').val()) || 0;
             var total = masuk - defect + retur;
+            
             $('#total_stok_display').text(total);
+            $('#calculation_formula').text(masuk + ' - ' + defect + ' + ' + retur + ' = ' + total);
+            
+            // Calculate and display rates
+            if (masuk > 0) {
+                var defectRate = ((defect / masuk) * 100).toFixed(1);
+                var returnRate = ((retur / masuk) * 100).toFixed(1);
+                
+                $('#defect_rate').text(defectRate + '%');
+                $('#return_rate').text(returnRate + '%');
+                $('#calculation_rates').show();
+                
+                // Color code rates based on thresholds
+                var defectBadge = $('#calculation_rates .badge:first');
+                var returnBadge = $('#calculation_rates .badge:last');
+                
+                // Reset classes
+                defectBadge.removeClass('bg-success bg-warning bg-danger').addClass('bg-secondary');
+                returnBadge.removeClass('bg-success bg-warning bg-danger').addClass('bg-secondary');
+                
+                // Defect rate coloring
+                if (defectRate <= 5) {
+                    defectBadge.removeClass('bg-secondary').addClass('bg-success');
+                } else if (defectRate <= 15) {
+                    defectBadge.removeClass('bg-secondary').addClass('bg-warning');
+                } else {
+                    defectBadge.removeClass('bg-secondary').addClass('bg-danger');
+                }
+                
+                // Return rate coloring
+                if (returnRate <= 5) {
+                    returnBadge.removeClass('bg-secondary').addClass('bg-success');
+                } else if (returnRate <= 15) {
+                    returnBadge.removeClass('bg-secondary').addClass('bg-warning');
+                } else {
+                    returnBadge.removeClass('bg-secondary').addClass('bg-danger');
+                }
+            } else {
+                $('#calculation_rates').hide();
+            }
+        }
+        
+        // Real-time calculation validation
+        function validateCalculationsRealTime() {
+            var qtyPembelian = parseInt($('#qty_pembelian').val()) || 0;
+            var qtyMasuk = parseInt($('#qty_barang_masuk').val()) || 0;
+            var defect = parseInt($('#barang_defect_tanpa_retur').val()) || 0;
+            var retur = parseInt($('#barang_diretur_ke_supplier').val()) || 0;
+            
+            // Skip validation if no quantities entered
+            if (qtyPembelian === 0 && qtyMasuk === 0 && defect === 0 && retur === 0) {
+                clearCalculationAlerts();
+                return;
+            }
+            
+            $.ajax({
+                url: "{{ route('purchase.validate-calculations') }}",
+                method: 'POST',
+                data: {
+                    _token: $('meta[name="csrf-token"]').attr('content'),
+                    qty_pembelian: qtyPembelian,
+                    qty_barang_masuk: qtyMasuk,
+                    barang_defect_tanpa_retur: defect,
+                    barang_diretur_ke_supplier: retur
+                },
+                success: function(response) {
+                    if (response.success) {
+                        showCalculationSuccess(response.data);
+                    }
+                },
+                error: function(xhr) {
+                    if (xhr.status === 422) {
+                        showCalculationErrors(xhr.responseJSON.errors);
+                    }
+                }
+            });
+        }
+        
+        // Show calculation success feedback
+        function showCalculationSuccess(data) {
+            clearCalculationAlerts();
+            
+            var alertHtml = `
+                <div class="alert alert-success alert-dismissible fade show" role="alert">
+                    <i class="fas fa-check-circle me-2"></i>
+                    <strong>Kalkulasi Valid!</strong> 
+                    <br><small>Formula: ${data.calculation_formula}</small>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            `;
+            
+            $('#calculation_alerts').html(alertHtml);
+            
+            // Auto-hide success alert after 3 seconds
+            setTimeout(function() {
+                $('#calculation_alerts .alert-success').fadeOut();
+            }, 3000);
+        }
+        
+        // Show calculation error feedback
+        function showCalculationErrors(errors) {
+            clearCalculationAlerts();
+            
+            var alertsHtml = '';
+            
+            $.each(errors, function(field, messages) {
+                $.each(messages, function(index, message) {
+                    var alertType = 'danger';
+                    var icon = 'fas fa-exclamation-triangle';
+                    
+                    // Use warning for rate-based errors
+                    if (message.includes('tingkat') || message.includes('rate')) {
+                        alertType = 'warning';
+                        icon = 'fas fa-exclamation-circle';
+                    }
+                    
+                    alertsHtml += `
+                        <div class="alert alert-${alertType} alert-dismissible fade show" role="alert">
+                            <i class="${icon} me-2"></i>
+                            <strong>Kesalahan Kalkulasi:</strong> ${message}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                    `;
+                });
+            });
+            
+            $('#calculation_alerts').html(alertsHtml);
+        }
+        
+        // Clear calculation alerts
+        function clearCalculationAlerts() {
+            $('#calculation_alerts').empty();
+        }
+        
+        // Show quick guide with contextual tips
+        function showQuickGuide() {
+            var qtyPembelian = parseInt($('#qty_pembelian').val()) || 0;
+            var qtyMasuk = parseInt($('#qty_barang_masuk').val()) || 0;
+            var defect = parseInt($('#barang_defect_tanpa_retur').val()) || 0;
+            var retur = parseInt($('#barang_diretur_ke_supplier').val()) || 0;
+            
+            var tipContent = '';
+            var tipClass = 'text-info';
+            
+            // Contextual tips based on current input
+            if (qtyPembelian === 0) {
+                tipContent = 'Mulai dengan mengisi Quantity Pembelian terlebih dahulu';
+            } else if (qtyMasuk === 0) {
+                tipContent = 'Selanjutnya isi Qty Barang Masuk - jumlah yang benar-benar diterima dari supplier';
+            } else if (defect > 0 && retur > 0) {
+                tipContent = 'Anda memiliki barang defect dan retur. Pastikan total keduanya tidak melebihi qty masuk';
+                tipClass = 'text-warning';
+            } else if (defect > 0) {
+                tipContent = 'Barang defect akan mengurangi total stok masuk. Pastikan jumlahnya tidak melebihi qty masuk';
+                tipClass = 'text-warning';
+            } else if (retur > 0) {
+                tipContent = 'Barang retur akan menambah total stok masuk. Biasanya terjadi jika ada pengembalian dari supplier';
+                tipClass = 'text-info';
+            } else if (qtyMasuk > 0) {
+                tipContent = 'Kalkulasi terlihat normal. Total stok masuk akan sama dengan qty masuk jika tidak ada defect/retur';
+                tipClass = 'text-success';
+            } else {
+                tipContent = 'Masukkan data secara berurutan: Qty Pembelian → Qty Masuk → Defect → Retur';
+            }
+            
+            $('#tip_content').text(tipContent).removeClass('text-info text-warning text-success text-danger').addClass(tipClass);
+            
+            // Toggle quick tip display
+            if ($('#quick_tip').is(':visible')) {
+                $('#quick_tip').slideUp();
+            } else {
+                $('#quick_tip').slideDown();
+            }
+        }
+        
+        // Auto-show contextual tips based on input
+        function showContextualTips() {
+            var qtyMasuk = parseInt($('#qty_barang_masuk').val()) || 0;
+            var defect = parseInt($('#barang_defect_tanpa_retur').val()) || 0;
+            var retur = parseInt($('#barang_diretur_ke_supplier').val()) || 0;
+            
+            // Auto-show tips for potentially problematic scenarios
+            if (qtyMasuk > 0 && (defect > qtyMasuk * 0.3 || retur > qtyMasuk * 0.3)) {
+                if (!$('#quick_tip').is(':visible')) {
+                    showQuickGuide();
+                }
+            }
         }
 
         function resetForm() {
@@ -1204,7 +1498,10 @@
             $('#purchase_id').val('');
             $('#total_stok_display').text('0');
             $('#satuan_display').text('');
+            $('#calculation_formula').text('Qty Masuk - Defect + Retur');
+            $('#calculation_rates').hide();
             clearValidationErrors();
+            clearCalculationAlerts();
 
             // Reset to initial state manually to avoid calling resetKategoriAndItem again
             $('#kategori').val('');

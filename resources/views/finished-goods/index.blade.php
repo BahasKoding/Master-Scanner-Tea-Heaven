@@ -253,7 +253,7 @@
                             <div class="col-md-6">
                                 <p class="mb-1"><strong><i class="fas fa-cog text-secondary"></i> Otomatis:</strong></p>
                                 <ul class="mb-2">
-                                    <li><strong>Stok Masuk:</strong> Dari Catatan Produksi</li>
+                                    <li><strong>Stok Masuk:</strong> Dari Catatan Produksi + Purchase Finished Goods</li>
                                     <li><strong>Stok Keluar:</strong> Dari History Sales Scanner</li>
                                     <li><strong>Live Stock:</strong> Kalkulasi otomatis</li>
                                 </ul>

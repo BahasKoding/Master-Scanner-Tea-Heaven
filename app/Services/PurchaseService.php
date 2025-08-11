@@ -177,7 +177,8 @@ class PurchaseService
     }
 
     /**
-     * Update FinishedGoods stok_masuk from all finished_goods purchases
+     * Update FinishedGoods stok_masuk from all sources (production + purchases)
+     * FIXED: Now combines both CatatanProduksi and Purchase data
      *
      * @param int $productId
      * @return void
@@ -185,11 +186,6 @@ class PurchaseService
     private function updateFinishedGoodsStockFromPurchases(int $productId)
     {
         try {
-            // Calculate total from all finished_goods purchases for this product
-            $totalStokMasuk = Purchase::where('bahan_baku_id', $productId)
-                ->where('kategori', 'finished_goods')
-                ->sum('total_stok_masuk');
-
             // Find or create FinishedGoods record
             $finishedGoods = FinishedGoods::firstOrNew(['product_id' => $productId]);
 
@@ -197,10 +193,11 @@ class PurchaseService
             if (!$finishedGoods->exists) {
                 $finishedGoods->stok_awal = 0;
                 $finishedGoods->defective = 0;
+                $finishedGoods->stok_keluar = 0; // FIX: Set default stok_keluar to prevent SQL error
             }
 
-            // Update stok_masuk from purchases
-            $finishedGoods->stok_masuk = $totalStokMasuk;
+            // FIXED: Use the new method that combines both sources
+            $finishedGoods->updateStokMasukFromAllSources();
 
             // Recalculate other dynamic fields
             $finishedGoods->updateStokKeluarFromHistorySales();
@@ -208,13 +205,13 @@ class PurchaseService
 
             $finishedGoods->save();
 
-            Log::info("FinishedGoods stock updated from purchase", [
+            Log::info("FinishedGoods stock updated from all sources", [
                 'product_id' => $productId,
-                'total_stok_masuk' => $totalStokMasuk,
+                'stok_masuk' => $finishedGoods->stok_masuk,
                 'live_stock' => $finishedGoods->live_stock
             ]);
         } catch (\Exception $e) {
-            Log::error("Failed to update FinishedGoods stock from purchases", [
+            Log::error("Failed to update FinishedGoods stock from all sources", [
                 'product_id' => $productId,
                 'error' => $e->getMessage()
             ]);

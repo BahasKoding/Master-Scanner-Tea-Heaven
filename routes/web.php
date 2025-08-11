@@ -13,9 +13,9 @@ use App\Http\Controllers\CatatanProduksiController;
 use App\Http\Controllers\FinishedGoodsController;
 use App\Http\Controllers\BahanBakuController;
 use App\Http\Controllers\DashboardController;
-use App\Http\Controllers\StickerController;
+// use App\Http\Controllers\StickerController;
 use App\Http\Controllers\PurchaseController;
-use App\Http\Controllers\PurchaseStickerController;
+// use App\Http\Controllers\PurchaseStickerController;
 use App\Http\Controllers\InventoryBahanBakuController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\StockOpnameController;
@@ -186,11 +186,12 @@ Route::middleware(['auth'])->group(function () {
     Route::post('purchase/data', [PurchaseController::class, 'data'])->name('purchase.data');
     Route::post('purchase/sync', [PurchaseController::class, 'syncPurchaseData'])->name('purchase.sync');
     Route::post('purchase/statistics', [PurchaseController::class, 'getStatistics'])->name('purchase.statistics');
+    Route::post('purchase/validate-calculations', [PurchaseController::class, 'validatePurchaseCalculations'])->name('purchase.validate-calculations');
 
     // Purchase Sticker routes - untuk pembelian sticker
-    Route::resource('purchase-sticker', PurchaseStickerController::class);
-    Route::post('purchase-sticker/data', [PurchaseStickerController::class, 'data'])->name('purchase-sticker.data');
-    Route::get('purchase-sticker/get-sticker-data/{productId}', [PurchaseStickerController::class, 'getStickerData'])->name('purchase-sticker.get-sticker-data');
+    // Route::resource('purchase-sticker', PurchaseStickerController::class);
+    // Route::post('purchase-sticker/data', [PurchaseStickerController::class, 'data'])->name('purchase-sticker.data');
+    // Route::get('purchase-sticker/get-sticker-data/{productId}', [PurchaseStickerController::class, 'getStickerData'])->name('purchase-sticker.get-sticker-data');
 
     // Inventory Bahan Baku routes - untuk manajemen inventory bahan baku
     Route::prefix('inventory-bahan-baku')->name('inventory-bahan-baku.')->group(function () {
@@ -227,8 +228,8 @@ Route::middleware(['auth'])->group(function () {
     });
 
     // Sticker routes
-    Route::resource('stickers', StickerController::class);
-    Route::post('stickers/export', [StickerController::class, 'export'])->name('stickers.export');
+    // Route::resource('stickers', StickerController::class);
+    // Route::post('stickers/export', [StickerController::class, 'export'])->name('stickers.export');
 
     /*
     |--------------------------------------------------------------------------
