@@ -48,7 +48,6 @@
                                         <option value="">Pilih Jenis Opname</option>
                                         <option value="bahan_baku" {{ old('type') == 'bahan_baku' ? 'selected' : '' }}>Bahan Baku</option>
                                         <option value="finished_goods" {{ old('type') == 'finished_goods' ? 'selected' : '' }}>Finished Goods</option>
-                                        <option value="sticker" {{ old('type') == 'sticker' ? 'selected' : '' }}>Sticker</option>
                                     </select>
                                     @error('type')
                                         <div class="text-danger small mt-1">{{ $message }}</div>
@@ -145,9 +144,6 @@
                         break;
                     case 'finished_goods':
                         info = 'Akan mengambil data dari Finished Goods Stock (stok_finished_goods)';
-                        break;
-                    case 'sticker':
-                        info = 'Akan mengambil data dari Sticker Stock (stok_stiker)';
                         break;
                     default:
                         info = 'Pilih jenis opname untuk melihat informasi detail';

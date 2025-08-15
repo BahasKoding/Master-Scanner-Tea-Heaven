@@ -14,7 +14,7 @@ return new class extends Migration
         Schema::create('stock_opname_items', function (Blueprint $table) {
             $table->id();
             $table->unsignedBigInteger('opname_id')->comment('ID stock opname');
-            $table->unsignedBigInteger('item_id')->comment('ID item (bahan_baku/product/sticker)');
+            $table->unsignedBigInteger('item_id')->comment('ID item (bahan_baku/product)');
             $table->string('item_name')->comment('Nama item untuk referensi');
             $table->string('item_sku')->nullable()->comment('SKU item untuk referensi (bahan_baku: sku_induk, product: sku)');
             $table->decimal('stok_sistem', 10, 2)->default(0)->comment('Stok menurut sistem');

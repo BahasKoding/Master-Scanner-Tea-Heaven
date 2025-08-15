@@ -34,7 +34,6 @@
 
 ### 🛒 **Procurement System**
 - **Purchase Bahan Baku**: Manajemen pembelian dengan tracking quality dan retur
-- **Purchase Stiker**: Manajemen stiker produk dengan integrasi stok
 - **Supplier Management**: Pengelolaan data supplier dan vendor
 
 ### 🔍 **Scanner System**
@@ -166,10 +165,8 @@ Visit `http://localhost:8000` untuk mengakses aplikasi.
 - **history_sales**: Transaksi penjualan
 
 ### Support Tables
-- **stickers**: Manajemen stiker produk
 - **inventory_bahan_baku**: Inventory bahan baku
 - **purchase_barang**: Pembelian bahan baku
-- **purchase_stiker**: Pembelian stiker
 
 ### System Tables
 - **users**: User management

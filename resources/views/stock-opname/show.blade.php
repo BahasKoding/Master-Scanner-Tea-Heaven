@@ -61,7 +61,6 @@
                                 $typeNames = [
                                     'bahan_baku' => 'Bahan Baku',
                                     'finished_goods' => 'Finished Goods', 
-                                    'sticker' => 'Sticker'
                                 ];
                             @endphp
                             {{ $typeNames[$stockOpname->type] ?? $stockOpname->type }}
@@ -907,7 +906,6 @@
                 const typeNames = {
                     'bahan_baku': 'Bahan Baku',
                     'finished_goods': 'Finished Goods',
-                    'sticker': 'Sticker'
                 };
                 
                 let printHtml = `

@@ -77,8 +77,7 @@ class StockOpnameController extends Controller
                 ->editColumn('type', function ($row) {
                     $typeNames = [
                         'bahan_baku' => 'Bahan Baku',
-                        'finished_goods' => 'Finished Goods',
-                        'sticker' => 'Sticker'
+                        'finished_goods' => 'Finished Goods'
                     ];
                     return $typeNames[$row->type] ?? $row->type;
                 })
@@ -138,7 +137,7 @@ class StockOpnameController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'type' => 'required|in:bahan_baku,finished_goods,sticker',
+            'type' => 'required|in:bahan_baku,finished_goods',
             'tanggal_opname' => 'required|date',
             'notes' => 'nullable|string|max:500'
         ]);
@@ -196,9 +195,6 @@ class StockOpnameController extends Controller
                 break;
             case 'finished_goods':
                 $stockOpname->load(['items.product']);
-                break;
-            case 'sticker':
-                $stockOpname->load(['items.sticker']);
                 break;
             default:
                 $stockOpname->load('items');
@@ -424,8 +420,7 @@ class StockOpnameController extends Controller
             // Type names mapping
             $typeNames = [
                 'bahan_baku' => 'Bahan Baku',
-                'finished_goods' => 'Finished Goods',
-                'sticker' => 'Sticker'
+                'finished_goods' => 'Finished Goods'
             ];
 
             // Prepare export data

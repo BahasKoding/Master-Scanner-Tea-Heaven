@@ -76,7 +76,6 @@
                                     <option value="">Semua Jenis</option>
                                     <option value="bahan_baku">Bahan Baku</option>
                                     <option value="finished_goods">Finished Goods</option>
-                                    <option disabled value="sticker">Sticker</option>
                                 </select>
                             </div>
                             <div class="col-md-3">
@@ -143,7 +142,6 @@
                                 <option value="">Pilih Jenis Opname</option>
                                 <option value="bahan_baku">Bahan Baku</option>
                                 <option value="finished_goods">Finished Goods</option>
-                                <option disabled value="sticker">Sticker</option>
                             </select>
                             <small class="form-text text-muted">Pilih jenis inventory yang akan dilakukan stock opname</small>
                         </div>

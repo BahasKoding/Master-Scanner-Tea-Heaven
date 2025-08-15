@@ -59,6 +59,7 @@ class PurchaseController extends Controller
             'negative_total_stock' => 'Total stok masuk tidak boleh negatif',
             'unrealistic_defect_rate' => 'Tingkat defect terlalu tinggi (>50% dari barang masuk)',
             'unrealistic_return_rate' => 'Tingkat retur terlalu tinggi (>50% dari barang masuk)',
+            'qty_exceeds_purchase' => 'Jumlah barang masuk tidak boleh melebihi quantity pembelian',
         ];
     }
 
@@ -112,9 +113,9 @@ class PurchaseController extends Controller
             }
         }
         
-        // 5. Incoming goods should not exceed purchased quantity significantly
-        if ($qtyPembelian > 0 && $qtyMasuk > ($qtyPembelian * 1.1)) {
-            $errors['qty_barang_masuk'] = ['Jumlah barang masuk (' . number_format($qtyMasuk) . ') melebihi quantity pembelian (' . number_format($qtyPembelian) . ') secara signifikan. Periksa kembali data.'];
+        // 5. Incoming goods should not exceed purchased quantity
+        if ($qtyPembelian > 0 && $qtyMasuk > $qtyPembelian) {
+            $errors['qty_barang_masuk'] = ['Jumlah barang masuk (' . number_format($qtyMasuk) . ') tidak boleh melebihi quantity pembelian (' . number_format($qtyPembelian) . '). Periksa kembali data.'];
         }
         
         // 6. Warning for zero incoming goods but has defect/return

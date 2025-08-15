@@ -6,7 +6,7 @@ use App\Models\StockOpname;
 use App\Models\StockOpnameItem;
 use App\Models\InventoryBahanBaku;
 use App\Models\FinishedGoods;
-use App\Models\Sticker;
+
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Collection;
@@ -939,10 +939,7 @@ class StockOpnameService
                     }
                     break;
                     
-                case 'sticker':
-                    // Check for recent sticker purchases (if applicable)
-                    // This would depend on your sticker purchase tracking system
-                    break;
+
             }
         } catch (Exception $e) {
             \Log::error('Error checking concurrent transactions: ' . $e->getMessage());
@@ -994,14 +991,12 @@ class StockOpnameService
     {
         $dummyNames = [
             'bahan_baku' => 'Dummy Bahan Baku (Tidak ada data inventory)',
-            'finished_goods' => 'Dummy Finished Goods (Tidak ada data produk)',
-            'sticker' => 'Dummy Sticker (Tidak ada data sticker)'
+            'finished_goods' => 'Dummy Finished Goods (Tidak ada data produk)'
         ];
 
         $dummyUnits = [
             'bahan_baku' => 'kg',
-            'finished_goods' => 'pcs',
-            'sticker' => 'pcs'
+            'finished_goods' => 'pcs'
         ];
 
         StockOpnameItem::create([
