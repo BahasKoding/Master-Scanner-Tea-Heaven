@@ -145,6 +145,96 @@
                     </div>
                     @endif
 
+                    <!-- Variance Calculation Formula Explanation -->
+                    <div class="card mb-3 border-primary">
+                        <div class="card-header bg-primary text-white">
+                            <h6 class="mb-0">
+                                <i class="fas fa-calculator me-2"></i>
+                                Rumus Perhitungan Selisih Stock Opname
+                            </h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <h6 class="text-primary">Formula:</h6>
+                                    <div class="bg-light p-3 rounded border">
+                                        <code class="fs-5 text-dark">
+                                            <strong>Selisih = Stok Fisik - Stok Sistem</strong>
+                                        </code>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <h6 class="text-primary">Interpretasi:</h6>
+                                    <ul class="list-unstyled">
+                                        <li><span class="badge bg-success me-2">+</span> <strong>Surplus:</strong> Fisik > Sistem</li>
+                                        <li><span class="badge bg-danger me-2">-</span> <strong>Kurang:</strong> Fisik < Sistem</li>
+                                        <li><span class="badge bg-secondary me-2">0</span> <strong>Sesuai:</strong> Fisik = Sistem</li>
+                                    </ul>
+                                </div>
+                            </div>
+                            
+                            <!-- Examples -->
+                            <div class="row mt-3">
+                                <div class="col-12">
+                                    <h6 class="text-primary">Contoh Perhitungan:</h6>
+                                    <div class="table-responsive">
+                                        <table class="table table-sm table-bordered">
+                                            <thead class="table-light">
+                                                <tr>
+                                                    <th>Stok Sistem</th>
+                                                    <th>Stok Fisik</th>
+                                                    <th>Perhitungan</th>
+                                                    <th>Selisih</th>
+                                                    <th>Status</th>
+                                                    <th>Penjelasan</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <tr>
+                                                    <td>100</td>
+                                                    <td>95</td>
+                                                    <td>95 - 100</td>
+                                                    <td class="text-danger"><strong>-5</strong></td>
+                                                    <td><span class="badge bg-danger">Kurang</span></td>
+                                                    <td>Kehilangan 5 unit</td>
+                                                </tr>
+                                                <tr>
+                                                    <td>50</td>
+                                                    <td>55</td>
+                                                    <td>55 - 50</td>
+                                                    <td class="text-success"><strong>+5</strong></td>
+                                                    <td><span class="badge bg-success">Surplus</span></td>
+                                                    <td>Kelebihan 5 unit</td>
+                                                </tr>
+                                                <tr class="table-warning">
+                                                    <td><strong>-2</strong></td>
+                                                    <td><strong>5</strong></td>
+                                                    <td><strong>5 - (-2)</strong></td>
+                                                    <td class="text-success"><strong>+7</strong></td>
+                                                    <td><span class="badge bg-success">Surplus</span></td>
+                                                    <td><strong>Sistem minus 2, fisik ada 5 = surplus 7</strong></td>
+                                                </tr>
+                                                <tr>
+                                                    <td>-10</td>
+                                                    <td>0</td>
+                                                    <td>0 - (-10)</td>
+                                                    <td class="text-success"><strong>+10</strong></td>
+                                                    <td><span class="badge bg-success">Surplus</span></td>
+                                                    <td>Sistem minus 10, fisik 0 = surplus 10</td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    <div class="alert alert-warning mt-2">
+                                        <i class="fas fa-exclamation-triangle me-2"></i>
+                                        <strong>Catatan Penting:</strong> Ketika stok sistem negatif, artinya sistem mencatat kekurangan. 
+                                        Jika stok fisik ditemukan, maka itu adalah surplus karena lebih dari yang diperkirakan sistem.
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Filter Section -->
                     <div class="mb-3 p-3 border rounded bg-light filter-section">
                         <button id="filter-toggle-btn" class="btn btn-sm btn-outline-secondary mb-2 w-100 d-md-none"
@@ -584,12 +674,12 @@
             }
             
             /**
-             * Calculate correct variance handling negative system stock
+             * Calculate variance using standard formula: Physical Stock - System Stock
              * 
-             * Business Logic:
-             * - If system stock is negative, it means we have over-allocated/over-used stock
-             * - Physical count should be compared against the shortage baseline
-             * - Any physical stock found when system is negative is a recovery/gain
+             * This provides consistent and intuitive variance calculation:
+             * - Positive variance = Surplus (physical > system)
+             * - Negative variance = Shortage (physical < system)
+             * - Zero variance = Match (physical = system)
              * 
              * @param {number} physicalStock
              * @param {number} systemStock
@@ -600,25 +690,8 @@
                 physicalStock = parseFloat(physicalStock) || 0;
                 systemStock = parseFloat(systemStock) || 0;
                 
-                if (systemStock < 0) {
-                    // When system stock is negative:
-                    // - If physical = 0: We're still short by the absolute system stock amount
-                    // - If physical > 0: We recovered some stock, but still short by (abs(system) - physical)
-                    // - Real shortage = absolute system stock amount
-                    
-                    const realShortage = Math.abs(systemStock);
-                    
-                    if (physicalStock >= realShortage) {
-                        // Physical stock covers the shortage and more = surplus
-                        return physicalStock - realShortage;
-                    } else {
-                        // Still short = negative variance
-                        return physicalStock - realShortage;
-                    }
-                } else {
-                    // Normal calculation for positive or zero system stock
-                    return physicalStock - systemStock;
-                }
+                // Standard variance calculation: Physical - System
+                return physicalStock - systemStock;
             }
             
             // Initialize on page load
@@ -746,33 +819,129 @@
                 });
             });
             
-            // Save all data
+            // Save all data with chunked approach to avoid max_input_vars limit
             $('#save-all-btn').click(function() {
-                const formData = $('#opname-form').serialize();
+                const btn = $(this);
+                const originalHtml = btn.html();
                 
-                $.ajax({
-                    url: '{{ route('stock-opname.update', $stockOpname->id) }}',
-                    method: 'PUT',
-                    data: formData,
-                    success: function(response) {
-                        if (response.success) {
-                            Swal.fire({
-                                icon: 'success',
-                                title: 'Berhasil!',
-                                text: response.message,
-                                timer: 2000,
-                                showConfirmButton: false
-                            });
-                        }
-                    },
-                    error: function(xhr) {
-                        Swal.fire({
-                            icon: 'error',
-                            title: 'Error!',
-                            text: 'Gagal menyimpan data: ' + xhr.responseJSON.message
+                // Show loading state
+                btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-1"></i>Menyimpan...');
+                
+                // Collect all items data
+                const itemsData = [];
+                $('.stok-fisik-input').each(function() {
+                    const input = $(this);
+                    const itemId = input.data('item-id');
+                    const stokFisik = input.val();
+                    
+                    if (stokFisik !== '' && stokFisik !== null) {
+                        itemsData.push({
+                            id: itemId,
+                            stok_fisik: parseFloat(stokFisik) || 0
                         });
                     }
                 });
+                
+                if (itemsData.length === 0) {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Peringatan!',
+                        text: 'Tidak ada data yang perlu disimpan'
+                    });
+                    btn.prop('disabled', false).html(originalHtml);
+                    return;
+                }
+                
+                // Process items in chunks of 50 to avoid max_input_vars limit
+                const chunkSize = 50;
+                const chunks = [];
+                for (let i = 0; i < itemsData.length; i += chunkSize) {
+                    chunks.push(itemsData.slice(i, i + chunkSize));
+                }
+                
+                let processedChunks = 0;
+                let totalUpdated = 0;
+                let hasError = false;
+                
+                // Function to process each chunk
+                function processChunk(chunkIndex) {
+                    if (chunkIndex >= chunks.length) {
+                        // All chunks processed
+                        btn.prop('disabled', false).html(originalHtml);
+                        
+                        if (!hasError) {
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'Berhasil!',
+                                text: `Semua data berhasil disimpan (${totalUpdated} items updated)`,
+                                timer: 3000,
+                                showConfirmButton: false
+                            });
+                            
+                            // Update the display to reflect any changes
+                            initializeItemsData();
+                            updateDisplay();
+                        }
+                        return;
+                    }
+                    
+                    const chunk = chunks[chunkIndex];
+                    const progress = Math.round(((chunkIndex + 1) / chunks.length) * 100);
+                    
+                    // Update button text with progress
+                    btn.html(`<i class="fas fa-spinner fa-spin me-1"></i>Menyimpan... ${progress}%`);
+                    
+                    $.ajax({
+                        url: '{{ route('stock-opname.bulk-update', $stockOpname->id) }}',
+                        method: 'POST',
+                        data: {
+                            _token: '{{ csrf_token() }}',
+                            items: chunk
+                        },
+                        success: function(response) {
+                            if (response.success) {
+                                totalUpdated += response.updated_count || chunk.length;
+                                processedChunks++;
+                                
+                                // Process next chunk
+                                setTimeout(() => processChunk(chunkIndex + 1), 100);
+                            } else {
+                                hasError = true;
+                                btn.prop('disabled', false).html(originalHtml);
+                                
+                                Swal.fire({
+                                    icon: 'warning',
+                                    title: 'Peringatan!',
+                                    text: response.message || 'Beberapa data tidak tersimpan dengan sempurna'
+                                });
+                            }
+                        },
+                        error: function(xhr) {
+                            hasError = true;
+                            btn.prop('disabled', false).html(originalHtml);
+                            
+                            let errorMessage = 'Gagal menyimpan data';
+                            
+                            // Safely extract error message
+                            if (xhr.responseJSON && xhr.responseJSON.message) {
+                                errorMessage += ': ' + xhr.responseJSON.message;
+                            } else if (xhr.responseText) {
+                                errorMessage += ': ' + xhr.responseText;
+                            } else {
+                                errorMessage += ': Terjadi kesalahan tidak dikenal';
+                            }
+                            
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Error!',
+                                text: errorMessage
+                            });
+                        }
+                    });
+                }
+                
+                // Start processing chunks
+                processChunk(0);
             });
             
             // Finalize opname

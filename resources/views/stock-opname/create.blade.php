@@ -135,7 +135,7 @@
             
             // Show different info based on selected type
             $('#create-type').on('change', function() {
-                const type = $(this).value;
+                const type = $(this).val();
                 let info = '';
                 
                 switch(type) {

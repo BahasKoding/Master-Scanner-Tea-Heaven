@@ -225,5 +225,38 @@ class CatatanProduksi extends Model
                 Log::error("Failed to sync FinishedGoods after CatatanProduksi deleted: " . $e->getMessage());
             }
         });
+
+        // Auto-update InventoryBahanBaku when CatatanProduksi changes
+        static::saved(function ($catatanProduksi) {
+            if (is_array($catatanProduksi->sku_induk)) {
+                foreach ($catatanProduksi->sku_induk as $bahanBakuId) {
+                    try {
+                        $inventory = InventoryBahanBaku::where('bahan_baku_id', $bahanBakuId)->first();
+                        if ($inventory) {
+                            $inventory->updateTerpakaiFromCatatanProduksi();
+                            $inventory->save();
+                        }
+                    } catch (\Exception $e) {
+                        Log::error("Failed to update InventoryBahanBaku for bahan_baku_id {$bahanBakuId}: " . $e->getMessage());
+                    }
+                }
+            }
+        });
+
+        static::deleted(function ($catatanProduksi) {
+            if (is_array($catatanProduksi->sku_induk)) {
+                foreach ($catatanProduksi->sku_induk as $bahanBakuId) {
+                    try {
+                        $inventory = InventoryBahanBaku::where('bahan_baku_id', $bahanBakuId)->first();
+                        if ($inventory) {
+                            $inventory->updateTerpakaiFromCatatanProduksi();
+                            $inventory->save();
+                        }
+                    } catch (\Exception $e) {
+                        Log::error("Failed to update InventoryBahanBaku for bahan_baku_id {$bahanBakuId}: " . $e->getMessage());
+                    }
+                }
+            }
+        });
     }
 }

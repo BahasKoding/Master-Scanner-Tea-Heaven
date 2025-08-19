@@ -130,7 +130,7 @@ class Purchase extends Model
     }
 
     /**
-     * Boot method to auto calculate total_stok_masuk
+     * Boot method to auto calculate total_stok_masuk and update inventory
      */
     protected static function boot()
     {
@@ -138,6 +138,37 @@ class Purchase extends Model
 
         static::saving(function ($purchase) {
             $purchase->total_stok_masuk = $purchase->qty_barang_masuk - $purchase->barang_defect_tanpa_retur + $purchase->barang_diretur_ke_supplier;
+        });
+
+        static::saved(function ($purchase) {
+            // Update inventory for bahan baku purchases
+            if ($purchase->kategori === 'bahan_baku' && $purchase->bahan_baku_id) {
+                $inventory = InventoryBahanBaku::firstOrCreate(
+                    ['bahan_baku_id' => $purchase->bahan_baku_id],
+                    [
+                        'stok_awal' => 0,
+                        'stok_masuk' => 0,
+                        'terpakai' => 0,
+                        'defect' => 0,
+                        'live_stok_gudang' => 0,
+                        'satuan' => $purchase->bahanBaku ? $purchase->bahanBaku->satuan : 'pcs'
+                    ]
+                );
+                
+                $inventory->updateStokMasukFromPurchases();
+                $inventory->save();
+            }
+        });
+
+        static::deleted(function ($purchase) {
+            // Update inventory when purchase is deleted
+            if ($purchase->kategori === 'bahan_baku' && $purchase->bahan_baku_id) {
+                $inventory = InventoryBahanBaku::where('bahan_baku_id', $purchase->bahan_baku_id)->first();
+                if ($inventory) {
+                    $inventory->updateStokMasukFromPurchases();
+                    $inventory->save();
+                }
+            }
         });
     }
 }

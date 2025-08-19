@@ -47,7 +47,7 @@ class InventoryBahanBaku extends Model
     }
 
     /**
-     * Update stok masuk dari purchase (static method)
+     * Update stok masuk dari purchase
      */
     public static function updateStokMasukFromPurchase($bahanBakuId, $totalStokMasuk)
     {
@@ -91,8 +91,9 @@ class InventoryBahanBaku extends Model
         }
     }
 
+
     /**
-     * Recalculate stok masuk from all purchases (static method)
+     * Recalculate stok masuk from all purchases
      */
     public static function recalculateStokMasukFromPurchases($bahanBakuId)
     {
@@ -146,7 +147,8 @@ class InventoryBahanBaku extends Model
     }
 
     /**
-     * Auto-update stok_masuk from all purchases (instance method)
+     * Auto-update stok_masuk from all purchases
+     * Similar to FinishedGoods pattern
      */
     public function updateStokMasukFromPurchases()
     {
@@ -169,6 +171,7 @@ class InventoryBahanBaku extends Model
 
     /**
      * Auto-update terpakai from catatan produksi (instance method)
+     * Similar to FinishedGoods pattern
      */
     public function updateTerpakaiFromCatatanProduksi()
     {
@@ -197,6 +200,7 @@ class InventoryBahanBaku extends Model
 
     /**
      * Update from all sources (purchases + production)
+     * Main method to refresh inventory data
      */
     public function updateFromAllSources()
     {

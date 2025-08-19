@@ -221,6 +221,9 @@ Route::middleware(['auth'])->group(function () {
         // Individual item update route - must be before generic {stockOpname} routes
         Route::put('/{stockOpname}/items/{itemId}', [StockOpnameController::class, 'updateItem'])->name('update-item');
         
+        // Bulk update route for chunked processing
+        Route::post('/{stockOpname}/bulk-update', [StockOpnameController::class, 'bulkUpdate'])->name('bulk-update');
+        
         Route::get('/{stockOpname}', [StockOpnameController::class, 'show'])->name('show');
         Route::get('/{stockOpname}/variance-analysis', [StockOpnameController::class, 'varianceAnalysis'])->name('variance-analysis');
         Route::put('/{stockOpname}', [StockOpnameController::class, 'update'])->name('update');

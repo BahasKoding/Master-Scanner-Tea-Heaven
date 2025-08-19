@@ -172,12 +172,12 @@ class StockOpnameItem extends Model
     }
 
     /**
-     * Calculate correct variance handling negative system stock
+     * Calculate variance using standard formula: Physical Stock - System Stock
      * 
-     * Business Logic:
-     * - If system stock is negative, it means we have over-allocated/over-used stock
-     * - Physical count should be compared against 0 (absolute reality)
-     * - Any physical stock found when system is negative is a recovery/gain
+     * This provides consistent and intuitive variance calculation:
+     * - Positive variance = Surplus (physical > system)
+     * - Negative variance = Shortage (physical < system)
+     * - Zero variance = Match (physical = system)
      * 
      * @param int $physicalStock
      * @param int $systemStock
@@ -189,26 +189,7 @@ class StockOpnameItem extends Model
         $physicalStock = (int) $physicalStock;
         $systemStock = (int) $systemStock;
         
-        if ($systemStock < 0) {
-            // When system stock is negative:
-            // - If physical = 0: We're still short by the absolute system stock amount
-            // - If physical > 0: We recovered some stock, but still short by (abs(system) - physical)
-            // - Variance = physical - 0 (compare against zero baseline)
-            // - But we need to show the real shortage situation
-            
-            // Real shortage = absolute system stock amount
-            $realShortage = abs($systemStock);
-            
-            if ($physicalStock >= $realShortage) {
-                // Physical stock covers the shortage and more = surplus
-                return $physicalStock - $realShortage;
-            } else {
-                // Still short = negative variance
-                return $physicalStock - $realShortage;
-            }
-        } else {
-            // Normal calculation for positive or zero system stock
-            return $physicalStock - $systemStock;
-        }
+        // Standard variance calculation: Physical - System
+        return $physicalStock - $systemStock;
     }
 }

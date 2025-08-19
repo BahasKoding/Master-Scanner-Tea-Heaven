@@ -216,14 +216,24 @@
             }
 
             // Initialize Choices.js for add form
-            var addTypeChoices = new Choices('#add-type', {
-                searchEnabled: true,
-                searchPlaceholderValue: "Cari jenis opname",
-                itemSelectText: '',
-                placeholder: true,
-                placeholderValue: "Pilih jenis opname",
-                allowHTML: false
-            });
+            var addTypeChoices;
+            
+            function initializeChoices() {
+                if (addTypeChoices) {
+                    addTypeChoices.destroy();
+                }
+                addTypeChoices = new Choices('#add-type', {
+                    searchEnabled: true,
+                    searchPlaceholderValue: "Cari jenis opname",
+                    itemSelectText: '',
+                    placeholder: true,
+                    placeholderValue: "Pilih jenis opname",
+                    allowHTML: false
+                });
+            }
+            
+            // Initialize on page load
+            initializeChoices();
 
             // Initialize DataTable
             var table = $('#stock-opname-table').DataTable({
@@ -410,8 +420,16 @@
             // Clean up modal when it's hidden
             $('#addStockOpnameModal').on('hidden.bs.modal', function() {
                 $(this).find('form')[0].reset();
-                addTypeChoices.setChoiceByValue('');
+                // Don't destroy choices, just reset the value
+                if (addTypeChoices) {
+                    addTypeChoices.setChoiceByValue('');
+                }
                 $(this).find('button').prop('disabled', false);
+            });
+
+            // Reinitialize choices when modal is shown
+            $('#addStockOpnameModal').on('shown.bs.modal', function() {
+                initializeChoices();
             });
         });
     </script>

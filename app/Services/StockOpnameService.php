@@ -275,9 +275,20 @@ class StockOpnameService
         try {
             switch ($type) {
                 case 'bahan_baku':
-                    // Try to get from InventoryBahanBaku first
+                    // Get ALL inventory bahan baku records (matching finished goods pattern exactly)
                     $inventories = InventoryBahanBaku::with('bahanBaku')->get();
                     \Log::info('StockOpname: InventoryBahanBaku count', ['count' => $inventories->count()]);
+                    
+                    // Debug: Log all inventory data
+                    foreach ($inventories as $inv) {
+                        \Log::info('StockOpname: Inventory data', [
+                            'id' => $inv->id,
+                            'bahan_baku_id' => $inv->bahan_baku_id,
+                            'has_bahan_baku' => $inv->bahanBaku !== null,
+                            'nama_barang' => $inv->bahanBaku->nama_barang ?? 'NULL',
+                            'live_stok_gudang' => $inv->live_stok_gudang
+                        ]);
+                    }
                     
                     if ($inventories->isEmpty()) {
                         \Log::info('StockOpname: InventoryBahanBaku empty, using fallback to BahanBaku');
@@ -296,16 +307,27 @@ class StockOpnameService
                         });
                     }
                     
-                    // Filter out inventories without bahanBaku relationship
+                    // Filter out inventories without bahanBaku relationship (same as finished goods pattern)
                     $validInventories = $inventories->filter(function ($inventory) {
                         return $inventory->bahanBaku !== null;
                     });
                     
                     \Log::info('StockOpname: Valid inventories count', ['count' => $validInventories->count()]);
                     
+                    // Debug: Log valid inventory data
+                    foreach ($validInventories as $inv) {
+                        \Log::info('StockOpname: Valid inventory', [
+                            'bahan_baku_id' => $inv->bahan_baku_id,
+                            'nama_barang' => $inv->bahanBaku->nama_barang,
+                            'sku_induk' => $inv->bahanBaku->sku_induk,
+                            'live_stok_gudang' => $inv->live_stok_gudang
+                        ]);
+                    }
+                    
+                    // Map ALL valid inventory records (not just unique bahan baku)
                     return $validInventories->map(function ($inventory) {
                         return [
-                            'item_id' => $inventory->bahanBaku->id,
+                            'item_id' => $inventory->bahan_baku_id, // Use bahan_baku_id from inventory
                             'item_name' => $inventory->bahanBaku->nama_barang ?? 'Unknown',
                             'item_sku' => $inventory->bahanBaku->sku_induk ?? '-',
                             'stok_sistem' => $inventory->live_stok_gudang ?? 0,

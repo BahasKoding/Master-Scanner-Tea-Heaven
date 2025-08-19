@@ -37,7 +37,7 @@ class HistorySaleSeeder extends Seeder
     {
         $this->command->info('📂 Memproses data history sales dari file_juli_tgl1.md...');
 
-        $filePath = base_path('file_juli_tgl1.md');
+        $filePath = base_path('file_juli_tgl_sd_19_agustus.md');
 
         if (!file_exists($filePath)) {
             $this->command->error("File {$filePath} tidak ditemukan!");

@@ -268,6 +268,69 @@ class StockOpnameController extends Controller
     }
 
     /**
+     * Bulk update stock opname items (chunked approach to avoid max_input_vars limit)
+     */
+    public function bulkUpdate(Request $request, StockOpname $stockOpname)
+    {
+        // Check if opname is still editable
+        if ($stockOpname->status === 'completed') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Stock Opname sudah selesai dan tidak dapat diubah'
+            ], 422);
+        }
+
+        // Validate the items data structure
+        $request->validate([
+            'items' => 'required|array',
+            'items.*.id' => 'required|integer',
+            'items.*.stok_fisik' => 'required|numeric|min:0'
+        ]);
+
+        try {
+            $updatedItems = [];
+            
+            DB::beginTransaction();
+            
+            // Process each item from the chunked data
+            foreach ($request->items as $itemData) {
+                $itemId = $itemData['id'];
+                $stokFisik = (int) $itemData['stok_fisik']; // Convert to integer
+                
+                // Find the item
+                $item = StockOpnameItem::where('id', $itemId)
+                    ->where('opname_id', $stockOpname->id)
+                    ->first();
+                    
+                if ($item) {
+                    $item->stok_fisik = $stokFisik;
+                    if (isset($itemData['notes'])) {
+                        $item->notes = $itemData['notes'];
+                    }
+                    $item->save();
+                    
+                    $updatedItems[] = $item->id;
+                }
+            }
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Chunk berhasil disimpan',
+                'updated_count' => count($updatedItems)
+            ]);
+
+        } catch (Exception $e) {
+            DB::rollback();
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal menyimpan chunk: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
      * Process/finalize the stock opname
      */
     public function process(Request $request, StockOpname $stockOpname)
