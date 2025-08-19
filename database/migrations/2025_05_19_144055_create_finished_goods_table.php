@@ -14,7 +14,7 @@ return new class extends Migration
         Schema::create('finished_goods', function (Blueprint $table) {
             $table->id();
             $table->foreignId('product_id')->constrained('products');
-            $table->integer('stok_awal');
+            $table->integer('stok_awal')->default(0);
             $table->integer('stok_masuk'); // dari catatan produksi
             $table->integer('stok_keluar'); // dari hasil scanner
             $table->integer('defective');

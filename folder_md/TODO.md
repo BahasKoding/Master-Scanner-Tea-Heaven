@@ -119,18 +119,34 @@
    2.5 Add `createStockAdjustmentLog()` for audit trail  
    2.6 Implement DB transaction safety  
    2.7 Enhanced error handling & rollback
-3. [ ] **Stok Awal Integration** (Phase 3)  
-   3.1 **Kondisi 1**: Auto-reset stok awal setelah opname selesai  
-       - Reset stok awal di finished goods/inventory bahan baku/stiker  
-       - Ambil dari stok fisik hasil opname  
-       - Auto-update saat status = "selesai"  
-       - Integrasi ke `tb_finished_goods.stok_awal`, `tb_inventory_bahan_baku.stok_awal`, `tb_stiker.stok_awal`  
-       - Implement `resetStokAwalFromOpname()`  
-   3.2 **Kondisi 2**: Per-row update langsung ke stok awal  
-       - Update real-time saat user input stok fisik per baris  
-       - AJAX integration untuk immediate stok awal update  
-       - Audit trail untuk setiap perubahan  
-       - Implement `updateStokAwalPerRow()`  
+3. [ ] **Stock Opname Reset Flow** (Phase 3) 🔄 **NEW REQUIREMENT**  
+   **CRITICAL CHANGE**: Stock Opname sekarang akan **RESET PENUH** semua field inventory ketika status = completed  
+   
+   3.1 **Reset Logic Implementation**:  
+       - **stok_awal** = stok_fisik (dari hasil opname)  
+       - **stok_masuk** = 0 (reset to zero)  
+       - **stok_keluar** = 0 (reset to zero)  
+       - **defective** = 0 (reset to zero)  
+       - **terpakai** = 0 (reset to zero)  
+       - **live_stock** = stok_awal (recalculated)  
+   
+   3.2 **Target Tables**:  
+       - `tb_inventory_bahan_bakus`: Reset all movement fields  
+       - `tb_finished_goods`: Reset all movement fields  
+       - `tb_stiker`: Reset all movement fields  
+   
+   3.3 **Implementation Tasks**:  
+       - [ ] Create `resetFromOpname()` method in `StockOpnameService`  
+       - [ ] Update `updateSystemStock()` to use reset logic instead of adjustment  
+       - [ ] Modify `updateBahanBakuStock()` to reset all fields  
+       - [ ] Modify `updateFinishedGoodsStock()` to reset all fields  
+       - [ ] Add comprehensive audit trail for reset operations  
+       - [ ] Update migration: `stok_awal` default(0) in finished_goods table ✅  
+   
+   3.4 **Business Impact**:  
+       - ✅ Clean slate calculation setelah opname  
+       - ✅ Eliminasi akumulasi error dari stok lama  
+       - ⚠️ **SEMUA HISTORI MOVEMENT HILANG** setelah opname completed  
 
 ##### Enhancement Features 🔧
 1. [ ] **Concurrent Opname Protection**  

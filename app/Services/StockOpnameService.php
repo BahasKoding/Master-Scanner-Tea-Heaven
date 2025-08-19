@@ -506,7 +506,7 @@ class StockOpnameService
      * @return array Returns summary of stock updates
      * @throws Exception
      */
-    private function updateSystemStock(StockOpname $opname): array
+    public function updateSystemStock(StockOpname $opname): array
     {
         $items = $opname->items()->whereNotNull('stok_fisik')->get();
         $updateSummary = [
@@ -596,8 +596,8 @@ class StockOpnameService
     }
 
     /**
-     * Update bahan baku stock using absolute physical count value
-     * This method now uses proper stock adjustment logic with audit trail
+     * Reset bahan baku stock using RESET FLOW - all fields reset except stok_awal
+     * NEW LOGIC: stok_awal = stok_fisik, all other fields = 0
      *
      * @param StockOpnameItem $item
      * @return void
@@ -606,51 +606,53 @@ class StockOpnameService
     {
         $inventory = InventoryBahanBaku::where('bahan_baku_id', $item->item_id)->first();
         if (!$inventory) {
-            \Log::warning('StockOpname: InventoryBahanBaku not found for stock update', [
+            \Log::warning('StockOpname: InventoryBahanBaku not found for stock reset', [
                 'item_id' => $item->item_id,
                 'item_name' => $item->item_name
             ]);
             return;
         }
 
-        // Calculate what the new stok_masuk should be to achieve physical count
-        $currentLiveStock = $inventory->live_stok_gudang ?? 0;
-        $targetStock = $item->stok_fisik;
-        $stockAdjustment = $targetStock - $currentLiveStock;
+        // Store old values for audit trail
+        $oldValues = [
+            'stok_awal' => $inventory->stok_awal,
+            'stok_masuk' => $inventory->stok_masuk,
+            'terpakai' => $inventory->terpakai,
+            'defect' => $inventory->defect,
+            'live_stok_gudang' => $inventory->live_stok_gudang
+        ];
         
-        // Only adjust stok_masuk if there's a difference
-        if ($stockAdjustment != 0) {
-            $oldStokMasuk = $inventory->stok_masuk;
-            $newStokMasuk = max(0, $oldStokMasuk + $stockAdjustment);
-            
-            // Create audit trail before update
-            $this->createStockAdjustmentLog(
-                $item,
-                'bahan_baku',
-                $currentLiveStock,
-                $targetStock,
-                $stockAdjustment,
-                "Adjustment stok_masuk dari {$oldStokMasuk} ke {$newStokMasuk}"
-            );
-            
-            // Update the stock
-            $inventory->stok_masuk = $newStokMasuk;
-            $inventory->save();
-            
-            \Log::info('StockOpname: Bahan baku stock updated', [
-                'item_id' => $item->item_id,
-                'item_name' => $item->item_name,
-                'old_stok_masuk' => $oldStokMasuk,
-                'new_stok_masuk' => $newStokMasuk,
-                'stock_adjustment' => $stockAdjustment,
-                'target_stock' => $targetStock
-            ]);
-        }
+        // RESET FLOW: Set stok_awal = stok_fisik, reset all other fields to 0
+        $inventory->stok_awal = $item->stok_fisik;
+        $inventory->stok_masuk = 0;
+        $inventory->terpakai = 0;
+        $inventory->defect = 0;
+        // live_stok_gudang will be recalculated automatically via accessor
+        
+        $inventory->save();
+        
+        // Create comprehensive audit trail
+        $this->createStockAdjustmentLog(
+            $item,
+            'bahan_baku',
+            $oldValues['live_stok_gudang'],
+            $item->stok_fisik,
+            $item->stok_fisik - $oldValues['live_stok_gudang'],
+            "RESET FLOW: stok_awal={$item->stok_fisik}, stok_masuk=0, terpakai=0, defect=0"
+        );
+        
+        \Log::info('StockOpname: Reset bahan baku stock via RESET FLOW', [
+            'item_id' => $item->item_id,
+            'item_name' => $item->item_name,
+            'old_values' => $oldValues,
+            'new_stok_awal' => $item->stok_fisik,
+            'reset_fields' => ['stok_masuk', 'terpakai', 'defect']
+        ]);
     }
 
     /**
-     * Update finished goods stock using absolute physical count value
-     * This method now uses proper stock adjustment logic with audit trail
+     * Reset finished goods stock using RESET FLOW - all fields reset except stok_awal
+     * NEW LOGIC: stok_awal = stok_fisik, all other fields = 0
      *
      * @param StockOpnameItem $item
      * @return void
@@ -659,89 +661,101 @@ class StockOpnameService
     {
         $finishedGoods = FinishedGoods::where('product_id', $item->item_id)->first();
         if (!$finishedGoods) {
-            \Log::warning('StockOpname: FinishedGoods not found for stock update', [
+            \Log::warning('StockOpname: FinishedGoods not found for stock reset', [
                 'item_id' => $item->item_id,
                 'item_name' => $item->item_name
             ]);
             return;
         }
 
-        $currentLiveStock = $finishedGoods->live_stock ?? 0;
-        $targetStock = $item->stok_fisik;
-        $stockAdjustment = $targetStock - $currentLiveStock;
+        // Store old values for audit trail
+        $oldValues = [
+            'stok_awal' => $finishedGoods->stok_awal,
+            'stok_masuk' => $finishedGoods->stok_masuk,
+            'stok_keluar' => $finishedGoods->stok_keluar,
+            'defective' => $finishedGoods->defective,
+            'live_stock' => $finishedGoods->live_stock
+        ];
         
-        // Only update if there's a difference
-        if ($stockAdjustment != 0) {
-            // Create audit trail before update
-            $this->createStockAdjustmentLog(
-                $item,
-                'finished_goods',
-                $currentLiveStock,
-                $targetStock,
-                $stockAdjustment,
-                "Direct adjustment live_stock dari {$currentLiveStock} ke {$targetStock}"
-            );
-            
-            // Update the stock directly to physical count
-            $finishedGoods->live_stock = $targetStock;
-            $finishedGoods->save();
-            
-            \Log::info('StockOpname: Finished goods stock updated', [
-                'item_id' => $item->item_id,
-                'item_name' => $item->item_name,
-                'old_live_stock' => $currentLiveStock,
-                'new_live_stock' => $targetStock,
-                'stock_adjustment' => $stockAdjustment
-            ]);
-        }
+        // RESET FLOW: Set stok_awal = stok_fisik, reset all other fields to 0
+        $finishedGoods->stok_awal = $item->stok_fisik;
+        $finishedGoods->stok_masuk = 0;
+        $finishedGoods->stok_keluar = 0;
+        $finishedGoods->defective = 0;
+        // live_stock will be recalculated automatically via accessor
+        
+        $finishedGoods->save();
+        
+        // Create comprehensive audit trail
+        $this->createStockAdjustmentLog(
+            $item,
+            'finished_goods',
+            $oldValues['live_stock'],
+            $item->stok_fisik,
+            $item->stok_fisik - $oldValues['live_stock'],
+            "RESET FLOW: stok_awal={$item->stok_fisik}, stok_masuk=0, stok_keluar=0, defective=0"
+        );
+        
+        \Log::info('StockOpname: Reset finished goods stock via RESET FLOW', [
+            'item_id' => $item->item_id,
+            'item_name' => $item->item_name,
+            'old_values' => $oldValues,
+            'new_stok_awal' => $item->stok_fisik,
+            'reset_fields' => ['stok_masuk', 'stok_keluar', 'defective']
+        ]);
     }
 
     /**
-     * Update sticker stock using absolute physical count value
-     * This method now uses proper stock adjustment logic with audit trail
+     * Reset sticker stock using RESET FLOW - all fields reset except stok_awal
+     * NEW LOGIC: stok_awal = stok_fisik, all other fields = 0
      *
      * @param StockOpnameItem $item
      * @return void
      */
     private function updateStickerStock(StockOpnameItem $item): void
     {
-        $sticker = Sticker::find($item->item_id);
+        $sticker = \App\Models\Sticker::find($item->item_id);
         if (!$sticker) {
-            \Log::warning('StockOpname: Sticker not found for stock update', [
+            \Log::warning('StockOpname: Sticker not found for stock reset', [
                 'item_id' => $item->item_id,
                 'item_name' => $item->item_name
             ]);
             return;
         }
 
-        $currentStock = $sticker->stok_stiker ?? 0;
-        $targetStock = $item->stok_fisik;
-        $stockAdjustment = $targetStock - $currentStock;
+        // Store old values for audit trail
+        $oldValues = [
+            'stok_awal' => $sticker->stok_awal ?? 0,
+            'stok_masuk' => $sticker->stok_masuk ?? 0,
+            'stok_keluar' => $sticker->stok_keluar ?? 0,
+            'live_stok' => $sticker->live_stok ?? 0
+        ];
         
-        // Only update if there's a difference
-        if ($stockAdjustment != 0) {
-            // Create audit trail before update
-            $this->createStockAdjustmentLog(
-                $item,
-                'sticker',
-                $currentStock,
-                $targetStock,
-                $stockAdjustment,
-                "Direct adjustment stok_stiker dari {$currentStock} ke {$targetStock}"
-            );
-            
-            // Update the stock directly to physical count
-            $sticker->stok_stiker = $targetStock;
-            $sticker->save();
-            
-            \Log::info('StockOpname: Sticker stock updated', [
-                'item_id' => $item->item_id,
-                'item_name' => $item->item_name,
-                'old_stok_stiker' => $currentStock,
-                'new_stok_stiker' => $targetStock,
-                'stock_adjustment' => $stockAdjustment
-            ]);
-        }
+        // RESET FLOW: Set stok_awal = stok_fisik, reset all other fields to 0
+        $sticker->stok_awal = $item->stok_fisik;
+        $sticker->stok_masuk = 0;
+        $sticker->stok_keluar = 0;
+        // live_stok will be recalculated automatically via accessor
+        
+        $sticker->save();
+        
+        // Create comprehensive audit trail
+        $this->createStockAdjustmentLog(
+            $item,
+            'sticker',
+            $oldValues['live_stok'],
+            $item->stok_fisik,
+            $item->stok_fisik - $oldValues['live_stok'],
+            "RESET FLOW: stok_awal={$item->stok_fisik}, stok_masuk=0, stok_keluar=0"
+        );
+        
+        \Log::info('StockOpname: Reset sticker stock via RESET FLOW', [
+            'item_id' => $item->item_id,
+            'item_name' => $item->item_name,
+            'old_values' => $oldValues,
+            'new_stok_awal' => $item->stok_fisik,
+            'reset_fields' => ['stok_masuk', 'stok_keluar']
+        ]);
     }
 
     /**
@@ -1001,6 +1015,241 @@ class StockOpnameService
         }
         
         return $summary;
+    }
+
+    /**
+     * KONDISI 1: Reset stok awal from completed opname results
+     * Auto-reset all stok_awal values based on stok_fisik from opname
+     *
+     * @param StockOpname $opname
+     * @return array
+     * @throws Exception
+     */
+    public function resetStokAwalFromOpname(StockOpname $opname): array
+    {
+        if ($opname->status !== 'completed') {
+            throw new Exception('Hanya opname yang sudah selesai yang dapat direset stok awalnya');
+        }
+
+        $items = $opname->items()->whereNotNull('stok_fisik')->get();
+        $resetSummary = [
+            'total_items' => $items->count(),
+            'updated_items' => 0,
+            'skipped_items' => 0,
+            'failed_items' => 0,
+            'errors' => []
+        ];
+
+        \Log::info('StockOpname: Starting stok awal reset from opname', [
+            'opname_id' => $opname->id,
+            'opname_type' => $opname->type,
+            'total_items' => $resetSummary['total_items']
+        ]);
+
+        DB::beginTransaction();
+        
+        try {
+            foreach ($items as $item) {
+                try {
+                    $updated = $this->resetStokAwalForItem($opname->type, $item);
+                    
+                    if ($updated) {
+                        $resetSummary['updated_items']++;
+                        
+                        // Create audit log
+                        $this->createStokAwalAuditLog($item, $opname->type, $item->stok_fisik, 'bulk_reset_from_opname');
+                    } else {
+                        $resetSummary['skipped_items']++;
+                    }
+                    
+                } catch (\Exception $e) {
+                    $resetSummary['failed_items']++;
+                    $resetSummary['errors'][] = [
+                        'item_id' => $item->item_id,
+                        'item_name' => $item->item_name,
+                        'error' => $e->getMessage()
+                    ];
+                    
+                    \Log::error('StockOpname: Failed to reset stok awal for item', [
+                        'item_id' => $item->item_id,
+                        'item_name' => $item->item_name,
+                        'error' => $e->getMessage()
+                    ]);
+                }
+            }
+            
+            // Commit if acceptable error rate
+            if ($resetSummary['failed_items'] == 0 || 
+                ($resetSummary['failed_items'] / $resetSummary['total_items']) < 0.1) {
+                DB::commit();
+                
+                \Log::info('StockOpname: Stok awal reset completed successfully', $resetSummary);
+            } else {
+                DB::rollback();
+                throw new \Exception('Too many failed stok awal resets, transaction rolled back');
+            }
+            
+        } catch (\Exception $e) {
+            DB::rollback();
+            \Log::error('StockOpname: Stok awal reset failed', [
+                'opname_id' => $opname->id,
+                'error' => $e->getMessage(),
+                'summary' => $resetSummary
+            ]);
+            throw $e;
+        }
+        
+        return $resetSummary;
+    }
+
+    /**
+     * KONDISI 2: Update stok awal per row when individual item is updated
+     * Real-time update of stok_awal when user updates stok_fisik
+     *
+     * @param StockOpname $opname
+     * @param StockOpnameItem $item
+     * @return array
+     * @throws Exception
+     */
+    public function updateStokAwalPerRow(StockOpname $opname, StockOpnameItem $item): array
+    {
+        if ($item->stok_fisik === null) {
+            throw new Exception('Stok fisik belum diinput, tidak dapat update stok awal');
+        }
+
+        \Log::info('StockOpname: Starting per-row stok awal update', [
+            'opname_id' => $opname->id,
+            'item_id' => $item->item_id,
+            'item_name' => $item->item_name,
+            'stok_fisik' => $item->stok_fisik
+        ]);
+
+        try {
+            $updated = $this->resetStokAwalForItem($opname->type, $item);
+            
+            if ($updated) {
+                // Create audit log
+                $this->createStokAwalAuditLog($item, $opname->type, $item->stok_fisik, 'per_row_update');
+                
+                \Log::info('StockOpname: Per-row stok awal update successful', [
+                    'item_id' => $item->item_id,
+                    'item_name' => $item->item_name,
+                    'new_stok_awal' => $item->stok_fisik
+                ]);
+                
+                return [
+                    'success' => true,
+                    'message' => 'Stok awal berhasil diupdate',
+                    'new_stok_awal' => $item->stok_fisik
+                ];
+            } else {
+                return [
+                    'success' => false,
+                    'message' => 'Item tidak ditemukan atau tidak dapat diupdate'
+                ];
+            }
+            
+        } catch (\Exception $e) {
+            \Log::error('StockOpname: Per-row stok awal update failed', [
+                'item_id' => $item->item_id,
+                'error' => $e->getMessage()
+            ]);
+            throw $e;
+        }
+    }
+
+    /**
+     * Reset stok awal for individual item based on opname type
+     *
+     * @param string $opnameType
+     * @param StockOpnameItem $item
+     * @return bool
+     */
+    private function resetStokAwalForItem(string $opnameType, StockOpnameItem $item): bool
+    {
+        try {
+            switch ($opnameType) {
+                case 'bahan_baku':
+                    $inventory = InventoryBahanBaku::where('bahan_baku_id', $item->item_id)->first();
+                    if ($inventory) {
+                        $inventory->stok_awal = $item->stok_fisik;
+                        $inventory->save();
+                        return true;
+                    }
+                    break;
+
+                case 'finished_goods':
+                    $finishedGoods = FinishedGoods::where('product_id', $item->item_id)->first();
+                    if ($finishedGoods) {
+                        $finishedGoods->stok_awal = $item->stok_fisik;
+                        $finishedGoods->save();
+                        return true;
+                    }
+                    break;
+
+                case 'sticker':
+                    $sticker = \App\Models\Sticker::find($item->item_id);
+                    if ($sticker) {
+                        $sticker->stok_awal = $item->stok_fisik;
+                        $sticker->save();
+                        return true;
+                    }
+                    break;
+            }
+            
+            return false;
+        } catch (\Exception $e) {
+            \Log::error('StockOpname: Failed to reset stok awal for item', [
+                'opname_type' => $opnameType,
+                'item_id' => $item->item_id,
+                'error' => $e->getMessage()
+            ]);
+            throw $e;
+        }
+    }
+
+    /**
+     * Create comprehensive audit trail for stok awal changes
+     *
+     * @param StockOpnameItem $item
+     * @param string $opnameType
+     * @param float $newStokAwal
+     * @param string $updateType
+     * @return void
+     */
+    private function createStokAwalAuditLog(
+        StockOpnameItem $item,
+        string $opnameType,
+        float $newStokAwal,
+        string $updateType
+    ): void {
+        try {
+            // Create detailed audit log
+            \Log::info('StockOpname: Stok Awal Update Audit Trail', [
+                'opname_id' => $item->opname_id,
+                'item_id' => $item->item_id,
+                'item_name' => $item->item_name,
+                'opname_type' => $opnameType,
+                'update_type' => $updateType,
+                'new_stok_awal' => $newStokAwal,
+                'stok_fisik' => $item->stok_fisik,
+                'stok_sistem_before' => $item->stok_sistem,
+                'variance' => $item->selisih,
+                'user_id' => auth()->id() ?? 'system',
+                'timestamp' => now()->toDateTimeString(),
+                'ip_address' => request()->ip() ?? 'unknown'
+            ]);
+            
+            // TODO: In future, create StokAwalAdjustment model record for database audit trail
+            // This would store the audit information in a dedicated table for reporting
+            
+        } catch (\Exception $e) {
+            \Log::error('StockOpname: Failed to create stok awal audit trail', [
+                'error' => $e->getMessage(),
+                'item_id' => $item->item_id,
+                'opname_type' => $opnameType
+            ]);
+        }
     }
 
     /**

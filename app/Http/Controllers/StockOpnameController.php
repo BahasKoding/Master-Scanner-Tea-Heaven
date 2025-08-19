@@ -340,11 +340,18 @@ class StockOpnameController extends Controller
         }
 
         $updateStock = $request->has('update_stock');
+        $resetStokAwal = $request->has('reset_stok_awal');
 
         DB::beginTransaction();
         try {
             if ($updateStock) {
                 $this->updateSystemStock($stockOpname);
+            }
+
+            // KONDISI 1: Auto-reset stok awal when opname completed
+            if ($resetStokAwal) {
+                $resetResult = $this->stockOpnameService->resetStokAwalFromOpname($stockOpname);
+                Log::info('StockOpname: Auto-reset stok awal completed', $resetResult);
             }
 
             $stockOpname->status = 'completed';
@@ -355,6 +362,10 @@ class StockOpnameController extends Controller
             $message = $updateStock 
                 ? 'Stock Opname selesai dan stok sistem telah diupdate.'
                 : 'Stock Opname selesai tanpa mengupdate stok sistem.';
+            
+            if ($resetStokAwal) {
+                $message .= ' Stok awal telah direset sesuai hasil opname.';
+            }
 
             return redirect()->route('stock-opname.index')
                 ->with('success', $message);
@@ -422,7 +433,8 @@ class StockOpnameController extends Controller
 
         $request->validate([
             'stok_fisik' => 'required|numeric|min:0',
-            'notes' => 'nullable|string|max:255'
+            'notes' => 'nullable|string|max:255',
+            'update_stok_awal' => 'nullable|boolean'
         ]);
 
         try {
@@ -438,12 +450,22 @@ class StockOpnameController extends Controller
             }
             $item->save();
 
+            // KONDISI 2: Per-row update to stok awal if requested
+            if ($request->boolean('update_stok_awal')) {
+                $stokAwalResult = $this->stockOpnameService->updateStokAwalPerRow($stockOpname, $item);
+                Log::info('StockOpname: Per-row stok awal update completed', [
+                    'item_id' => $item->item_id,
+                    'item_name' => $item->item_name,
+                    'result' => $stokAwalResult
+                ]);
+            }
+
             // Get calculated variance
             $selisih = $item->selisih;
             
             return response()->json([
                 'success' => true,
-                'message' => 'Item berhasil diupdate',
+                'message' => 'Item berhasil diupdate' . ($request->boolean('update_stok_awal') ? ' dan stok awal telah direset' : ''),
                 'data' => [
                     'id' => $item->id,
                     'stok_fisik' => $item->stok_fisik,
@@ -653,15 +675,59 @@ class StockOpnameController extends Controller
     }
 
     /**
+     * Reset stok awal from completed opname results (Manual trigger for KONDISI 1)
+     */
+    public function resetStokAwal(StockOpname $stockOpname)
+    {
+        // Only allow for completed opname
+        if ($stockOpname->status !== 'completed') {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Hanya stock opname yang sudah selesai yang dapat direset stok awalnya'
+            ], 422);
+        }
+
+        try {
+            $resetResult = $this->stockOpnameService->resetStokAwalFromOpname($stockOpname);
+            
+            // Log activity
+            addActivity(
+                'stock-opname', 
+                'reset-stok-awal', 
+                'Reset stok awal dari hasil opname ' . $stockOpname->type . ' tanggal ' . $stockOpname->tanggal_opname->format('d/m/Y'),
+                $stockOpname->id
+            );
+            
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Stok awal berhasil direset dari hasil opname',
+                'summary' => $resetResult
+            ]);
+        } catch (Exception $e) {
+            Log::error('StockOpname: Reset stok awal failed', [
+                'opname_id' => $stockOpname->id,
+                'error' => $e->getMessage()
+            ]);
+            
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Gagal reset stok awal: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
      * Update system stock based on physical count results
      */
     private function updateSystemStock(StockOpname $stockOpname)
     {
-        foreach ($stockOpname->items as $item) {
-            if ($item->stok_fisik !== null) {
-                // Use the service to update system stock
-                $this->stockOpnameService->updateSystemStock($stockOpname, $item->id, $item->stok_fisik);
-            }
-        }
+        // Use the service to update system stock
+        $updateResult = $this->stockOpnameService->updateSystemStock($stockOpname);
+        
+        // Log the update result
+        Log::info('StockOpname: System stock update completed', [
+            'opname_id' => $stockOpname->id,
+            'result' => $updateResult
+        ]);
     }
 }

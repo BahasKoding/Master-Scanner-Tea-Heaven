@@ -229,6 +229,10 @@ Route::middleware(['auth'])->group(function () {
         Route::put('/{stockOpname}', [StockOpnameController::class, 'update'])->name('update');
         Route::post('/{stockOpname}/process', [StockOpnameController::class, 'process'])->name('process');
         Route::post('/{stockOpname}/export', [StockOpnameController::class, 'export'])->name('export');
+        
+        // Phase 3: Stok Awal Integration routes
+        Route::post('/{stockOpname}/reset-stok-awal', [StockOpnameController::class, 'resetStokAwal'])->name('reset-stok-awal');
+        Route::post('/{stockOpname}/refresh-stock', [StockOpnameController::class, 'refreshStock'])->name('refresh-stock');
     });
 
     // Sticker routes
