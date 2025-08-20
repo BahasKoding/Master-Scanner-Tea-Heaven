@@ -299,13 +299,15 @@ class FinishedGoodsController extends Controller
             $chunkSize = $request->get('chunk_size', 50); // Default 50 records per chunk
             $offset = $request->get('offset', 0); // Starting offset
             $totalRecords = $request->get('total_records'); // Total records to process
+            $filterMonthYear = $request->get('filter_month_year'); // Monthly filter
             
             // Process chunk
             $syncResults = $this->finishedGoodsService->syncFinishedGoodsStock(
                 $productId,
                 $chunkSize,
                 $offset,
-                $totalRecords
+                $totalRecords,
+                $filterMonthYear
             );
             
             // If this is the first request (offset=0) or the last chunk, log the activity
@@ -473,12 +475,14 @@ class FinishedGoodsController extends Controller
             $chunkSize = $request->get('chunk_size', 50); // Default 50 records per chunk
             $offset = $request->get('offset', 0); // Starting offset
             $totalRecords = $request->get('total_records'); // Total records to process
+            $filterMonthYear = $request->get('filter_month_year'); // Monthly filter
             
             // Process chunk using service
             $updateResults = $this->finishedGoodsService->bulkUpdateAllStock(
                 $chunkSize,
                 $offset,
-                $totalRecords
+                $totalRecords,
+                $filterMonthYear
             );
             
             // Log activity for first request or completion
@@ -546,6 +550,8 @@ class FinishedGoodsController extends Controller
 
     protected function buildDataTableResponse($query, $request)
     {
+        $filterMonthYear = $request->get('filter_month_year');
+        
         return DataTables::of($query)
             ->addIndexColumn()
             ->orderColumn('name_product', fn($query, $order) => $query->orderBy('products.name_product', $order))
@@ -553,10 +559,10 @@ class FinishedGoodsController extends Controller
             ->addColumn('category_name', fn($row) => $this->getCategoryName($row))
             ->addColumn('label_name', fn($row) => $this->getLabelName($row))
             ->addColumn('stok_awal_display', fn($row) => $row->stok_awal ?? 0)
-            ->addColumn('stok_masuk_display', fn($row) => $this->getStokMasuk($row))
-            ->addColumn('stok_keluar_display', fn($row) => $this->getStokKeluar($row))
+            ->addColumn('stok_masuk_display', fn($row) => $this->getStokMasuk($row, $filterMonthYear))
+            ->addColumn('stok_keluar_display', fn($row) => $this->getStokKeluar($row, $filterMonthYear))
             ->addColumn('defective_display', fn($row) => $row->defective ?? 0)
-            ->addColumn('live_stock_display', fn($row) => $this->getLiveStock($row))
+            ->addColumn('live_stock_display', fn($row) => $this->getLiveStock($row, $filterMonthYear))
             ->filterColumn('name_product', fn($query, $keyword) => $query->where('products.name_product', 'like', "%{$keyword}%"))
             ->filterColumn('sku', fn($query, $keyword) => $query->where('products.sku', 'like', "%{$keyword}%"))
             ->rawColumns(['action'])
@@ -585,22 +591,34 @@ class FinishedGoodsController extends Controller
         }
     }
 
-    protected function getStokMasuk($row)
+    protected function getStokMasuk($row, $filterMonthYear = null)
     {
         try {
-            // Get total from production records
-            $totalProduction = CatatanProduksi::where('product_id', $row->product_id)
-                ->sum('quantity');
+            // Get production records query
+            $productionQuery = CatatanProduksi::where('product_id', $row->product_id);
             
-            // Get total from finished_goods purchases
-            $totalPurchases = Purchase::where('bahan_baku_id', $row->product_id)
-                ->where('kategori', 'finished_goods')
-                ->sum('total_stok_masuk');
+            // Get purchases query
+            $purchaseQuery = Purchase::where('bahan_baku_id', $row->product_id)
+                ->where('kategori', 'finished_goods');
             
-            // Combine both sources (same logic as FinishedGoods model)
+            // Apply monthly filter if provided
+            if ($filterMonthYear) {
+                $year = date('Y', strtotime($filterMonthYear . '-01'));
+                $month = date('m', strtotime($filterMonthYear . '-01'));
+                
+                $productionQuery->whereYear('created_at', $year)
+                               ->whereMonth('created_at', $month);
+                               
+                $purchaseQuery->whereYear('created_at', $year)
+                             ->whereMonth('created_at', $month);
+            }
+            
+            // Get totals
+            $totalProduction = $productionQuery->sum('quantity');
+            $totalPurchases = $purchaseQuery->sum('total_stok_masuk');
+            
+            // Combine both sources
             $combinedTotal = $totalProduction + $totalPurchases;
-            
-            Log::debug("Calculated stok_masuk for product_id {$row->product_id}: Production={$totalProduction}, Purchases={$totalPurchases}, Total={$combinedTotal}");
             
             return $combinedTotal;
         } catch (\Exception $e) {
@@ -609,17 +627,29 @@ class FinishedGoodsController extends Controller
         }
     }
 
-    protected function getStokKeluar($row)
+    protected function getStokKeluar($row, $filterMonthYear = null)
     {
         try {
-            if ($row->finished_goods_id && $row->stok_keluar !== null) {
+            if ($row->finished_goods_id && $row->stok_keluar !== null && !$filterMonthYear) {
                 return $row->stok_keluar;
             }
 
             $product = Product::find($row->product_id);
             if (!$product) return 0;
 
-            return HistorySale::whereNotNull('no_sku')->get()->reduce(function($total, $sale) use ($product) {
+            // Get history sales query
+            $salesQuery = HistorySale::whereNotNull('no_sku');
+            
+            // Apply monthly filter if provided
+            if ($filterMonthYear) {
+                $year = date('Y', strtotime($filterMonthYear . '-01'));
+                $month = date('m', strtotime($filterMonthYear . '-01'));
+                
+                $salesQuery->whereYear('created_at', $year)
+                          ->whereMonth('created_at', $month);
+            }
+
+            return $salesQuery->get()->reduce(function($total, $sale) use ($product) {
                 try {
                     $skuArray = is_string($sale->no_sku) ? json_decode($sale->no_sku, true) : $sale->no_sku;
                     $qtyArray = is_string($sale->qty) ? json_decode($sale->qty, true) : $sale->qty;
@@ -651,17 +681,17 @@ class FinishedGoodsController extends Controller
         }
     }
 
-    protected function getLiveStock($row)
+    protected function getLiveStock($row, $filterMonthYear = null)
     {
         try {
-            if ($row->finished_goods_id && $row->live_stock !== null) {
+            if ($row->finished_goods_id && $row->live_stock !== null && !$filterMonthYear) {
                 return $row->live_stock;
             }
 
             $stokAwal = $row->stok_awal ?? 0;
-            $stokMasuk = $this->getStokMasuk($row);
+            $stokMasuk = $this->getStokMasuk($row, $filterMonthYear);
             $defective = $row->defective ?? 0;
-            $stokKeluar = $this->getStokKeluar($row);
+            $stokKeluar = $this->getStokKeluar($row, $filterMonthYear);
 
             return $stokAwal + $stokMasuk - $stokKeluar - $defective;
         } catch (\Exception $e) {
@@ -680,10 +710,13 @@ class FinishedGoodsController extends Controller
             $products = Product::orderBy('name_product')->get();
             $categories = Product::getCategoryOptions();
             $labels = Product::getLabelOptions();
+            
+            // Set default filter month year to current month
+            $filterMonthYear = date('Y-m');
 
             addActivity('finished_goods', 'view', 'Pengguna melihat daftar finished goods', null);
 
-            return view('finished-goods.index', compact('items', 'products', 'categories', 'labels'));
+            return view('finished-goods.index', compact('items', 'products', 'categories', 'labels', 'filterMonthYear'));
         } catch (\Exception $e) {
             Log::error('Failed to load data for Finished Goods index', [
                 'error' => $e->getMessage(),
@@ -697,6 +730,7 @@ class FinishedGoodsController extends Controller
                 'products' => [],
                 'categories' => [],
                 'labels' => [],
+                'filterMonthYear' => date('Y-m'),
                 'error_message' => 'Gagal memuat data. Silakan coba refresh halaman.'
             ]);
         }

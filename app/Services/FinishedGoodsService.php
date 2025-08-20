@@ -145,38 +145,159 @@ class FinishedGoodsService
 
     /**
      * Update stock values from related data (CatatanProduksi, Purchase, and HistorySale)
-     * FIXED: Now properly combines production and purchase data for stok_masuk
+     * Consolidated approach for both monthly and all-time calculations
      *
      * @param FinishedGoods $finishedGoods
+     * @param string|null $filterMonthYear
      * @return void
      */
-    private function updateStockFromRelatedData(FinishedGoods $finishedGoods)
+    private function updateStockFromRelatedData(FinishedGoods $finishedGoods, $filterMonthYear = null)
     {
         try {
-            // FIXED: Update stok_masuk from ALL sources (CatatanProduksi + Purchase)
-            $finishedGoods->updateStokMasukFromAllSources();
-
-            // CRITICAL FIX: Ensure stok_keluar is always set (never null) before save
-            // For new records, stok_keluar might be null, which causes SQL error
+            // Calculate stok_masuk using unified approach
+            $finishedGoods->stok_masuk = $this->calculateStokMasuk($finishedGoods->product_id, $filterMonthYear);
+            
+            // Calculate stok_keluar using unified approach
+            $finishedGoods->stok_keluar = $this->calculateStokKeluar($finishedGoods->product_id, $filterMonthYear);
+            
+            // Ensure stok_keluar is never null
             if ($finishedGoods->stok_keluar === null) {
                 $finishedGoods->stok_keluar = 0;
-            }
-
-            // Calculate dynamic stok_keluar for comparison
-            $dynamicStokKeluar = $this->calculateDynamicStokKeluar($finishedGoods->product_id);
-            
-            // FIXED: For stok_keluar, prioritize database value over dynamic calculation
-            // Only use dynamic calculation if database value is 0 but we have sales data
-            if ($finishedGoods->stok_keluar == 0 && $dynamicStokKeluar > 0) {
-                $finishedGoods->stok_keluar = $dynamicStokKeluar;
             }
         } catch (\Exception $e) {
             Log::error('Failed to update stock from related data', [
                 'product_id' => $finishedGoods->product_id,
+                'filter_month_year' => $filterMonthYear,
                 'error' => $e->getMessage()
             ]);
             throw $e;
         }
+    }
+
+    /**
+     * Calculate stok masuk from production and purchases
+     * Unified method for both monthly and all-time calculations
+     *
+     * @param int $productId
+     * @param string|null $filterMonthYear
+     * @return int
+     */
+    private function calculateStokMasuk($productId, $filterMonthYear = null)
+    {
+        try {
+            // Production query
+            $productionQuery = CatatanProduksi::where('product_id', $productId);
+            
+            // Purchase query
+            $purchaseQuery = \App\Models\Purchase::where('bahan_baku_id', $productId)
+                ->where('kategori', 'finished_goods');
+            
+            // Apply monthly filter if provided
+            if ($filterMonthYear) {
+                $this->applyMonthlyFilter($productionQuery, $filterMonthYear);
+                $this->applyMonthlyFilter($purchaseQuery, $filterMonthYear);
+            }
+            
+            $stokMasukProduction = $productionQuery->sum('quantity');
+            $stokMasukPurchases = $purchaseQuery->sum('total_stok_masuk');
+            
+            return $stokMasukProduction + $stokMasukPurchases;
+        } catch (\Exception $e) {
+            Log::error('Error calculating stok_masuk', [
+                'product_id' => $productId,
+                'filter_month_year' => $filterMonthYear,
+                'error' => $e->getMessage()
+            ]);
+            return 0;
+        }
+    }
+
+    /**
+     * Calculate stok keluar from sales
+     * Unified method for both monthly and all-time calculations
+     *
+     * @param int $productId
+     * @param string|null $filterMonthYear
+     * @return int
+     */
+    private function calculateStokKeluar($productId, $filterMonthYear = null)
+    {
+        try {
+            $product = \App\Models\Product::find($productId);
+            if (!$product) {
+                return 0;
+            }
+
+            // Get history sales query
+            $salesQuery = HistorySale::whereNotNull('no_sku');
+            
+            // Apply monthly filter if provided
+            if ($filterMonthYear) {
+                $this->applyMonthlyFilter($salesQuery, $filterMonthYear);
+            }
+            
+            return $this->calculateSalesFromHistory($salesQuery->get(), $product->sku);
+        } catch (\Exception $e) {
+            Log::error('Error calculating stok_keluar', [
+                'product_id' => $productId,
+                'filter_month_year' => $filterMonthYear,
+                'error' => $e->getMessage()
+            ]);
+            return 0;
+        }
+    }
+
+    /**
+     * Apply monthly filter to query
+     *
+     * @param \Illuminate\Database\Eloquent\Builder $query
+     * @param string $filterMonthYear
+     * @return void
+     */
+    private function applyMonthlyFilter($query, $filterMonthYear)
+    {
+        $year = date('Y', strtotime($filterMonthYear . '-01'));
+        $month = date('m', strtotime($filterMonthYear . '-01'));
+        
+        $query->whereYear('created_at', $year)
+              ->whereMonth('created_at', $month);
+    }
+
+    /**
+     * Calculate sales quantity from history sales data
+     *
+     * @param \Illuminate\Database\Eloquent\Collection $historySales
+     * @param string $productSku
+     * @return int
+     */
+    private function calculateSalesFromHistory($historySales, $productSku)
+    {
+        $totalSales = 0;
+        
+        foreach ($historySales as $sale) {
+            try {
+                $skuArray = is_string($sale->no_sku) ? json_decode($sale->no_sku, true) : $sale->no_sku;
+                $qtyArray = is_string($sale->qty) ? json_decode($sale->qty, true) : $sale->qty;
+
+                if (!is_array($skuArray) || !is_array($qtyArray) || count($skuArray) !== count($qtyArray)) {
+                    continue;
+                }
+
+                foreach ($skuArray as $index => $sku) {
+                    if (trim($sku) === $productSku) {
+                        $quantity = $qtyArray[$index] ?? 0;
+                        if (is_numeric($quantity) && $quantity > 0) {
+                            $totalSales += (int)$quantity;
+                        }
+                    }
+                }
+            } catch (\Exception $e) {
+                // Skip problematic sales data
+                continue;
+            }
+        }
+        
+        return $totalSales;
     }
 
     /**
@@ -189,7 +310,7 @@ class FinishedGoodsService
      * @param int|null $totalRecords Total records to be processed (for progress tracking)
      * @return array
      */
-    public function syncFinishedGoodsStock($productId = null, $chunkSize = 50, $offset = 0, $totalRecords = null)
+    public function syncFinishedGoodsStock($productId = null, $chunkSize = 50, $offset = 0, $totalRecords = null, $filterMonthYear = null)
     {
         try {
             // Get products to sync
@@ -234,8 +355,8 @@ class FinishedGoodsService
                         $finishedGoods->defective = 0;
                     }
 
-                    // Update stock from related data
-                    $this->updateStockFromRelatedData($finishedGoods);
+                    // Update stock from related data with monthly filter
+                    $this->updateStockFromRelatedData($finishedGoods, $filterMonthYear);
 
                     // Save the record
                     $finishedGoods->save();
@@ -664,7 +785,7 @@ class FinishedGoodsService
      * @param int|null $totalRecords Total records to be processed
      * @return array
      */
-    public function bulkUpdateAllStock($chunkSize = 50, $offset = 0, $totalRecords = null)
+    public function bulkUpdateAllStock($chunkSize = 50, $offset = 0, $totalRecords = null, $filterMonthYear = null)
     {
         try {
             // Get all products that need stock updates
@@ -798,72 +919,15 @@ class FinishedGoodsService
 
     /**
      * Calculate dynamic stok keluar from HistorySale data
-     * This is used as fallback when database value is inconsistent
+     * This method now uses the unified calculateStokKeluar approach
      *
      * @param int $productId
+     * @param string|null $filterMonthYear
      * @return int
      */
-    private function calculateDynamicStokKeluar($productId)
+    private function calculateDynamicStokKeluar($productId, $filterMonthYear = null)
     {
-        try {
-            $product = Product::find($productId);
-            if (!$product) {
-                Log::warning('Product not found for dynamic stok_keluar calculation', ['product_id' => $productId]);
-                return 0;
-            }
-
-            $totalSales = 0;
-            $historySales = HistorySale::whereNotNull('no_sku')->get();
-
-            foreach ($historySales as $sale) {
-                try {
-                    $skuArray = is_string($sale->no_sku) ? json_decode($sale->no_sku, true) : $sale->no_sku;
-                    $qtyArray = is_string($sale->qty) ? json_decode($sale->qty, true) : $sale->qty;
-
-                    // Validate data integrity
-                    if (!is_array($skuArray) || !is_array($qtyArray)) {
-                        Log::warning('Invalid SKU or QTY data in HistorySale', [
-                            'sale_id' => $sale->id,
-                            'no_sku' => $sale->no_sku,
-                            'qty' => $sale->qty
-                        ]);
-                        continue;
-                    }
-
-                    // Ensure arrays have same length
-                    if (count($skuArray) !== count($qtyArray)) {
-                        Log::warning('SKU and QTY arrays length mismatch', [
-                            'sale_id' => $sale->id,
-                            'sku_count' => count($skuArray),
-                            'qty_count' => count($qtyArray)
-                        ]);
-                        continue;
-                    }
-
-                    foreach ($skuArray as $index => $sku) {
-                        if (trim($sku) === $product->sku) {
-                            $quantity = $qtyArray[$index] ?? 0;
-                            if (is_numeric($quantity) && $quantity > 0) {
-                                $totalSales += (int)$quantity;
-                            }
-                        }
-                    }
-                } catch (\Exception $saleError) {
-                    Log::error('Error processing individual sale for dynamic stok_keluar', [
-                        'sale_id' => $sale->id,
-                        'error' => $saleError->getMessage()
-                    ]);
-                    continue;
-                }
-            }
-
-            return $totalSales;
-        } catch (\Exception $e) {
-            Log::error('Error calculating dynamic stok_keluar', [
-                'product_id' => $productId,
-                'error' => $e->getMessage()
-            ]);
-            return 0;
-        }
+        // Use the unified calculation method
+        return $this->calculateStokKeluar($productId, $filterMonthYear);
     }
 }

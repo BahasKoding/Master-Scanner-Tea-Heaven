@@ -208,7 +208,7 @@
                         </button>
                         <div id="filterControls" class="collapse show">
                             <div class="row">
-                                <div class="col-lg-4 col-md-6 col-sm-12 mb-2">
+                                <div class="col-lg-3 col-md-6 col-sm-12 mb-2">
                                     <label for="filter-product" class="form-label small filter-label">Produk</label>
                                     <select class="form-control form-control-sm" name="filter-product" id="filter-product">
                                         <option value="">Semua Produk</option>
@@ -219,7 +219,7 @@
                                         @endforeach
                                     </select>
                                 </div>
-                                <div class="col-lg-4 col-md-6 col-sm-12 mb-2">
+                                <div class="col-lg-3 col-md-6 col-sm-12 mb-2">
                                     <label for="filter-category" class="form-label small filter-label">Kategori</label>
                                     <select class="form-control form-control-sm" name="filter-category"
                                         id="filter-category">
@@ -229,7 +229,7 @@
                                         @endforeach
                                     </select>
                                 </div>
-                                <div class="col-lg-4 col-md-6 col-sm-12 mb-2">
+                                <div class="col-lg-3 col-md-6 col-sm-12 mb-2">
                                     <label for="filter-label" class="form-label small filter-label">Label</label>
                                     <select class="form-control form-control-sm" name="filter-label" id="filter-label">
                                         <option value="">Semua Label</option>
@@ -239,6 +239,28 @@
                                             @endif
                                         @endforeach
                                     </select>
+                                </div>
+                                <div class="col-lg-3 col-md-6 col-sm-12 mb-2">
+                                    <label for="filter-month-year" class="form-label small filter-label">
+                                        <i class="fas fa-calendar-alt"></i> Filter Bulan/Tahun
+                                    </label>
+                                    <input type="month" class="form-control form-control-sm" 
+                                           name="filter-month-year" id="filter-month-year" 
+                                           value="{{ date('Y-m') }}" 
+                                           title="Filter stok berdasarkan bulan dan tahun">
+                                </div>
+                            </div>
+                            <div class="row mt-2">
+                                <div class="col-12">
+                                    <div class="alert alert-info py-2 mb-0" role="alert">
+                                        <small>
+                                            <i class="fas fa-info-circle"></i> 
+                                            <strong>Filter Bulanan:</strong> Stok masuk/keluar akan dihitung berdasarkan transaksi pada bulan yang dipilih. 
+                                            Default: bulan berjalan (<strong>{{ date('F Y') }}</strong>)
+                                            <br>
+                                            Filter yang sedang berjalan saat ini: <strong id="current-filter-display">{{ date('F Y') }}</strong>
+                                        </small>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -324,7 +346,54 @@
     <script src="{{ URL::asset('build/js/plugins/sweetalert2.all.min.js') }}"></script>
 
     <script type="text/javascript">
+        // Function to update current filter display dynamically using DOM manipulation
+        function updateCurrentFilterDisplay(monthYearValue) {
+            try {
+                if (!monthYearValue) {
+                    monthYearValue = '{{ date("Y-m") }}'; // Default to current month
+                }
+                
+                // Convert YYYY-MM format to readable month name
+                const date = new Date(monthYearValue + '-01');
+                const monthNames = [
+                    'January', 'February', 'March', 'April', 'May', 'June',
+                    'July', 'August', 'September', 'October', 'November', 'December'
+                ];
+                
+                const monthName = monthNames[date.getMonth()];
+                const year = date.getFullYear();
+                const displayText = `${monthName} ${year}`;
+                
+                // Update the DOM element with animation effect
+                const displayElement = $('#current-filter-display');
+                if (displayElement.length > 0) {
+                    // Add fade effect for smooth transition
+                    displayElement.fadeOut(200, function() {
+                        $(this).text(displayText).fadeIn(200);
+                    });
+                    
+                    // Add temporary highlight effect
+                    displayElement.addClass('text-primary');
+                    setTimeout(() => {
+                        displayElement.removeClass('text-primary');
+                    }, 1000);
+                    
+                    console.log('Updated filter display to:', displayText);
+                } else {
+                    console.warn('Current filter display element not found');
+                }
+            } catch (error) {
+                console.error('Error updating current filter display:', error);
+                // Fallback: just update with the raw value
+                $('#current-filter-display').text(monthYearValue || 'Current Month');
+            }
+        }
+
         $(document).ready(function() {
+            // Initialize the current filter display on page load
+            const initialMonthValue = $('#filter-month-year').val() || '{{ date("Y-m") }}';
+            updateCurrentFilterDisplay(initialMonthValue);
+            
             // Initialize choices for select inputs
             var filterProductChoices = new Choices('#filter-product', {
                 searchEnabled: true,
@@ -345,7 +414,17 @@
                         d.product_id = $('#filter-product').val();
                         d.category_product = $('#filter-category').val();
                         d.label = $('#filter-label').val();
+                        d.filter_month_year = $('#filter-month-year').val();
                         d._token = "{{ csrf_token() }}";
+                        
+                        // // Debug: Log filter values being sent
+                        // console.log('DataTables AJAX Data:', {
+                        //     product_id: d.product_id,
+                        //     category_product: d.category_product,
+                        //     label: d.label,
+                        //     filter_month_year: d.filter_month_year
+                        // });
+                        
                         return d;
                     }
                 },
@@ -450,7 +529,16 @@
             });
 
             // Apply filters when dropdown values change
-            $('#filter-product, #filter-category, #filter-label').on('change', function() {
+            $('#filter-product, #filter-category, #filter-label, #filter-month-year').on('change', function() {
+                const filterId = $(this).attr('id');
+                const filterValue = $(this).val();
+                
+                // Special handling for month filter - update display dynamically
+                if (filterId === 'filter-month-year') {
+                    // Update the current filter display dynamically using DOM manipulation
+                    updateCurrentFilterDisplay(filterValue);
+                }
+                
                 table.ajax.reload();
             });
 
@@ -462,6 +550,12 @@
                 // Reset category and label filters
                 $('#filter-category').val('').trigger('change');
                 $('#filter-label').val('').trigger('change');
+                
+                // Reset month filter to current month
+                $('#filter-month-year').val('{{ date("Y-m") }}').trigger('change');
+                
+                // Update display to current month when clearing filters
+                updateCurrentFilterDisplay('{{ date("Y-m") }}');
 
                 // Reload table
                 table.ajax.reload();
@@ -692,7 +786,8 @@
                                 _token: '{{ csrf_token() }}',
                                 offset: offset,
                                 chunk_size: chunkSize,
-                                total_records: totalRecords
+                                total_records: totalRecords,
+                                filter_month_year: $('#filter-month-year').val()
                             },
                             success: function(response) {
                                 if (response.success) {
@@ -830,7 +925,8 @@
                         _token: '{{ csrf_token() }}',
                         offset: offset,
                         chunk_size: chunkSize,
-                        total_records: totalRecords
+                        total_records: totalRecords,
+                        filter_month_year: $('#filter-month-year').val()
                     },
                     success: function(response) {
                         if (response.success) {
