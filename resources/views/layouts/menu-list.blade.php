@@ -205,6 +205,9 @@
             <li class="pc-item"><a class="pc-link" href="{{ route('reports.scanner.index') }}">
                     <span class="pc-mtext">Laporan Scanner</span>
                 </a></li>
+            <li class="pc-item"><a class="pc-link" href="{{ route('reports.scanner.summary') }}">
+                    <span class="pc-mtext">Laporan Scanner Summary</span>
+                </a></li>
         </ul>
     </li>
 @endcan

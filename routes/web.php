@@ -261,6 +261,8 @@ Route::middleware(['auth'])->group(function () {
     Route::prefix('reports/scanner')->name('reports.scanner.')->group(function () {
         Route::get('/', [ReportController::class, 'scannerIndex'])->name('index');
         Route::post('/export', [ReportController::class, 'scannerExport'])->name('export');
+        Route::get('/summary', [ReportController::class, 'SummaryFinishedGoods'])->name('summary');
+        Route::post('/summary', [ReportController::class, 'SummaryFinishedGoods'])->name('summary.post');
     });
 
     /*

@@ -20,8 +20,8 @@ class ReportController extends Controller
      */
     public function __construct()
     {
-        $this->middleware('permission:Reports View', ['only' => ['purchaseIndex', 'catatanProduksiIndex', 'scannerIndex']]);
-        $this->middleware('permission:Reports Export', ['only' => ['purchaseExport', 'catatanProduksiExport', 'scannerExport']]);
+        $this->middleware('permission:Reports View', ['only' => ['purchaseIndex', 'catatanProduksiIndex', 'scannerIndex', 'scannerSummary']]);
+        $this->middleware('permission:Reports Export', ['only' => ['purchaseExport', 'catatanProduksiExport', 'scannerExport', 'scannerSummaryExport']]);
     }
 
     /**
@@ -524,4 +524,325 @@ class ReportController extends Controller
             ], 500);
         }
     }
+
+    public function SummaryFinishedGoods(Request $request)
+    {
+        if ($request->ajax()) {
+            try {
+                // Check if requesting monthly sales summary
+                if ($request->input('action') === 'get_monthly_summary') {
+                    return $this->getMonthlySalesSummary($request);
+                }
+
+                $query = Product::leftJoin('finished_goods', 'products.id', '=', 'finished_goods.product_id')
+                    ->select([
+                        'products.id as product_id',
+                        'products.sku',
+                        'products.name_product',
+                        'products.packaging',
+                        'products.category_product',
+                        'products.label',
+                        'finished_goods.id as finished_goods_id',
+                        'finished_goods.stok_awal',
+                        'finished_goods.stok_masuk',
+                        'finished_goods.stok_keluar',
+                        'finished_goods.defective',
+                        'finished_goods.live_stock',
+                        'finished_goods.created_at as fg_created_at',
+                        'finished_goods.updated_at as fg_updated_at'
+                    ]);
+
+                $this->applyFilters($query, $request);
+
+                return $this->buildDataTableResponse($query, $request);
+            } catch (\Exception $e) {
+                Log::error('DataTables Ajax error in FinishedGoods index', [
+                    'error' => $e->getMessage(),
+                    'file' => $e->getFile(),
+                    'line' => $e->getLine(),
+                    'trace' => $e->getTraceAsString(),
+                    'request' => $request->all()
+                ]);
+
+                return response()->json([
+                    'draw' => intval($request->get('draw')),
+                    'recordsTotal' => 0,
+                    'recordsFiltered' => 0,
+                    'data' => [],
+                    'error' => 'Terjadi kesalahan saat memuat data. Silakan refresh halaman atau hubungi administrator.'
+                ], 200);
+            }
+        }
+
+        return $this->renderView();
+    }
+    public function SummaryFinishedGoodsData(Request $request)
+    {
+        return $this->SummaryFinishedGoods($request);
+    }
+
+    /**
+     * Get Monthly Sales Summary Data
+     */
+    private function getMonthlySalesSummary(Request $request)
+    {
+        try {
+            $month = $request->input('month', date('m'));
+            $year = $request->input('year', date('Y'));
+
+            // Validate month and year
+            if (!is_numeric($month) || $month < 1 || $month > 12) {
+                $month = date('m');
+            }
+            if (!is_numeric($year) || $year < 2020 || $year > date('Y') + 1) {
+                $year = date('Y');
+            }
+
+            // Get all finished goods products first
+            $allProducts = Product::select(['id', 'sku', 'name_product', 'category_product', 'label', 'packaging'])
+                ->orderBy('name_product')
+                ->get();
+
+            // Get sales data for the specified month/year
+            $query = HistorySale::select([
+                'history_sales.no_sku',
+                'history_sales.qty',
+                'history_sales.created_at'
+            ])->whereYear('created_at', $year)
+              ->whereMonth('created_at', $month);
+
+            $historySales = $query->get();
+
+            // Initialize summary arrays
+            $skuSummary = [];
+            $categorySummary = [];
+            $labelSummary = [];
+            $dailySummary = [];
+            $totalQty = 0;
+            $totalTransactions = $historySales->count();
+
+            // Initialize all products with zero values
+            foreach ($allProducts as $product) {
+                $skuSummary[$product->sku] = [
+                    'sku' => $product->sku,
+                    'name_product' => $product->name_product,
+                    'category' => $product->category_name ?? 'Unknown',
+                    'label' => $product->label_name ?? 'Unknown',
+                    'packaging' => $product->packaging ?? '-',
+                    'qty' => 0,
+                    'transactions' => 0
+                ];
+
+                // Initialize category summary
+                $categoryName = $product->category_name ?? 'Unknown Category';
+                if (!isset($categorySummary[$categoryName])) {
+                    $categorySummary[$categoryName] = [
+                        'category' => $categoryName,
+                        'qty' => 0,
+                        'unique_skus' => 0,
+                        'transactions' => 0,
+                        'skus' => []
+                    ];
+                }
+                if (!in_array($product->sku, $categorySummary[$categoryName]['skus'])) {
+                    $categorySummary[$categoryName]['skus'][] = $product->sku;
+                    $categorySummary[$categoryName]['unique_skus']++;
+                }
+
+                // Initialize label summary
+                $labelName = $product->label_name ?? 'Unknown Label';
+                if (!isset($labelSummary[$labelName])) {
+                    $labelSummary[$labelName] = [
+                        'label' => $labelName,
+                        'qty' => 0,
+                        'unique_skus' => 0,
+                        'transactions' => 0,
+                        'skus' => []
+                    ];
+                }
+                if (!in_array($product->sku, $labelSummary[$labelName]['skus'])) {
+                    $labelSummary[$labelName]['skus'][] = $product->sku;
+                    $labelSummary[$labelName]['unique_skus']++;
+                }
+            }
+
+        // Process each history sale record
+        foreach ($historySales as $sale) {
+            $skus = is_array($sale->no_sku) ? $sale->no_sku : json_decode($sale->no_sku, true);
+            $quantities = is_array($sale->qty) ? $sale->qty : json_decode($sale->qty, true);
+            $saleDate = $sale->created_at->format('Y-m-d');
+
+            // Initialize daily summary for this date
+            if (!isset($dailySummary[$saleDate])) {
+                $dailySummary[$saleDate] = [
+                    'date' => $saleDate,
+                    'formatted_date' => $sale->created_at->format('d/m/Y'),
+                    'day_name' => $sale->created_at->format('l'),
+                    'qty' => 0,
+                    'transactions' => 0,
+                    'unique_skus' => []
+                ];
+            }
+
+            if (is_array($skus) && is_array($quantities)) {
+                foreach ($skus as $index => $sku) {
+                    $qty = isset($quantities[$index]) ? (int)$quantities[$index] : 0;
+                    $totalQty += $qty;
+
+                    // Daily summary
+                    $dailySummary[$saleDate]['qty'] += $qty;
+                    if (!in_array($sku, $dailySummary[$saleDate]['unique_skus'])) {
+                        $dailySummary[$saleDate]['unique_skus'][] = $sku;
+                    }
+
+                    // Get product details
+                    $product = Product::where('sku', $sku)->first();
+
+                    if ($product) {
+                        // Update SKU Summary (already initialized)
+                        if (isset($skuSummary[$sku])) {
+                            $skuSummary[$sku]['qty'] += $qty;
+                            $skuSummary[$sku]['transactions']++;
+                        }
+
+                        // Update Category Summary
+                        $categoryName = $product->category_name ?? 'Unknown Category';
+                        if (isset($categorySummary[$categoryName])) {
+                            $categorySummary[$categoryName]['qty'] += $qty;
+                            $categorySummary[$categoryName]['transactions']++;
+                        }
+
+                        // Update Label Summary
+                        $labelName = $product->label_name ?? 'Unknown Label';
+                        if (isset($labelSummary[$labelName])) {
+                            $labelSummary[$labelName]['qty'] += $qty;
+                            $labelSummary[$labelName]['transactions']++;
+                        }
+                    } else {
+                        // Handle unknown SKU (not in products table)
+                        if (!isset($skuSummary[$sku])) {
+                            $skuSummary[$sku] = [
+                                'sku' => $sku,
+                                'name_product' => 'Unknown Product',
+                                'category' => 'Unknown',
+                                'label' => 'Unknown',
+                                'packaging' => '-',
+                                'qty' => 0,
+                                'transactions' => 0
+                            ];
+                        }
+                        $skuSummary[$sku]['qty'] += $qty;
+                        $skuSummary[$sku]['transactions']++;
+                    }
+                }
+            }
+
+            // Count transactions per day
+            $dailySummary[$saleDate]['transactions']++;
+        }
+
+        // Process daily summary to count unique SKUs
+        foreach ($dailySummary as &$day) {
+            $day['unique_skus_count'] = count($day['unique_skus']);
+            unset($day['unique_skus']); // Remove the array to reduce response size
+        }
+
+        // Sort summaries
+        uasort($skuSummary, function ($a, $b) {
+            return $b['qty'] - $a['qty'];
+        });
+
+        uasort($categorySummary, function ($a, $b) {
+            return $b['qty'] - $a['qty'];
+        });
+
+        uasort($labelSummary, function ($a, $b) {
+            return $b['qty'] - $a['qty'];
+        });
+
+        // Sort daily summary by date
+        ksort($dailySummary);
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'sku_summary' => array_values($skuSummary),
+                    'category_summary' => array_values($categorySummary),
+                    'label_summary' => array_values($labelSummary),
+                    'daily_summary' => array_values($dailySummary),
+                    'total_stats' => [
+                        'total_qty' => $totalQty,
+                        'total_transactions' => $totalTransactions,
+                        'unique_skus' => count($allProducts), // Total products, not just sold ones
+                        'unique_categories' => count($categorySummary),
+                        'unique_labels' => count($labelSummary),
+                        'total_days' => count($dailySummary),
+                        'avg_qty_per_day' => count($dailySummary) > 0 ? round($totalQty / count($dailySummary), 2) : 0,
+                        'avg_transactions_per_day' => count($dailySummary) > 0 ? round($totalTransactions / count($dailySummary), 2) : 0
+                    ],
+                    'period' => [
+                        'month' => $month,
+                        'year' => $year,
+                        'month_name' => Carbon::create($year, $month, 1)->format('F'),
+                        'period_display' => Carbon::create($year, $month, 1)->format('F Y'),
+                        'is_filtered' => true
+                    ]
+                ]
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error generating monthly sales summary', [
+                'error' => $e->getMessage(),
+                'request' => $request->all()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Terjadi kesalahan saat mengambil ringkasan data: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    protected function renderView()
+    {
+        try {
+            $items = ['Daftar Scanner Summary' => route('reports.scanner.summary')];
+            $products = Product::orderBy('name_product')->get();
+            $categories = Product::getCategoryOptions();
+            $labels = Product::getLabelOptions();
+
+            // Generate month and year options
+            $months = [];
+            for ($i = 1; $i <= 12; $i++) {
+                $months[$i] = Carbon::create(null, $i, 1)->format('F');
+            }
+
+            $years = [];
+            $currentYear = date('Y');
+            for ($i = 2020; $i <= $currentYear + 1; $i++) {
+                $years[$i] = $i;
+            }
+
+            addActivity('scanner', 'view', 'Pengguna melihat daftar scanner summary', null);
+
+            return view('reports.scanner.summary', compact('items', 'products', 'categories', 'labels', 'months', 'years'));
+        } catch (\Exception $e) {
+            Log::error('Failed to load data for Scanner Summary index', [
+                'error' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return view('reports.scanner.summary', [
+                'items' => ['Daftar Scanner Summary' => route('reports.scanner.summary')],
+                'products' => [],
+                'categories' => [],
+                'labels' => [],
+                'months' => [],
+                'years' => [],
+                'error_message' => 'Gagal memuat data. Silakan coba refresh halaman.'
+            ]);
+        }
+    }
+
 }
