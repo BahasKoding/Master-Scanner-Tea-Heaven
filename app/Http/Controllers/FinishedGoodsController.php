@@ -566,8 +566,7 @@ class FinishedGoodsController extends Controller
             ->filterColumn('name_product', fn($query, $keyword) => $query->where('products.name_product', 'like', "%{$keyword}%"))
             ->filterColumn('sku', fn($query, $keyword) => $query->where('products.sku', 'like', "%{$keyword}%"))
             ->rawColumns(['action'])
-            ->smart(true)
-            ->startsWithSearch()
+            ->smart(false) // Disable smart search for better performance
             ->make(true);
     }
 
@@ -594,33 +593,32 @@ class FinishedGoodsController extends Controller
     protected function getStokMasuk($row, $filterMonthYear = null)
     {
         try {
-            // Get production records query
-            $productionQuery = CatatanProduksi::where('product_id', $row->product_id);
-            
-            // Get purchases query
-            $purchaseQuery = Purchase::where('bahan_baku_id', $row->product_id)
-                ->where('kategori', 'finished_goods');
-            
-            // Apply monthly filter if provided
-            if ($filterMonthYear) {
-                $year = date('Y', strtotime($filterMonthYear . '-01'));
-                $month = date('m', strtotime($filterMonthYear . '-01'));
-                
-                $productionQuery->whereYear('created_at', $year)
-                               ->whereMonth('created_at', $month);
-                               
-                $purchaseQuery->whereYear('created_at', $year)
-                             ->whereMonth('created_at', $month);
+            // Use cached value if no monthly filter and value exists
+            if (!$filterMonthYear && $row->finished_goods_id && $row->stok_masuk !== null) {
+                return $row->stok_masuk;
             }
             
-            // Get totals
-            $totalProduction = $productionQuery->sum('quantity');
-            $totalPurchases = $purchaseQuery->sum('total_stok_masuk');
+            // Build optimized query with single execution
+            $productionSum = CatatanProduksi::where('product_id', $row->product_id)
+                ->when($filterMonthYear, function($query) use ($filterMonthYear) {
+                    $year = date('Y', strtotime($filterMonthYear . '-01'));
+                    $month = date('m', strtotime($filterMonthYear . '-01'));
+                    return $query->whereYear('created_at', $year)
+                                ->whereMonth('created_at', $month);
+                })
+                ->sum('quantity');
             
-            // Combine both sources
-            $combinedTotal = $totalProduction + $totalPurchases;
+            $purchaseSum = Purchase::where('bahan_baku_id', $row->product_id)
+                ->where('kategori', 'finished_goods')
+                ->when($filterMonthYear, function($query) use ($filterMonthYear) {
+                    $year = date('Y', strtotime($filterMonthYear . '-01'));
+                    $month = date('m', strtotime($filterMonthYear . '-01'));
+                    return $query->whereYear('created_at', $year)
+                                ->whereMonth('created_at', $month);
+                })
+                ->sum('total_stok_masuk');
             
-            return $combinedTotal;
+            return $productionSum + $purchaseSum;
         } catch (\Exception $e) {
             Log::error('Error calculating dynamic stok_masuk', ['error' => $e->getMessage()]);
             return $row->stok_masuk ?? 0;
@@ -630,36 +628,38 @@ class FinishedGoodsController extends Controller
     protected function getStokKeluar($row, $filterMonthYear = null)
     {
         try {
-            if ($row->finished_goods_id && $row->stok_keluar !== null && !$filterMonthYear) {
+            // Use cached value if no monthly filter and value exists
+            if (!$filterMonthYear && $row->finished_goods_id && $row->stok_keluar !== null) {
                 return $row->stok_keluar;
             }
 
-            $product = Product::find($row->product_id);
-            if (!$product) return 0;
+            // Get product SKU directly from row to avoid additional query
+            $productSku = $row->sku;
+            if (!$productSku) return 0;
 
-            // Get history sales query
-            $salesQuery = HistorySale::whereNotNull('no_sku');
-            
-            // Apply monthly filter if provided
-            if ($filterMonthYear) {
-                $year = date('Y', strtotime($filterMonthYear . '-01'));
-                $month = date('m', strtotime($filterMonthYear . '-01'));
-                
-                $salesQuery->whereYear('created_at', $year)
-                          ->whereMonth('created_at', $month);
-            }
+            // Optimized query with single execution
+            $salesData = HistorySale::whereNotNull('no_sku')
+                ->when($filterMonthYear, function($query) use ($filterMonthYear) {
+                    $year = date('Y', strtotime($filterMonthYear . '-01'));
+                    $month = date('m', strtotime($filterMonthYear . '-01'));
+                    return $query->whereYear('created_at', $year)
+                                ->whereMonth('created_at', $month);
+                })
+                ->select('no_sku', 'qty')
+                ->get();
 
-            return $salesQuery->get()->reduce(function($total, $sale) use ($product) {
+            $total = 0;
+            foreach ($salesData as $sale) {
                 try {
                     $skuArray = is_string($sale->no_sku) ? json_decode($sale->no_sku, true) : $sale->no_sku;
                     $qtyArray = is_string($sale->qty) ? json_decode($sale->qty, true) : $sale->qty;
 
                     if (!is_array($skuArray) || !is_array($qtyArray) || count($skuArray) !== count($qtyArray)) {
-                        return $total;
+                        continue;
                     }
 
                     foreach ($skuArray as $index => $sku) {
-                        if (trim($sku) === $product->sku) {
+                        if (trim($sku) === $productSku) {
                             $quantity = $qtyArray[$index] ?? 0;
                             if (is_numeric($quantity) && $quantity > 0) {
                                 $total += (int)$quantity;
@@ -668,14 +668,15 @@ class FinishedGoodsController extends Controller
                     }
                 } catch (\Exception $e) {
                     // Skip problematic sales data
+                    continue;
                 }
-                return $total;
-            }, 0);
+            }
+            
+            return $total;
         } catch (\Exception $e) {
             Log::error('Error calculating stok_keluar_display', [
                 'product_id' => $row->product_id,
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'error' => $e->getMessage()
             ]);
             return $row->stok_keluar ?? 0;
         }

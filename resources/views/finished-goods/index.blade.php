@@ -403,10 +403,12 @@
                 placeholderValue: "Semua produk"
             });
 
-            // Initialize DataTable
+            // Initialize DataTable with optimized configuration
             var table = $('#finishedGoods-table').DataTable({
                 processing: true,
                 serverSide: true,
+                deferRender: true, // Improve performance for large datasets
+                searchDelay: 500, // Add delay to reduce server requests
                 ajax: {
                     url: "{{ route('finished-goods.data') }}",
                     type: "POST",
@@ -416,76 +418,104 @@
                         d.label = $('#filter-label').val();
                         d.filter_month_year = $('#filter-month-year').val();
                         d._token = "{{ csrf_token() }}";
-                        
-                        // // Debug: Log filter values being sent
-                        // console.log('DataTables AJAX Data:', {
-                        //     product_id: d.product_id,
-                        //     category_product: d.category_product,
-                        //     label: d.label,
-                        //     filter_month_year: d.filter_month_year
-                        // });
-                        
                         return d;
+                    },
+                    error: function(xhr, error, code) {
+                        console.error('DataTable AJAX Error:', error, code);
+                        showNotification('error', 'Error', 'Failed to load data. Please refresh the page.');
                     }
                 },
                 columns: [{
                         data: 'DT_RowIndex',
                         name: 'DT_RowIndex',
                         orderable: false,
-                        searchable: false
+                        searchable: false,
+                        width: '5%'
                     },
                     {
                         data: 'sku',
-                        name: 'sku'
+                        name: 'sku',
+                        width: '10%'
                     },
                     {
                         data: 'name_product',
-                        name: 'name_product'
+                        name: 'name_product',
+                        width: '20%'
                     },
                     {
                         data: 'stok_awal_display',
                         name: 'stok_awal_display',
+                        orderable: false,
+                        searchable: false,
+                        width: '10%',
                         render: function(data, type, row) {
-                            return `<input type="number" class="form-control form-control-sm stock-input" 
-                                    data-field="stok_awal" data-product-id="${row.product_id}" 
-                                    value="${data}" min="0" style="width: 80px;">`;
+                            if (type === 'display') {
+                                return `<input type="number" class="form-control form-control-sm stock-input" 
+                                        data-field="stok_awal" data-product-id="${row.product_id}" 
+                                        value="${data}" min="0" style="width: 80px;">`;
+                            }
+                            return data;
                         }
                     },
                     {
                         data: 'stok_masuk_display',
                         name: 'stok_masuk_display',
+                        orderable: false,
+                        searchable: false,
+                        width: '10%',
                         render: function(data, type, row) {
-                            return `<input type="number" class="form-control form-control-sm stock-input auto-field" 
-                                    data-field="stok_masuk" data-product-id="${row.product_id}" 
-                                    value="${data}" min="0" style="width: 80px;" readonly disabled>
-                                    <small class="text-muted d-block">Auto</small>`;
+                            if (type === 'display') {
+                                return `<input type="number" class="form-control form-control-sm stock-input auto-field" 
+                                        data-field="stok_masuk" data-product-id="${row.product_id}" 
+                                        value="${data}" min="0" style="width: 80px;" readonly disabled>
+                                        <small class="text-muted d-block">Auto</small>`;
+                            }
+                            return data;
                         }
                     },
                     {
                         data: 'stok_keluar_display',
                         name: 'stok_keluar_display',
+                        orderable: false,
+                        searchable: false,
+                        width: '10%',
                         render: function(data, type, row) {
-                            return `<input type="number" class="form-control form-control-sm stock-input auto-field" 
-                                    data-field="stok_keluar" data-product-id="${row.product_id}" 
-                                    value="${data}" min="0" style="width: 80px;" readonly disabled>
-                                    <small class="text-muted d-block">Auto</small>`;
+                            if (type === 'display') {
+                                return `<input type="number" class="form-control form-control-sm stock-input auto-field" 
+                                        data-field="stok_keluar" data-product-id="${row.product_id}" 
+                                        value="${data}" min="0" style="width: 80px;" readonly disabled>
+                                        <small class="text-muted d-block">Auto</small>`;
+                            }
+                            return data;
                         }
                     },
                     {
                         data: 'defective_display',
                         name: 'defective_display',
+                        orderable: false,
+                        searchable: false,
+                        width: '10%',
                         render: function(data, type, row) {
-                            return `<input type="number" class="form-control form-control-sm stock-input" 
-                                    data-field="defective" data-product-id="${row.product_id}" 
-                                    value="${data}" min="0" style="width: 80px;">`;
+                            if (type === 'display') {
+                                return `<input type="number" class="form-control form-control-sm stock-input" 
+                                        data-field="defective" data-product-id="${row.product_id}" 
+                                        value="${data}" min="0" style="width: 80px;">`;
+                            }
+                            return data;
                         }
                     },
                     {
                         data: 'live_stock_display',
                         name: 'live_stock_display',
+                        orderable: false,
+                        searchable: false,
+                        width: '10%',
                         render: function(data, type, row) {
-                            return `<span class="badge bg-primary live-stock" data-product-id="${row.product_id}">${data}</span>
-                                    <small class="text-muted d-block">Auto</small>`;
+                            if (type === 'display') {
+                                return `<span class="badge bg-primary live-stock" data-product-id="${row.product_id}">${data}</span>
+                                        <small class="text-muted d-block">Auto</small>`;
+                            }
+                            return data;
                         }
                     },
                     {
@@ -493,15 +523,19 @@
                         name: 'action',
                         orderable: false,
                         searchable: false,
+                        width: '15%',
                         render: function(data, type, row) {
-                            return `
-                                <button type="button" class="btn btn-sm btn-success update-btn" data-id="${row.product_id}">
-                                    <i class="fas fa-save"></i> Update
-                                </button>
-                                <button type="button" class="btn btn-sm btn-secondary reset-btn" data-id="${row.product_id}">
-                                    <i class="fas fa-undo"></i> Reset
-                                </button>
-                            `;
+                            if (type === 'display') {
+                                return `
+                                    <button type="button" class="btn btn-sm btn-success update-btn" data-id="${row.product_id}">
+                                        <i class="fas fa-save"></i> Update
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-secondary reset-btn" data-id="${row.product_id}">
+                                        <i class="fas fa-undo"></i> Reset
+                                    </button>
+                                `;
+                            }
+                            return data;
                         }
                     }
                 ],
@@ -509,56 +543,80 @@
                     [2, 'asc']
                 ],
                 pageLength: 25,
-                dom: 'Bfrtip',
+                lengthMenu: [[10, 25, 50, 100], [10, 25, 50, 100]],
+                dom: 'Blfrtip',
                 buttons: [{
                         extend: 'copy',
                         text: '<i class="fas fa-copy"></i> Salin',
-                        className: 'btn btn-secondary'
+                        className: 'btn btn-secondary btn-sm'
                     },
                     {
                         extend: 'excel',
                         text: '<i class="fas fa-file-excel"></i> Excel',
-                        className: 'btn btn-success'
+                        className: 'btn btn-success btn-sm'
                     },
                     {
                         extend: 'print',
                         text: '<i class="fas fa-print"></i> Cetak',
-                        className: 'btn btn-info'
+                        className: 'btn btn-info btn-sm'
                     }
-                ]
+                ],
+                // Performance optimizations
+                stateSave: false, // Disable state saving for better search performance
+                autoWidth: false,
+                responsive: true,
+                // Search optimization
+                search: {
+                    smart: false, // Disable smart search for better performance
+                    regex: false,
+                    caseInsensitive: true
+                }
             });
 
-            // Apply filters when dropdown values change
+            // Apply filters when dropdown values change with debouncing
+            let filterTimeout;
             $('#filter-product, #filter-category, #filter-label, #filter-month-year').on('change', function() {
                 const filterId = $(this).attr('id');
                 const filterValue = $(this).val();
                 
                 // Special handling for month filter - update display dynamically
                 if (filterId === 'filter-month-year') {
-                    // Update the current filter display dynamically using DOM manipulation
                     updateCurrentFilterDisplay(filterValue);
                 }
                 
-                table.ajax.reload();
+                // Clear existing timeout
+                clearTimeout(filterTimeout);
+                
+                // Set new timeout to debounce filter changes
+                filterTimeout = setTimeout(function() {
+                    // Clear search before applying filters to prevent conflicts
+                    table.search('').draw();
+                    
+                    // Reload with new filters
+                    table.ajax.reload(null, false); // Don't reset paging
+                }, 300);
             });
 
-            // Clear filters function
+            // Clear filters function with search reset
             $('#clear-filters').on('click', function() {
+                // Clear DataTable search first
+                table.search('').draw();
+                
                 // Reset product filter
                 filterProductChoices.setChoiceByValue('');
 
                 // Reset category and label filters
-                $('#filter-category').val('').trigger('change');
-                $('#filter-label').val('').trigger('change');
+                $('#filter-category').val('');
+                $('#filter-label').val('');
                 
                 // Reset month filter to current month
-                $('#filter-month-year').val('{{ date("Y-m") }}').trigger('change');
+                $('#filter-month-year').val('{{ date("Y-m") }}');
                 
                 // Update display to current month when clearing filters
                 updateCurrentFilterDisplay('{{ date("Y-m") }}');
 
-                // Reload table
-                table.ajax.reload();
+                // Reload table with cleared filters
+                table.ajax.reload(null, false);
             });
 
             // Function to calculate live stock for a specific row

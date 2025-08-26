@@ -192,18 +192,18 @@
                         </button>
                         <div id="filterControls" class="collapse show">
                             <div class="row">
-                                <div class="col-lg-4 col-md-6 col-sm-12 mb-2">
+                                <div class="col-lg-3 col-md-6 col-sm-12 mb-2">
                                     <label for="filter-sku-induk" class="form-label small filter-label">SKU Induk</label>
                                     <input type="text" class="form-control form-control-sm" name="filter-sku-induk"
                                         id="filter-sku-induk" placeholder="Cari SKU...">
                                 </div>
-                                <div class="col-lg-4 col-md-6 col-sm-12 mb-2">
+                                <div class="col-lg-3 col-md-6 col-sm-12 mb-2">
                                     <label for="filter-nama-barang" class="form-label small filter-label">Nama
                                         Barang</label>
                                     <input type="text" class="form-control form-control-sm" name="filter-nama-barang"
                                         id="filter-nama-barang" placeholder="Cari nama barang...">
                                 </div>
-                                <div class="col-lg-4 col-md-6 col-sm-12 mb-2">
+                                <div class="col-lg-3 col-md-6 col-sm-12 mb-2">
                                     <label for="filter-category" class="form-label small filter-label">Kategori</label>
                                     <select class="form-control form-control-sm" name="filter-category"
                                         id="filter-category">
@@ -212,6 +212,15 @@
                                             <option value="{{ $key }}">{{ $category }}</option>
                                         @endforeach
                                     </select>
+                                </div>
+                                <div class="col-lg-3 col-md-6 col-sm-12 mb-2">
+                                    <label for="filter-month-year" class="form-label small filter-label">
+                                        <i class="fas fa-calendar-alt"></i> Filter Bulan/Tahun
+                                    </label>
+                                    <input type="month" class="form-control form-control-sm" 
+                                           name="filter-month-year" id="filter-month-year" 
+                                           value="{{ $filterMonthYear ?? date('Y-m') }}" 
+                                           title="Filter stok masuk/terpakai berdasarkan bulan dan tahun">
                                 </div>
                             </div>
                         </div>
@@ -227,6 +236,23 @@
                                     <strong>Info Pencarian:</strong> Kolom yang dapat dicari menggunakan "Search" adalah:
                                     <span class="badge bg-primary mx-1">SKU Induk</span>
                                     <span class="badge bg-success mx-1">Nama Barang</span>
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Monthly Filter Information -->
+                    <div class="alert alert-info" role="alert">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-calendar-alt text-info me-2"></i>
+                            <div>
+                                <small class="mb-0">
+                                    <strong>Filter Bulan Aktif:</strong> 
+                                    <span id="current-filter-display" class="badge bg-info mx-1">
+                                        {{ date('F Y', strtotime(($filterMonthYear ?? date('Y-m')) . '-01')) }}
+                                    </span>
+                                    <br>
+                                    <span class="text-muted">Stok masuk dan terpakai dihitung berdasarkan transaksi pada bulan yang dipilih.</span>
                                 </small>
                             </div>
                         </div>
@@ -267,10 +293,10 @@
                                     <th>Kategori</th>
                                     <th>Satuan</th>
                                     <th>Stok Awal</th>
-                                    <th>Stok Masuk</th>
-                                    <th>Terpakai</th>
+                                    <th>Stok Masuk <small class="text-muted d-block">Monthly</small></th>
+                                    <th>Terpakai <small class="text-muted d-block">Monthly</small></th>
                                     <th>Defect</th>
-                                    <th>Live Stock</th>
+                                    <th>Live Stock <small class="text-muted d-block">Calculated</small></th>
                                     <th>Aksi</th>
                                 </tr>
                             </thead>
@@ -316,10 +342,12 @@
         $(document).ready(function() {
             console.log('Initializing inventory bahan baku DataTable...');
 
-            // Initialize DataTable
+            // Initialize DataTable with optimized configuration
             let table = $('#inventoryBahanBaku-table').DataTable({
                 processing: true,
                 serverSide: true,
+                deferRender: true, // Improve performance for large datasets
+                searchDelay: 500, // Add delay to reduce server requests
                 responsive: true,
                 ajax: {
                     url: '{{ route('inventory-bahan-baku.data') }}',
@@ -329,6 +357,8 @@
                         d.sku_induk = $('#filter-sku-induk').val();
                         d.nama_barang = $('#filter-nama-barang').val();
                         d.kategori = $('#filter-category').val();
+                        d.filter_month_year = $('#filter-month-year').val();
+                        return d;
                     },
                     error: function(xhr, error, thrown) {
                         console.error('DataTables Error:', xhr.responseText);
@@ -348,77 +378,103 @@
                         data: 'DT_RowIndex',
                         name: 'DT_RowIndex',
                         orderable: false,
-                        searchable: false
+                        searchable: false,
+                        width: '5%'
                     },
                     {
                         data: 'sku_induk',
                         name: 'sku_induk',
-                        searchable: true
+                        searchable: true,
+                        width: '10%'
                     },
                     {
                         data: 'nama_barang',
                         name: 'nama_barang',
-                        searchable: true
+                        searchable: true,
+                        width: '20%'
                     },
                     {
                         data: 'kategori_name',
                         name: 'kategori_name',
-                        searchable: true
+                        searchable: false,
+                        width: '10%'
                     },
                     {
                         data: 'satuan',
                         name: 'satuan',
-                        searchable: true
+                        searchable: false,
+                        width: '8%'
                     },
                     {
                         data: 'stok_awal',
                         name: 'stok_awal',
+                        orderable: false,
                         searchable: false,
+                        width: '10%',
                         render: function(data, type, row) {
-                            return `<input type="number" class="form-control form-control-sm stock-input" 
-                                    data-field="stok_awal" data-bahan-baku-id="${row.bahan_baku_id}" 
-                                    value="${data || 0}" min="0" style="width: 80px;">`;
+                            if (type === 'display') {
+                                return `<input type="number" class="form-control form-control-sm stock-input" 
+                                        data-field="stok_awal" data-bahan-baku-id="${row.bahan_baku_id}" 
+                                        value="${data || 0}" min="0" style="width: 80px;">`;
+                            }
+                            return data;
                         }
                     },
                     {
-                        data: 'stok_masuk',
-                        name: 'stok_masuk',
+                        data: 'stok_masuk_display',
+                        name: 'stok_masuk_display',
+                        orderable: false,
                         searchable: false,
+                        width: '10%',
                         render: function(data, type, row) {
-                            return `<input type="number" class="form-control form-control-sm stock-input auto-field" 
-                                    data-field="stok_masuk" data-bahan-baku-id="${row.bahan_baku_id}" 
-                                    value="${data || 0}" min="0" style="width: 80px;" readonly disabled>
-                                    <small class="text-muted d-block">Auto</small>`;
+                            if (type === 'display') {
+                                return `<span class="badge bg-secondary">${data || 0}</span>
+                                        <small class="text-muted d-block">Auto</small>`;
+                            }
+                            return data;
                         }
                     },
                     {
-                        data: 'terpakai',
-                        name: 'terpakai',
+                        data: 'terpakai_display',
+                        name: 'terpakai_display',
+                        orderable: false,
                         searchable: false,
+                        width: '10%',
                         render: function(data, type, row) {
-                            return `<input type="number" class="form-control form-control-sm stock-input auto-field" 
-                                    data-field="terpakai" data-bahan-baku-id="${row.bahan_baku_id}" 
-                                    value="${data || 0}" min="0" style="width: 80px;" readonly disabled>
-                                    <small class="text-muted d-block">Auto</small>`;
+                            if (type === 'display') {
+                                return `<span class="badge bg-warning">${data || 0}</span>
+                                        <small class="text-muted d-block">Auto</small>`;
+                            }
+                            return data;
                         }
                     },
                     {
                         data: 'defect',
                         name: 'defect',
+                        orderable: false,
                         searchable: false,
+                        width: '8%',
                         render: function(data, type, row) {
-                            return `<input type="number" class="form-control form-control-sm stock-input" 
-                                    data-field="defect" data-bahan-baku-id="${row.bahan_baku_id}" 
-                                    value="${data || 0}" min="0" style="width: 80px;">`;
+                            if (type === 'display') {
+                                return `<input type="number" class="form-control form-control-sm stock-input" 
+                                        data-field="defect" data-bahan-baku-id="${row.bahan_baku_id}" 
+                                        value="${data || 0}" min="0" style="width: 80px;">`;
+                            }
+                            return data;
                         }
                     },
                     {
-                        data: 'live_stok_gudang',
-                        name: 'live_stok_gudang',
+                        data: 'live_stok_display',
+                        name: 'live_stok_display',
+                        orderable: false,
                         searchable: false,
+                        width: '10%',
                         render: function(data, type, row) {
-                            return `<span class="badge bg-primary live-stock" data-bahan-baku-id="${row.bahan_baku_id}">${data || 0}</span>
-                                    <small class="text-muted d-block">Auto</small>`;
+                            if (type === 'display') {
+                                return `<span class="badge bg-primary live-stock" data-bahan-baku-id="${row.bahan_baku_id}">${data || 0}</span>
+                                        <small class="text-muted d-block">Auto</small>`;
+                            }
+                            return data;
                         }
                     },
                     {
@@ -426,15 +482,19 @@
                         name: 'action',
                         orderable: false,
                         searchable: false,
+                        width: '15%',
                         render: function(data, type, row) {
-                            return `
-                                <button type="button" class="btn btn-sm btn-success update-btn" data-id="${row.bahan_baku_id}">
-                                    <i class="fas fa-save"></i> Update
-                                </button>
-                                <button type="button" class="btn btn-sm btn-secondary reset-btn" data-id="${row.bahan_baku_id}">
-                                    <i class="fas fa-undo"></i> Reset
-                                </button>
-                            `;
+                            if (type === 'display') {
+                                return `
+                                    <button type="button" class="btn btn-sm btn-success update-btn" data-id="${row.bahan_baku_id}">
+                                        <i class="fas fa-save"></i> Update
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-secondary reset-btn" data-id="${row.bahan_baku_id}">
+                                        <i class="fas fa-undo"></i> Reset
+                                    </button>
+                                `;
+                            }
+                            return data;
                         }
                     }
                 ],
@@ -442,40 +502,81 @@
                     [2, 'asc']
                 ],
                 pageLength: 25,
-                dom: 'Bfrtip',
+                lengthMenu: [[10, 25, 50, 100], [10, 25, 50, 100]],
+                dom: 'Blfrtip',
                 buttons: [{
                         extend: 'copy',
                         text: '<i class="fas fa-copy"></i> Salin',
-                        className: 'btn btn-secondary'
+                        className: 'btn btn-secondary btn-sm'
                     },
                     {
                         extend: 'excel',
                         text: '<i class="fas fa-file-excel"></i> Excel',
-                        className: 'btn btn-success'
+                        className: 'btn btn-success btn-sm'
                     },
                     {
                         extend: 'print',
                         text: '<i class="fas fa-print"></i> Cetak',
-                        className: 'btn btn-info'
+                        className: 'btn btn-info btn-sm'
                     }
-                ]
+                ],
+                // Performance optimizations
+                stateSave: false, // Disable state saving for better search performance
+                autoWidth: false,
+                // Search optimization
+                search: {
+                    smart: false, // Disable smart search for better performance
+                    regex: false,
+                    caseInsensitive: true
+                }
             });
 
             console.log('DataTable initialized successfully');
 
-            // Apply filters when input/dropdown values change
-            $('#filter-sku-induk, #filter-nama-barang, #filter-category').on('input change', function() {
-                console.log('Filter changed, reloading table...');
-                table.ajax.reload();
+            // Initialize the current filter display on page load
+            const initialMonthValue = $('#filter-month-year').val() || '{{ date("Y-m") }}';
+            updateCurrentFilterDisplay(initialMonthValue);
+
+            // Apply filters when input/dropdown values change with debouncing
+            let filterTimeout;
+            $('#filter-sku-induk, #filter-nama-barang, #filter-category, #filter-month-year').on('input change', function() {
+                const filterId = $(this).attr('id');
+                const filterValue = $(this).val();
+                
+                // Special handling for month filter - update display dynamically
+                if (filterId === 'filter-month-year') {
+                    updateCurrentFilterDisplay(filterValue);
+                }
+                
+                // Clear existing timeout
+                clearTimeout(filterTimeout);
+                
+                // Set new timeout to debounce filter changes
+                filterTimeout = setTimeout(function() {
+                    // Clear search before applying filters to prevent conflicts
+                    table.search('').draw();
+                    
+                    // Reload with new filters
+                    table.ajax.reload(null, false); // Don't reset paging
+                }, 300);
             });
 
-            // Clear filters function
+            // Clear filters function with search reset
             $('#clear-filters').on('click', function() {
-                console.log('Clearing filters...');
+                // Clear DataTable search first
+                table.search('').draw();
+                
                 $('#filter-sku-induk').val('');
                 $('#filter-nama-barang').val('');
                 $('#filter-category').val('');
-                table.ajax.reload();
+                
+                // Reset month filter to current month
+                $('#filter-month-year').val('{{ date("Y-m") }}');
+                
+                // Update display to current month when clearing filters
+                updateCurrentFilterDisplay('{{ date("Y-m") }}');
+                
+                table.ajax.reload(null, false);
             });
 
             // Initialize tooltips
@@ -679,6 +780,7 @@
                 // Collect all modified data
                 const updates = [];
                 const processedIds = new Set();
+                const filterMonthYear = $('#filter-month-year').val();
 
                 modifiedFields.forEach(key => {
                     const [bahanBakuId, field] = key.split('_');
@@ -723,7 +825,8 @@
                     type: 'POST',
                     data: {
                         _token: $('meta[name="csrf-token"]').attr('content'),
-                        updates: updates
+                        updates: updates,
+                        filter_month_year: filterMonthYear
                     },
                     success: function(response) {
                         if (response.success) {
@@ -779,10 +882,25 @@
                 });
             }
 
+            // Function to update current filter display
+            function updateCurrentFilterDisplay(monthValue) {
+                if (monthValue) {
+                    const date = new Date(monthValue + '-01');
+                    const monthName = date.toLocaleDateString('id-ID', { 
+                        month: 'long', 
+                        year: 'numeric' 
+                    });
+                    $('#current-filter-display').text(monthName);
+                } else {
+                    $('#current-filter-display').text('Semua Bulan');
+                }
+            }
+
             // Sync Inventory Data
             $('#sync-inventory').on('click', function() {
                 const btn = $(this);
                 const originalText = btn.html();
+                const filterMonthYear = $('#filter-month-year').val();
 
                 btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Syncing...');
 
@@ -790,7 +908,8 @@
                     url: '{{ route('inventory-bahan-baku.sync-all') }}',
                     type: 'POST',
                     data: {
-                        _token: $('meta[name="csrf-token"]').attr('content')
+                        _token: $('meta[name="csrf-token"]').attr('content'),
+                        filter_month_year: filterMonthYear
                     },
                     success: function(response) {
                         if (response.success) {

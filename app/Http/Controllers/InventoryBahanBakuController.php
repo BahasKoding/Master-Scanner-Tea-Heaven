@@ -79,56 +79,9 @@ class InventoryBahanBakuController extends Controller
                         'inventory_bahan_bakus.live_stok_gudang'
                     ]);
 
-                // Apply filters
-                if ($request->filled('kategori')) {
-                    $query->where('bahan_bakus.kategori', $request->kategori);
-                }
+                $this->applyFilters($query, $request);
 
-                if ($request->filled('sku_induk')) {
-                    $query->where('bahan_bakus.sku_induk', 'like', '%' . $request->sku_induk . '%');
-                }
-
-                if ($request->filled('nama_barang')) {
-                    $query->where('bahan_bakus.nama_barang', 'like', '%' . $request->nama_barang . '%');
-                }
-
-                return DataTables::of($query)
-                    ->addIndexColumn()
-                    ->addColumn('action', function ($row) {
-                        return $row->bahan_baku_id;
-                    })
-                    ->addColumn('kategori_name', function ($row) {
-                        $categories = BahanBaku::getCategoryOptions();
-                        return $categories[$row->kategori] ?? 'Unknown Category';
-                    })
-                    ->editColumn('stok_awal', function ($row) {
-                        return $row->stok_awal ?? 0;
-                    })
-                    ->editColumn('stok_masuk', function ($row) {
-                        return $row->stok_masuk ?? 0;
-                    })
-                    ->editColumn('terpakai', function ($row) {
-                        return $row->terpakai ?? 0;
-                    })
-                    ->editColumn('defect', function ($row) {
-                        return $row->defect ?? 0;
-                    })
-                    ->editColumn('live_stok_gudang', function ($row) {
-                        return $row->live_stok_gudang ?? 0;
-                    })
-                    ->addColumn('status_stock', function ($row) {
-                        $liveStock = $row->live_stok_gudang ?? 0;
-                        if ($liveStock <= 10) {
-                            return '<span class="badge bg-danger">Low Stock</span>';
-                        } elseif ($liveStock <= 30) {
-                            return '<span class="badge bg-warning">Medium Stock</span>';
-                        } else {
-                            return '<span class="badge bg-success">Good Stock</span>';
-                        }
-                    })
-                    ->rawColumns(['action', 'status_stock'])
-                    ->smart(true)
-                    ->make(true);
+                return $this->buildDataTableResponse($query, $request);
             } catch (\Exception $e) {
                 Log::error('Inventory Bahan Baku DataTable generation failed', [
                     'error' => $e->getMessage(),
@@ -136,32 +89,16 @@ class InventoryBahanBakuController extends Controller
                 ]);
 
                 return response()->json([
+                    'draw' => intval($request->get('draw')),
+                    'recordsTotal' => 0,
+                    'recordsFiltered' => 0,
+                    'data' => [],
                     'error' => 'Terjadi kesalahan saat memuat data: ' . $e->getMessage()
-                ], 500);
+                ], 200);
             }
         }
 
-        try {
-            // Get bahan baku options for filter
-            $bahanBakus = BahanBaku::orderBy('nama_barang')->get();
-            $categories = BahanBaku::getCategoryOptions();
-
-            // Log activity
-            addActivity('inventory_bahan_baku', 'view', 'Pengguna melihat daftar inventory bahan baku', null);
-
-            return view('inventory-bahan-baku.index', compact('bahanBakus', 'categories'))
-                ->with('item', 'Inventory Bahan Baku');
-        } catch (\Exception $e) {
-            Log::error('Failed to load Inventory Bahan Baku index', [
-                'error' => $e->getMessage()
-            ]);
-
-            return view('inventory-bahan-baku.index', [
-                'bahanBakus' => [],
-                'categories' => [],
-                'error_message' => 'Gagal memuat data. Silakan coba refresh halaman.'
-            ])->with('item', 'Inventory Bahan Baku');
-        }
+        return $this->renderView();
     }
 
     /**
@@ -603,6 +540,202 @@ class InventoryBahanBakuController extends Controller
                 'success' => false,
                 'message' => 'Gagal melakukan verifikasi konsistensi inventory.'
             ], 500);
+        }
+    }
+
+    /**
+     * Render the main view with required data
+     */
+    protected function renderView()
+    {
+        try {
+            // Get bahan baku options for filter
+            $bahanBakus = BahanBaku::orderBy('nama_barang')->get();
+            $categories = BahanBaku::getCategoryOptions();
+            
+            // Set default filter to current month
+            $filterMonthYear = date('Y-m');
+
+            // Log activity
+            addActivity('inventory_bahan_baku', 'view', 'Pengguna melihat daftar inventory bahan baku', null);
+
+            return view('inventory-bahan-baku.index', compact('bahanBakus', 'categories', 'filterMonthYear'))
+                ->with('item', 'Inventory Bahan Baku');
+        } catch (\Exception $e) {
+            Log::error('Failed to load Inventory Bahan Baku index', [
+                'error' => $e->getMessage()
+            ]);
+
+            return view('inventory-bahan-baku.index', [
+                'bahanBakus' => [],
+                'categories' => [],
+                'filterMonthYear' => date('Y-m'),
+                'error_message' => 'Gagal memuat data. Silakan coba refresh halaman.'
+            ])->with('item', 'Inventory Bahan Baku');
+        }
+    }
+
+    /**
+     * Apply filters to the query
+     */
+    protected function applyFilters($query, $request)
+    {
+        // Apply existing filters
+        if ($request->filled('kategori')) {
+            $query->where('bahan_bakus.kategori', $request->kategori);
+        }
+
+        if ($request->filled('sku_induk')) {
+            $query->where('bahan_bakus.sku_induk', 'like', '%' . $request->sku_induk . '%');
+        }
+
+        if ($request->filled('nama_barang')) {
+            $query->where('bahan_bakus.nama_barang', 'like', '%' . $request->nama_barang . '%');
+        }
+    }
+
+    /**
+     * Build DataTable response with monthly filtering support
+     */
+    protected function buildDataTableResponse($query, $request)
+    {
+        $filterMonthYear = $request->get('filter_month_year');
+        
+        return DataTables::of($query)
+            ->addIndexColumn()
+            ->addColumn('action', function ($row) {
+                return $row->bahan_baku_id;
+            })
+            ->addColumn('kategori_name', function ($row) {
+                $categories = BahanBaku::getCategoryOptions();
+                return $categories[$row->kategori] ?? 'Unknown Category';
+            })
+            ->editColumn('stok_awal', function ($row) {
+                return $row->stok_awal ?? 0;
+            })
+            ->addColumn('stok_masuk_display', fn($row) => $this->getStokMasuk($row, $filterMonthYear))
+            ->addColumn('terpakai_display', fn($row) => $this->getTerpakai($row, $filterMonthYear))
+            ->editColumn('defect', function ($row) {
+                return $row->defect ?? 0;
+            })
+            ->addColumn('live_stok_display', fn($row) => $this->getLiveStock($row, $filterMonthYear))
+            ->addColumn('status_stock', function ($row) use ($filterMonthYear) {
+                $liveStock = $this->getLiveStock($row, $filterMonthYear);
+                if ($liveStock <= 10) {
+                    return '<span class="badge bg-danger">Low Stock</span>';
+                } elseif ($liveStock <= 30) {
+                    return '<span class="badge bg-warning">Medium Stock</span>';
+                } else {
+                    return '<span class="badge bg-success">Good Stock</span>';
+                }
+            })
+            ->filterColumn('nama_barang', fn($query, $keyword) => $query->where('bahan_bakus.nama_barang', 'like', "%{$keyword}%"))
+            ->filterColumn('sku_induk', fn($query, $keyword) => $query->where('bahan_bakus.sku_induk', 'like', "%{$keyword}%"))
+            ->rawColumns(['action', 'status_stock'])
+            ->smart(false) // Disable smart search for better performance
+            ->make(true);
+    }
+
+    /**
+     * Get stok masuk with monthly filtering
+     */
+    protected function getStokMasuk($row, $filterMonthYear = null)
+    {
+        try {
+            // Use cached value if no monthly filter and value exists
+            if (!$filterMonthYear && $row->inventory_id && $row->stok_masuk !== null) {
+                return $row->stok_masuk;
+            }
+
+            // Optimized query with single execution
+            $purchaseSum = Purchase::where('bahan_baku_id', $row->bahan_baku_id)
+                ->where('kategori', 'bahan_baku')
+                ->when($filterMonthYear, function($query) use ($filterMonthYear) {
+                    $year = date('Y', strtotime($filterMonthYear . '-01'));
+                    $month = date('m', strtotime($filterMonthYear . '-01'));
+                    return $query->whereYear('created_at', $year)
+                                ->whereMonth('created_at', $month);
+                })
+                ->sum('total_stok_masuk');
+            
+            return $purchaseSum;
+        } catch (\Exception $e) {
+            Log::error('Error calculating stok_masuk with monthly filter', [
+                'bahan_baku_id' => $row->bahan_baku_id,
+                'filter_month_year' => $filterMonthYear,
+                'error' => $e->getMessage()
+            ]);
+            return $row->stok_masuk ?? 0;
+        }
+    }
+
+    /**
+     * Get terpakai with monthly filtering
+     */
+    protected function getTerpakai($row, $filterMonthYear = null)
+    {
+        try {
+            // Use cached value if no monthly filter and value exists
+            if (!$filterMonthYear && $row->inventory_id && $row->terpakai !== null) {
+                return $row->terpakai;
+            }
+
+            // Optimized query with single execution
+            $productionData = CatatanProduksi::whereJsonContains('sku_induk', (string)$row->bahan_baku_id)
+                ->when($filterMonthYear, function($query) use ($filterMonthYear) {
+                    $year = date('Y', strtotime($filterMonthYear . '-01'));
+                    $month = date('m', strtotime($filterMonthYear . '-01'));
+                    return $query->whereYear('created_at', $year)
+                                ->whereMonth('created_at', $month);
+                })
+                ->select('sku_induk', 'total_terpakai')
+                ->get();
+            
+            $total = 0;
+            foreach ($productionData as $catatan) {
+                $bahanBakuIds = $catatan->sku_induk ?? [];
+                $totalTerpakai = $catatan->total_terpakai ?? [];
+                $index = array_search((string)$row->bahan_baku_id, $bahanBakuIds);
+                if ($index !== false) {
+                    $total += ($totalTerpakai[$index] ?? 0);
+                }
+            }
+            
+            return $total;
+        } catch (\Exception $e) {
+            Log::error('Error calculating terpakai with monthly filter', [
+                'bahan_baku_id' => $row->bahan_baku_id,
+                'filter_month_year' => $filterMonthYear,
+                'error' => $e->getMessage()
+            ]);
+            return $row->terpakai ?? 0;
+        }
+    }
+
+    /**
+     * Get live stock with monthly filtering
+     */
+    protected function getLiveStock($row, $filterMonthYear = null)
+    {
+        try {
+            // If no monthly filter, use database value
+            if (!$filterMonthYear && $row->inventory_id && $row->live_stok_gudang !== null) {
+                return $row->live_stok_gudang;
+            }
+
+            $stokAwal = $row->stok_awal ?? 0;
+            $stokMasuk = $this->getStokMasuk($row, $filterMonthYear);
+            $terpakai = $this->getTerpakai($row, $filterMonthYear);
+            $defect = $row->defect ?? 0;
+
+            return $stokAwal + $stokMasuk - $terpakai - $defect;
+        } catch (\Exception $e) {
+            Log::error('Error calculating live stock with monthly filter', [
+                'bahan_baku_id' => $row->bahan_baku_id,
+                'filter_month_year' => $filterMonthYear,
+                'error' => $e->getMessage()
+            ]);
+            return $row->live_stok_gudang ?? 0;
         }
     }
 

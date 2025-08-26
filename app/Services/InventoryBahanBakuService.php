@@ -212,11 +212,12 @@ class InventoryBahanBakuService
     /**
      * Sync all inventory data
      *
+     * @param string|null $filterMonthYear
      * @return array
      */
-    public function syncAllInventory()
+    public function syncAllInventory($filterMonthYear = null)
     {
-        return DB::transaction(function () {
+        return DB::transaction(function () use ($filterMonthYear) {
             try {
                 $bahanBakus = BahanBaku::all();
                 $syncedCount = 0;
@@ -224,9 +225,14 @@ class InventoryBahanBakuService
 
                 foreach ($bahanBakus as $bahanBaku) {
                     try {
-                        // Recalculate both stok_masuk and terpakai
-                        InventoryBahanBaku::recalculateStokMasukFromPurchases($bahanBaku->id);
-                        InventoryBahanBaku::recalculateTerpakaiFromProduksi($bahanBaku->id);
+                        if ($filterMonthYear) {
+                            // For monthly filtering, use dynamic calculation
+                            $this->updateInventoryWithMonthlyData($bahanBaku->id, $filterMonthYear);
+                        } else {
+                            // Recalculate both stok_masuk and terpakai for all-time data
+                            InventoryBahanBaku::recalculateStokMasukFromPurchases($bahanBaku->id);
+                            InventoryBahanBaku::recalculateTerpakaiFromProduksi($bahanBaku->id);
+                        }
 
                         $results[] = [
                             'bahan_baku_id' => $bahanBaku->id,
@@ -253,7 +259,8 @@ class InventoryBahanBakuService
                 Log::info('Sync all inventory completed via service', [
                     'total_items' => $bahanBakus->count(),
                     'synced_count' => $syncedCount,
-                    'error_count' => $bahanBakus->count() - $syncedCount
+                    'error_count' => $bahanBakus->count() - $syncedCount,
+                    'filter_month_year' => $filterMonthYear
                 ]);
 
                 return [
@@ -263,7 +270,8 @@ class InventoryBahanBakuService
                 ];
             } catch (Exception $e) {
                 Log::error('Error syncing all inventory', [
-                    'error' => $e->getMessage()
+                    'error' => $e->getMessage(),
+                    'filter_month_year' => $filterMonthYear
                 ]);
                 throw $e;
             }
@@ -274,15 +282,16 @@ class InventoryBahanBakuService
      * Force sync specific bahan baku inventory
      *
      * @param array $bahanBakuIds
+     * @param string|null $filterMonthYear
      * @return array
      */
-    public function forceSyncInventory(array $bahanBakuIds = [])
+    public function forceSyncInventory(array $bahanBakuIds = [], $filterMonthYear = null)
     {
-        return DB::transaction(function () use ($bahanBakuIds) {
+        return DB::transaction(function () use ($bahanBakuIds, $filterMonthYear) {
             try {
                 // If no specific IDs provided, sync all
                 if (empty($bahanBakuIds)) {
-                    return $this->syncAllInventory();
+                    return $this->syncAllInventory($filterMonthYear);
                 }
 
                 $syncedCount = 0;
@@ -293,9 +302,14 @@ class InventoryBahanBakuService
                         // Validate bahan baku exists
                         $bahanBaku = BahanBaku::findOrFail($bahanBakuId);
 
-                        // Recalculate inventory
-                        InventoryBahanBaku::recalculateStokMasukFromPurchases($bahanBakuId);
-                        InventoryBahanBaku::recalculateTerpakaiFromProduksi($bahanBakuId);
+                        if ($filterMonthYear) {
+                            // For monthly filtering, use dynamic calculation
+                            $this->updateInventoryWithMonthlyData($bahanBakuId, $filterMonthYear);
+                        } else {
+                            // Recalculate inventory for all-time data
+                            InventoryBahanBaku::recalculateStokMasukFromPurchases($bahanBakuId);
+                            InventoryBahanBaku::recalculateTerpakaiFromProduksi($bahanBakuId);
+                        }
 
                         $results[] = [
                             'bahan_baku_id' => $bahanBakuId,
@@ -321,7 +335,8 @@ class InventoryBahanBakuService
                 Log::info('Force sync inventory completed via service', [
                     'requested_ids' => $bahanBakuIds,
                     'synced_count' => $syncedCount,
-                    'error_count' => count($bahanBakuIds) - $syncedCount
+                    'error_count' => count($bahanBakuIds) - $syncedCount,
+                    'filter_month_year' => $filterMonthYear
                 ]);
 
                 return [
@@ -332,7 +347,8 @@ class InventoryBahanBakuService
             } catch (Exception $e) {
                 Log::error('Error force syncing inventory', [
                     'bahan_baku_ids' => $bahanBakuIds,
-                    'error' => $e->getMessage()
+                    'error' => $e->getMessage(),
+                    'filter_month_year' => $filterMonthYear
                 ]);
                 throw $e;
             }
@@ -556,5 +572,213 @@ class InventoryBahanBakuService
             ]);
             throw $e;
         }
+    }
+
+    /**
+     * Update inventory with monthly filtered data
+     *
+     * @param int $bahanBakuId
+     * @param string $filterMonthYear
+     * @return void
+     */
+    private function updateInventoryWithMonthlyData($bahanBakuId, $filterMonthYear)
+    {
+        try {
+            $year = date('Y', strtotime($filterMonthYear . '-01'));
+            $month = date('m', strtotime($filterMonthYear . '-01'));
+
+            // Calculate monthly stok_masuk from purchases
+            $monthlyStokMasuk = Purchase::where('bahan_baku_id', $bahanBakuId)
+                ->where('kategori', 'bahan_baku')
+                ->whereYear('created_at', $year)
+                ->whereMonth('created_at', $month)
+                ->sum('total_stok_masuk');
+
+            // Calculate monthly terpakai from production
+            $monthlyTerpakai = CatatanProduksi::whereJsonContains('sku_induk', (string)$bahanBakuId)
+                ->whereYear('created_at', $year)
+                ->whereMonth('created_at', $month)
+                ->get()
+                ->sum(function ($catatan) use ($bahanBakuId) {
+                    $bahanBakuIds = $catatan->sku_induk ?? [];
+                    $totalTerpakai = $catatan->total_terpakai ?? [];
+                    $index = array_search((string)$bahanBakuId, $bahanBakuIds);
+                    return $index !== false ? ($totalTerpakai[$index] ?? 0) : 0;
+                });
+
+            // Update or create inventory record with monthly data
+            $bahanBaku = BahanBaku::findOrFail($bahanBakuId);
+            $inventory = InventoryBahanBaku::updateOrCreate(
+                ['bahan_baku_id' => $bahanBakuId],
+                [
+                    'stok_masuk' => $monthlyStokMasuk,
+                    'terpakai' => $monthlyTerpakai,
+                    'satuan' => $bahanBaku->satuan
+                ]
+            );
+
+            // Recalculate live stock
+            $inventory->updateLiveStock();
+
+            Log::info('Updated inventory with monthly data', [
+                'bahan_baku_id' => $bahanBakuId,
+                'filter_month_year' => $filterMonthYear,
+                'monthly_stok_masuk' => $monthlyStokMasuk,
+                'monthly_terpakai' => $monthlyTerpakai
+            ]);
+        } catch (Exception $e) {
+            Log::error('Error updating inventory with monthly data', [
+                'bahan_baku_id' => $bahanBakuId,
+                'filter_month_year' => $filterMonthYear,
+                'error' => $e->getMessage()
+            ]);
+            throw $e;
+        }
+    }
+
+    /**
+     * Get monthly stock data for specific bahan baku
+     *
+     * @param int $bahanBakuId
+     * @param string $filterMonthYear
+     * @return array
+     */
+    public function getMonthlyStockData($bahanBakuId, $filterMonthYear)
+    {
+        try {
+            $year = date('Y', strtotime($filterMonthYear . '-01'));
+            $month = date('m', strtotime($filterMonthYear . '-01'));
+
+            // Get monthly stok_masuk from purchases
+            $monthlyStokMasuk = Purchase::where('bahan_baku_id', $bahanBakuId)
+                ->where('kategori', 'bahan_baku')
+                ->whereYear('created_at', $year)
+                ->whereMonth('created_at', $month)
+                ->sum('total_stok_masuk');
+
+            // Get monthly terpakai from production
+            $monthlyTerpakai = CatatanProduksi::whereJsonContains('sku_induk', (string)$bahanBakuId)
+                ->whereYear('created_at', $year)
+                ->whereMonth('created_at', $month)
+                ->get()
+                ->sum(function ($catatan) use ($bahanBakuId) {
+                    $bahanBakuIds = $catatan->sku_induk ?? [];
+                    $totalTerpakai = $catatan->total_terpakai ?? [];
+                    $index = array_search((string)$bahanBakuId, $bahanBakuIds);
+                    return $index !== false ? ($totalTerpakai[$index] ?? 0) : 0;
+                });
+
+            // Get inventory record for stok_awal and defect
+            $inventory = InventoryBahanBaku::where('bahan_baku_id', $bahanBakuId)->first();
+            $stokAwal = $inventory->stok_awal ?? 0;
+            $defect = $inventory->defect ?? 0;
+
+            // Calculate live stock
+            $liveStock = $stokAwal + $monthlyStokMasuk - $monthlyTerpakai - $defect;
+
+            return [
+                'stok_awal' => $stokAwal,
+                'stok_masuk' => $monthlyStokMasuk,
+                'terpakai' => $monthlyTerpakai,
+                'defect' => $defect,
+                'live_stock' => $liveStock,
+                'filter_month_year' => $filterMonthYear
+            ];
+        } catch (Exception $e) {
+            Log::error('Error getting monthly stock data', [
+                'bahan_baku_id' => $bahanBakuId,
+                'filter_month_year' => $filterMonthYear,
+                'error' => $e->getMessage()
+            ]);
+            throw $e;
+        }
+    }
+
+    /**
+     * Bulk update inventory with monthly filtering support
+     *
+     * @param array $updates
+     * @param string|null $filterMonthYear
+     * @return array
+     */
+    public function bulkUpdateInventoryWithFilter(array $updates, $filterMonthYear = null)
+    {
+        return DB::transaction(function () use ($updates, $filterMonthYear) {
+            try {
+                $successCount = 0;
+                $errorCount = 0;
+                $errors = [];
+                $updatedItems = [];
+
+                foreach ($updates as $update) {
+                    try {
+                        // Validate that bahan baku exists
+                        $bahanBaku = BahanBaku::findOrFail($update['bahan_baku_id']);
+
+                        // Use the existing updateInventory method for consistency
+                        $inventoryBahanBaku = $this->updateInventory(
+                            $update['bahan_baku_id'],
+                            [
+                                'stok_awal' => $update['stok_awal'],
+                                'defect' => $update['defect']
+                            ]
+                        );
+
+                        // If monthly filter is applied, also update with monthly data
+                        if ($filterMonthYear) {
+                            $this->updateInventoryWithMonthlyData($update['bahan_baku_id'], $filterMonthYear);
+                        }
+
+                        $successCount++;
+                        $updatedItems[] = [
+                            'bahan_baku_id' => $update['bahan_baku_id'],
+                            'inventory_id' => $inventoryBahanBaku->id,
+                            'stok_awal' => $update['stok_awal'],
+                            'defect' => $update['defect'],
+                            'nama_barang' => $bahanBaku->nama_barang
+                        ];
+
+                    } catch (Exception $e) {
+                        $errorCount++;
+                        $errors[] = [
+                            'bahan_baku_id' => $update['bahan_baku_id'] ?? 'unknown',
+                            'error' => $e->getMessage(),
+                            'nama_barang' => isset($update['bahan_baku_id']) ? 
+                                (BahanBaku::find($update['bahan_baku_id'])->nama_barang ?? 'Unknown') : 'Unknown'
+                        ];
+
+                        Log::error('Error in bulk update for individual item', [
+                            'bahan_baku_id' => $update['bahan_baku_id'] ?? 'unknown',
+                            'error' => $e->getMessage(),
+                            'update_data' => $update,
+                            'filter_month_year' => $filterMonthYear
+                        ]);
+                    }
+                }
+
+                Log::info('Bulk update inventory with filter completed via service', [
+                    'total_items' => count($updates),
+                    'success_count' => $successCount,
+                    'error_count' => $errorCount,
+                    'filter_month_year' => $filterMonthYear
+                ]);
+
+                return [
+                    'success_count' => $successCount,
+                    'error_count' => $errorCount,
+                    'updated_items' => $updatedItems,
+                    'errors' => $errors,
+                    'total_count' => count($updates)
+                ];
+
+            } catch (Exception $e) {
+                Log::error('Error in bulk update inventory service with filter', [
+                    'error' => $e->getMessage(),
+                    'updates' => $updates,
+                    'filter_month_year' => $filterMonthYear
+                ]);
+                throw $e;
+            }
+        });
     }
 }
