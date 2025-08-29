@@ -44,6 +44,7 @@ class FinishedGoodsController extends Controller
             'stok_awal.integer' => 'Stok awal harus berupa angka bulat',
             'stok_awal.min' => 'Stok awal minimal 0',
 
+
             'defective.required' => 'Silahkan masukkan jumlah produk cacat',
             'defective.integer' => 'Jumlah produk cacat harus berupa angka bulat',
             'defective.min' => 'Jumlah produk cacat minimal 0',
@@ -70,6 +71,7 @@ class FinishedGoodsController extends Controller
                         'finished_goods.stok_masuk',
                         'finished_goods.stok_keluar',
                         'finished_goods.defective',
+                        'finished_goods.stok_sisa',
                         'finished_goods.live_stock',
                         'finished_goods.created_at as fg_created_at',
                         'finished_goods.updated_at as fg_updated_at'
@@ -136,6 +138,7 @@ class FinishedGoodsController extends Controller
                     'stok_masuk' => $finishedGoods->stok_masuk,
                     'stok_keluar' => $finishedGoods->stok_keluar,
                     'defective' => $finishedGoods->defective,
+                    'stok_sisa' => $finishedGoods->stok_sisa,
                     'live_stock' => $finishedGoods->live_stock,
                     'stok_masuk_dynamic' => $finishedGoods->stok_masuk_dynamic,
                     'stok_keluar_dynamic' => $finishedGoods->stok_keluar_dynamic,
@@ -174,6 +177,7 @@ class FinishedGoodsController extends Controller
                 'stok_masuk' => $finishedGoods->stok_masuk,
                 'stok_keluar' => $finishedGoods->stok_keluar,
                 'defective' => $finishedGoods->defective,
+                'stok_sisa' => $finishedGoods->stok_sisa,
                 'live_stock' => $finishedGoods->live_stock,
                 'stok_masuk_dynamic' => $finishedGoods->stok_masuk_dynamic,
                 'stok_keluar_dynamic' => $finishedGoods->stok_keluar_dynamic,
@@ -220,6 +224,7 @@ class FinishedGoodsController extends Controller
             if (!is_numeric($validated['stok_awal']) || !is_numeric($validated['defective'])) {
                 throw new \InvalidArgumentException('Stok awal dan defective harus berupa angka yang valid');
             }
+            
 
             // Get existing finished goods record or create new
             $finishedGoods = FinishedGoods::firstOrNew(['product_id' => $id]);
@@ -249,6 +254,7 @@ class FinishedGoodsController extends Controller
                     'stok_masuk' => $finishedGoods->stok_masuk,
                     'stok_keluar' => $finishedGoods->stok_keluar,
                     'defective' => $finishedGoods->defective,
+                    'stok_sisa' => $finishedGoods->stok_sisa,
                     'live_stock' => $finishedGoods->live_stock,
                     'updated_at' => $finishedGoods->updated_at->format('Y-m-d H:i:s')
                 ]
@@ -262,7 +268,7 @@ class FinishedGoodsController extends Controller
         } catch (\InvalidArgumentException $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Format data tidak valid. Pastikan stok awal dan defective berupa angka.',
+                'message' => 'Format data tidak valid. Pastikan stok awal, stok sisa, dan defective berupa angka.',
                 'error' => $e->getMessage()
             ], 400);
         } catch (\RuntimeException $e) {
@@ -599,6 +605,7 @@ class FinishedGoodsController extends Controller
             ->addColumn('stok_masuk_display', fn($row) => $this->getStokMasuk($row, $filterMonthYear))
             ->addColumn('stok_keluar_display', fn($row) => $this->getStokKeluar($row, $filterMonthYear))
             ->addColumn('defective_display', fn($row) => $row->defective ?? 0)
+            ->addColumn('stok_sisa_display', fn($row) => $row->stok_sisa ?? 0)
             ->addColumn('live_stock_display', fn($row) => $this->getLiveStock($row, $filterMonthYear))
             ->filterColumn('name_product', fn($query, $keyword) => $query->where('products.name_product', 'like', "%{$keyword}%"))
             ->filterColumn('sku', fn($query, $keyword) => $query->where('products.sku', 'like', "%{$keyword}%"))
@@ -729,9 +736,10 @@ class FinishedGoodsController extends Controller
             $stokAwal = $row->stok_awal ?? 0;
             $stokMasuk = $this->getStokMasuk($row, $filterMonthYear);
             $defective = $row->defective ?? 0;
+            $stokSisa = $row->stok_sisa ?? 0;
             $stokKeluar = $this->getStokKeluar($row, $filterMonthYear);
 
-            return $stokAwal + $stokMasuk - $stokKeluar - $defective;
+            return $stokAwal + $stokMasuk - $stokKeluar - $defective + $stokSisa;
         } catch (\Exception $e) {
             Log::error('Error calculating live_stock_display', [
                 'product_id' => $row->product_id,

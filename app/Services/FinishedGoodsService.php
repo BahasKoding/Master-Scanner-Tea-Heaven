@@ -134,6 +134,7 @@ class FinishedGoodsService
             if (!$finishedGoods->exists) {
                 $finishedGoods->stok_awal = 0;
                 $finishedGoods->defective = 0;
+                $finishedGoods->stok_sisa = 0;
 
                 // Auto-calculate stock values from related data
                 $this->updateStockFromRelatedData($finishedGoods);
@@ -165,15 +166,16 @@ class FinishedGoodsService
     {
         try {
             // Calculate stok_masuk using unified approach
-            $finishedGoods->stok_masuk = $this->calculateStokMasuk($finishedGoods->product_id, $filterMonthYear);
-            
-            // Calculate stok_keluar using unified approach
-            $finishedGoods->stok_keluar = $this->calculateStokKeluar($finishedGoods->product_id, $filterMonthYear);
-            
-            // Ensure stok_keluar is never null
-            if ($finishedGoods->stok_keluar === null) {
-                $finishedGoods->stok_keluar = 0;
-            }
+            $finishedGoods->updateStokMasukFromAllSources();
+
+            // Calculate stok_keluar from history sales
+            $finishedGoods->updateStokKeluarFromSales();
+
+            // Calculate stok_sisa from opname data
+            $finishedGoods->updateStokSisaFromOpname();
+
+            // Recalculate live stock with the updated values
+            $finishedGoods->recalculateLiveStock();
         } catch (\Exception $e) {
             Log::error('Failed to update stock from related data', [
                 'product_id' => $finishedGoods->product_id,
@@ -363,6 +365,7 @@ class FinishedGoodsService
                     if (!$finishedGoods->exists) {
                         $finishedGoods->stok_awal = 0;
                         $finishedGoods->defective = 0;
+                        $finishedGoods->stok_sisa = 0;
                     }
 
                     // IMPORTANT: Only update stored values when no monthly filter is applied
@@ -672,6 +675,7 @@ class FinishedGoodsService
                 // Reset manual fields to zero
                 $finishedGoods->stok_awal = 0;
                 $finishedGoods->defective = 0;
+                $finishedGoods->stok_sisa = 0;
 
                 // Recalculate stok_masuk and stok_keluar based on the filter
                 $this->updateStockFromRelatedData($finishedGoods, $filterMonthYear);
@@ -858,6 +862,7 @@ class FinishedGoodsService
                     if (!$finishedGoods->exists) {
                         $finishedGoods->stok_awal = 0;
                         $finishedGoods->defective = 0;
+                        $finishedGoods->stok_sisa = 0;
                         $finishedGoods->stok_keluar = 0; // Ensure stok_keluar is set
                     }
 

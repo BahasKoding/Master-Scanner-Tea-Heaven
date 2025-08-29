@@ -17,6 +17,7 @@ class FinishedGoods extends Model
         'stok_masuk',
         'stok_keluar',
         'defective',
+        'stok_sisa',
         'live_stock'
     ];
 
@@ -26,6 +27,41 @@ class FinishedGoods extends Model
     public function product()
     {
         return $this->belongsTo(Product::class, 'product_id');
+    }
+
+    /**
+     * Auto-update stok_sisa from stock opname data
+     * This method calculates stok_sisa from stock opname records
+     */
+    public function updateStokSisaFromOpname()
+    {
+        try {
+            // TODO: Replace with actual stock opname table/model when available
+            // For now, we'll set a default value or calculate from existing data
+            
+            // Example calculation - you can modify this based on your opname data structure
+            // $opnameTotal = StockOpname::where('product_id', $this->product_id)
+            //     ->sum('sisa_stock'); // or whatever field represents remaining stock
+            
+            // Temporary: Set to 0 until opname system is implemented
+            $this->stok_sisa = 0;
+            
+            Log::info('Updated stok_sisa from opname data', [
+                'product_id' => $this->product_id,
+                'stok_sisa' => $this->stok_sisa
+            ]);
+            
+            return $this;
+        } catch (\Exception $e) {
+            Log::error('Error updating stok_sisa from opname', [
+                'product_id' => $this->product_id,
+                'error' => $e->getMessage()
+            ]);
+            
+            // Set default value on error
+            $this->stok_sisa = 0;
+            return $this;
+        }
     }
 
     /**
@@ -151,12 +187,12 @@ class FinishedGoods extends Model
 
     /**
      * Recalculate live_stock based on the formula:
-     * live_stock = stok_awal + stok_masuk - stok_keluar - defective
+     * live_stock = stok_awal + stok_masuk - stok_keluar - defective + stok_sisa
      * FIXED: Allow negative live_stock values for accurate representation
      */
     public function recalculateLiveStock()
     {
-        $this->live_stock = $this->stok_awal + $this->stok_masuk - $this->stok_keluar - $this->defective;
+        $this->live_stock = $this->stok_awal + $this->stok_masuk - $this->stok_keluar - $this->defective + ($this->stok_sisa ?? 0);
         
         // Log if live stock is negative for monitoring purposes
         if ($this->live_stock < 0) {
@@ -228,7 +264,7 @@ class FinishedGoods extends Model
      */
     public function getLiveStockDynamicAttribute()
     {
-        $liveStock = $this->stok_awal + $this->stok_masuk_dynamic - $this->stok_keluar_dynamic - $this->defective;
+        $liveStock = $this->stok_awal + $this->stok_masuk_dynamic - $this->stok_keluar_dynamic - $this->defective + ($this->stok_sisa ?? 0);
         return $liveStock; // Allow negative values
     }
 

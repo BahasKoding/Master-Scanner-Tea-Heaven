@@ -313,46 +313,13 @@
                                 <ul class="mb-2">
                                     <li><strong>Stok Masuk:</strong> Dari Catatan Produksi + Purchase Finished Goods</li>
                                     <li><strong>Stok Keluar:</strong> Dari History Sales Scanner</li>
+                                    <li><strong>Stok Sisa:</strong> Dari hasil Stock Opname</li>
                                     <li><strong>Live Stock:</strong> Kalkulasi otomatis</li>
                                 </ul>
                             </div>
                         </div>
                         <small class="text-muted">💡 Field dengan latar abu-abu tidak dapat diedit karena nilainya dihitung
                             otomatis dari sistem</small>
-                    </div>
-
-                    <!-- Button Guide -->
-                    <div class="alert alert-warning" role="alert">
-                        <h6 class="alert-heading"><i class="fas fa-question-circle"></i> Panduan Penggunaan Button</h6>
-                        <div class="row">
-                            <div class="col-md-6">
-                                <p class="mb-1"><strong><i class="fas fa-mouse text-primary"></i> Button Per Produk:</strong></p>
-                                <ul class="mb-2 small">
-                                    <li><strong><i class="fas fa-save text-success"></i> Update:</strong> Simpan perubahan Stok Awal & Defective</li>
-                                    <li><strong><i class="fas fa-sync text-info"></i> Sync:</strong> Sinkronkan stok masuk/keluar dari data terkait</li>
-                                    <li><strong><i class="fas fa-undo text-secondary"></i> Reset:</strong> Reset semua data stok ke nol</li>
-                                </ul>
-                            </div>
-                            <div class="col-md-6">
-                                <p class="mb-1"><strong><i class="fas fa-layer-group text-success"></i> Button Global:</strong></p>
-                                <ul class="mb-2 small">
-                                    <li><strong><i class="fas fa-save text-success"></i> Update All:</strong> Update semua produk sekaligus</li>
-                                    <li><strong><i class="fas fa-sync text-primary"></i> Sync All Data:</strong> Sinkronkan semua data dari sistem</li>
-                                    <li><strong><i class="fas fa-filter text-secondary"></i> Hapus Filter:</strong> Reset semua filter ke default</li>
-                                </ul>
-                            </div>
-                        </div>
-                        <div class="row mt-2">
-                            <div class="col-12">
-                                <div class="alert alert-danger py-2 mb-0" role="alert">
-                                    <small>
-                                        <i class="fas fa-exclamation-triangle"></i> 
-                                        <strong>PENTING:</strong> Ketika filter bulan aktif, hanya field manual (Stok Awal & Defective) yang akan diupdate. 
-                                        Data stok masuk/keluar tidak akan berubah untuk menjaga integritas data bulan lain.
-                                    </small>
-                                </div>
-                            </div>
-                        </div>
                     </div>
 
                     <div class="dt-responsive table-responsive">
@@ -366,6 +333,7 @@
                                     <th>Stok Masuk</th>
                                     <th>Stok Keluar</th>
                                     <th>Defective</th>
+                                    <th>Stok Sisa</th>
                                     <th>Live Stock</th>
                                     <th>Aksi</th>
                                 </tr>
@@ -621,6 +589,22 @@
                         }
                     },
                     {
+                        data: 'stok_sisa_display',
+                        name: 'stok_sisa_display',
+                        orderable: false,
+                        searchable: false,
+                        width: '10%',
+                        render: function(data, type, row) {
+                            if (type === 'display') {
+                                return `<input type="number" class="form-control form-control-sm stock-input auto-field" 
+                                        data-field="stok_sisa" data-product-id="${row.product_id}" 
+                                        value="${data || 0}" min="0" style="width: 80px;" readonly disabled>
+                                        <small class="text-muted d-block">Auto</small>`;
+                            }
+                            return data || 0;
+                        }
+                    },
+                    {
                         data: 'live_stock_display',
                         name: 'live_stock_display',
                         orderable: false,
@@ -644,7 +628,7 @@
                             if (type === 'display') {
                                 return `
                                     <div class="btn-group" role="group">
-                                        <button type="button" class="btn btn-sm btn-success update-btn" data-id="${row.product_id}" title="Update Stok Awal & Defective">
+                                        <button type="button" class="btn btn-sm btn-success update-btn" data-id="${row.product_id}" title="Update Stok Awal, Stok Sisa & Defective">
                                             <i class="fas fa-save"></i>
                                         </button>
                                         <button type="button" class="btn btn-sm btn-info sync-btn" data-id="${row.product_id}" title="Sync Stok Produk Ini">
@@ -844,8 +828,10 @@
                     .val()) || 0;
                 const stokKeluar = parseInt($(`input[data-product-id="${productId}"][data-field="stok_keluar"]`)
                     .val()) || 0;
+                const stokSisa = parseInt($(`input[data-product-id="${productId}"][data-field="stok_sisa"]`)
+                    .val()) || 0;
 
-                const liveStock = stokAwal + stokMasuk - stokKeluar - defective;
+                const liveStock = stokAwal + stokMasuk - stokKeluar - defective + stokSisa;
                 $(`.live-stock[data-product-id="${productId}"]`).text(liveStock);
 
                 return liveStock;
@@ -864,6 +850,7 @@
                 $(`input[data-product-id="${productId}"][data-field="stok_masuk"]`).val(data.stok_masuk);
                 $(`input[data-product-id="${productId}"][data-field="stok_keluar"]`).val(data.stok_keluar);
                 $(`input[data-product-id="${productId}"][data-field="defective"]`).val(data.defective);
+                $(`input[data-product-id="${productId}"][data-field="stok_sisa"]`).val(data.stok_sisa || 0);
                 
                 // Update live stock display
                 $(`.live-stock[data-product-id="${productId}"]`).text(data.live_stock);
@@ -898,7 +885,7 @@
                     return;
                 }
 
-                // Get values from manual input fields
+                // Get values from manual input fields only
                 const stokAwalInput = $(`input[data-product-id="${productId}"][data-field="stok_awal"]`);
                 const defectiveInput = $(`input[data-product-id="${productId}"][data-field="defective"]`);
                 
