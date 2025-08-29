@@ -22,7 +22,7 @@ class Purchase extends Model
     ];
 
     protected $casts = [
-        'tanggal_kedatangan_barang' => 'date',
+        'tanggal_kedatangan_barang' => 'date:Y-m-d',
         'qty_pembelian' => 'integer',
         'qty_barang_masuk' => 'integer',
         'barang_defect_tanpa_retur' => 'integer',

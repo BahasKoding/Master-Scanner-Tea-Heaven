@@ -211,6 +211,30 @@
                                     </select>
                                 </div>
                             </div>
+                            
+                            <!-- Date Range Filter (initially hidden) -->
+                            <div id="date-range-filter" class="row mt-3 d-none">
+                                <div class="col-12 mb-2">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="enable-date-filter">
+                                        <label class="form-check-label small filter-label" for="enable-date-filter">
+                                            <i class="fas fa-calendar-alt"></i> Filter berdasarkan rentang tanggal
+                                        </label>
+                                    </div>
+                                </div>
+                                <div id="date-inputs" class="col-12 d-none">
+                                    <div class="row">
+                                        <div class="col-lg-6 col-md-6 col-sm-12 mb-2">
+                                            <label for="start-date" class="form-label small filter-label">Tanggal Mulai</label>
+                                            <input type="date" class="form-control form-control-sm" id="start-date" name="start-date">
+                                        </div>
+                                        <div class="col-lg-6 col-md-6 col-sm-12 mb-2">
+                                            <label for="end-date" class="form-label small filter-label">Tanggal Selesai</label>
+                                            <input type="date" class="form-control form-control-sm" id="end-date" name="end-date">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                     <!-- End Filter Section -->
@@ -280,7 +304,35 @@
                         <!-- SKU Summary -->
                         <div class="card mb-4">
                             <div class="card-header">
-                                <h5 class="mb-0"><i class="fas fa-list"></i> Ringkasan per SKU</h5>
+                                <div class="d-flex justify-content-between align-items-center flex-wrap">
+                                    <h5 class="mb-0"><i class="fas fa-list"></i> Ringkasan per SKU</h5>
+                                    <div class="d-flex flex-wrap">
+                                        <button id="filter-sku-btn" class="btn btn-sm btn-outline-primary me-2 mb-2 mb-sm-0">
+                                            <i class="fas fa-filter"></i> Filter Tanggal
+                                        </button>
+                                    </div>
+                                </div>
+                                <!-- Date Filter for SKU Summary -->
+                                <div id="sku-date-filter" class="mt-3 p-3 border rounded bg-light d-none">
+                                    <div class="row">
+                                        <div class="col-lg-4 col-md-6 col-sm-12 mb-2">
+                                            <label for="sku-start-date" class="form-label small">Tanggal Mulai</label>
+                                            <input type="date" class="form-control form-control-sm" id="sku-start-date" name="sku-start-date">
+                                        </div>
+                                        <div class="col-lg-4 col-md-6 col-sm-12 mb-2">
+                                            <label for="sku-end-date" class="form-label small">Tanggal Selesai</label>
+                                            <input type="date" class="form-control form-control-sm" id="sku-end-date" name="sku-end-date">
+                                        </div>
+                                        <div class="col-lg-4 col-md-12 col-sm-12 mb-2 d-flex align-items-end">
+                                            <button id="apply-sku-filter" class="btn btn-primary btn-sm me-2">
+                                                <i class="fas fa-search"></i> Terapkan
+                                            </button>
+                                            <button id="reset-sku-filter" class="btn btn-secondary btn-sm">
+                                                <i class="fas fa-undo"></i> Reset
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                             <div class="card-body">
                                 <div class="table-responsive">
@@ -307,7 +359,35 @@
                         <!-- Category Summary -->
                         <div class="card mb-4">
                             <div class="card-header">
-                                <h5 class="mb-0"><i class="fas fa-tags"></i> Ringkasan per Kategori</h5>
+                                <div class="d-flex justify-content-between align-items-center flex-wrap">
+                                    <h5 class="mb-0"><i class="fas fa-tags"></i> Ringkasan per Kategori</h5>
+                                    <div class="d-flex flex-wrap">
+                                        <button id="filter-category-btn" class="btn btn-sm btn-outline-primary me-2 mb-2 mb-sm-0">
+                                            <i class="fas fa-filter"></i> Filter Tanggal
+                                        </button>
+                                    </div>
+                                </div>
+                                <!-- Date Filter for Category Summary -->
+                                <div id="category-date-filter" class="mt-3 p-3 border rounded bg-light d-none">
+                                    <div class="row">
+                                        <div class="col-lg-4 col-md-6 col-sm-12 mb-2">
+                                            <label for="category-start-date" class="form-label small">Tanggal Mulai</label>
+                                            <input type="date" class="form-control form-control-sm" id="category-start-date" name="category-start-date">
+                                        </div>
+                                        <div class="col-lg-4 col-md-6 col-sm-12 mb-2">
+                                            <label for="category-end-date" class="form-label small">Tanggal Selesai</label>
+                                            <input type="date" class="form-control form-control-sm" id="category-end-date" name="category-end-date">
+                                        </div>
+                                        <div class="col-lg-4 col-md-12 col-sm-12 mb-2 d-flex align-items-end">
+                                            <button id="apply-category-filter" class="btn btn-primary btn-sm me-2">
+                                                <i class="fas fa-search"></i> Terapkan
+                                            </button>
+                                            <button id="reset-category-filter" class="btn btn-secondary btn-sm">
+                                                <i class="fas fa-undo"></i> Reset
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                             <div class="card-body">
                                 <div class="table-responsive">
@@ -555,21 +635,55 @@
             function loadMonthlySummary() {
                 const month = $('#filter-month').val();
                 const year = $('#filter-year').val();
+                const enableDateFilter = $('#enable-date-filter').is(':checked');
+                const startDate = $('#start-date').val();
+                const endDate = $('#end-date').val();
                 const loadBtn = $('#load-summary');
+
+                // Validate date range if enabled
+                if (enableDateFilter && (!startDate || !endDate)) {
+                    Swal.fire({
+                        title: 'Tanggal Tidak Valid',
+                        text: 'Silakan pilih tanggal mulai dan tanggal selesai.',
+                        icon: 'warning',
+                        confirmButtonText: 'OK'
+                    });
+                    return;
+                }
+
+                if (enableDateFilter && startDate && endDate && new Date(startDate) > new Date(endDate)) {
+                    Swal.fire({
+                        title: 'Tanggal Tidak Valid',
+                        text: 'Tanggal mulai tidak boleh lebih besar dari tanggal selesai.',
+                        icon: 'warning',
+                        confirmButtonText: 'OK'
+                    });
+                    return;
+                }
 
                 // Show loading state
                 loadBtn.prop('disabled', true)
                        .html('<i class="fas fa-spinner fa-spin"></i> Memuat...');
 
+                // Prepare data object
+                let requestData = {
+                    _token: "{{ csrf_token() }}",
+                    action: 'get_monthly_summary',
+                    month: month,
+                    year: year,
+                    enable_date_filter: enableDateFilter
+                };
+
+                // Add date range if enabled
+                if (enableDateFilter && startDate && endDate) {
+                    requestData.start_date = startDate;
+                    requestData.end_date = endDate;
+                }
+
                 $.ajax({
                     url: "{{ route('reports.scanner.summary') }}",
                     type: "POST",
-                    data: {
-                        _token: "{{ csrf_token() }}",
-                        action: 'get_monthly_summary',
-                        month: month,
-                        year: year
-                    },
+                    data: requestData,
                     success: function(response) {
                         if (response.success && response.data) {
                             // Store period information for export functionality
@@ -694,6 +808,145 @@
             // Initialize tables on page load
             initializeSummaryTables();
 
+            // Function to set date range based on selected month/year
+            function setDateRangeForMonth() {
+                const month = $('#filter-month').val();
+                const year = $('#filter-year').val();
+                
+                // Calculate first and last day of the month
+                const firstDay = new Date(year, month - 1, 1);
+                const lastDay = new Date(year, month, 0);
+                
+                // Format dates for input fields (YYYY-MM-DD)
+                const startDate = firstDay.toISOString().split('T')[0];
+                const endDate = lastDay.toISOString().split('T')[0];
+                
+                $('#start-date').val(startDate);
+                $('#end-date').val(endDate);
+                
+                // Also set for summary table filters
+                $('#sku-start-date').val(startDate);
+                $('#sku-end-date').val(endDate);
+                $('#category-start-date').val(startDate);
+                $('#category-end-date').val(endDate);
+            }
+
+            // Function to filter summary tables by date range
+            function filterSummaryByDate(summaryType) {
+                const startDateId = summaryType + '-start-date';
+                const endDateId = summaryType + '-end-date';
+                const startDate = $('#' + startDateId).val();
+                const endDate = $('#' + endDateId).val();
+
+                if (!startDate || !endDate) {
+                    Swal.fire({
+                        title: 'Tanggal Tidak Valid',
+                        text: 'Silakan pilih tanggal mulai dan tanggal selesai.',
+                        icon: 'warning',
+                        confirmButtonText: 'OK'
+                    });
+                    return;
+                }
+
+                if (new Date(startDate) > new Date(endDate)) {
+                    Swal.fire({
+                        title: 'Tanggal Tidak Valid',
+                        text: 'Tanggal mulai tidak boleh lebih besar dari tanggal selesai.',
+                        icon: 'warning',
+                        confirmButtonText: 'OK'
+                    });
+                    return;
+                }
+
+                // Get current month and year for context
+                const month = $('#filter-month').val();
+                const year = $('#filter-year').val();
+
+                // Show loading state
+                const loadBtn = $('#apply-' + summaryType + '-filter');
+                loadBtn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Memuat...');
+
+                $.ajax({
+                    url: "{{ route('reports.scanner.summary') }}",
+                    type: "POST",
+                    data: {
+                        _token: "{{ csrf_token() }}",
+                        action: 'get_filtered_summary',
+                        summary_type: summaryType,
+                        month: month,
+                        year: year,
+                        start_date: startDate,
+                        end_date: endDate
+                    },
+                    success: function(response) {
+                        if (response.success && response.data) {
+                            // Update the specific table
+                            if (summaryType === 'sku') {
+                                skuSummaryTable.clear().rows.add(response.data.summary).draw();
+                            } else if (summaryType === 'category') {
+                                categorySummaryTable.clear().rows.add(response.data.summary).draw();
+                            }
+
+                            // Show success message
+                            Swal.fire({
+                                title: 'Berhasil!',
+                                text: `Filter tanggal ${startDate} - ${endDate} berhasil diterapkan.`,
+                                icon: 'success',
+                                timer: 2000,
+                                showConfirmButton: false,
+                                toast: true,
+                                position: 'top-end'
+                            });
+                        } else {
+                            Swal.fire({
+                                title: 'Tidak Ada Data',
+                                text: response.message || 'Tidak ada data untuk rentang tanggal yang dipilih.',
+                                icon: 'info',
+                                confirmButtonText: 'OK'
+                            });
+                        }
+                    },
+                    error: function(xhr) {
+                        let errorMessage = 'Terjadi kesalahan saat memuat data.';
+                        if (xhr.responseJSON && xhr.responseJSON.message) {
+                            errorMessage = xhr.responseJSON.message;
+                        }
+
+                        Swal.fire({
+                            title: 'Error!',
+                            text: errorMessage,
+                            icon: 'error',
+                            confirmButtonText: 'OK'
+                        });
+                    },
+                    complete: function() {
+                        loadBtn.prop('disabled', false).html('<i class="fas fa-search"></i> Terapkan');
+                    }
+                });
+            }
+
+            // Function to reset summary table filters
+            function resetSummaryFilter(summaryType) {
+                // Reset date inputs to full month range
+                setDateRangeForMonth();
+                
+                // Reload original data
+                loadMonthlySummary();
+                
+                // Hide filter panel
+                $('#' + summaryType + '-date-filter').addClass('d-none');
+                
+                Swal.fire({
+                    title: 'Filter Direset',
+                    text: 'Filter tanggal telah direset ke rentang bulan penuh.',
+                    icon: 'info',
+                    timer: 2000,
+                    showConfirmButton: false,
+                    toast: true,
+                    position: 'top-end'
+                });
+            }
+
             // Event handlers
             $('#load-summary').on('click', function() {
                 loadMonthlySummary();
@@ -701,6 +954,57 @@
 
             $('#export-summary').on('click', function() {
                 exportSummary();
+            });
+
+            // Show/hide date range filter when month/year changes
+            $('#filter-month, #filter-year').on('change', function() {
+                $('#date-range-filter').removeClass('d-none');
+                setDateRangeForMonth();
+                
+                // Reset date filter checkbox
+                $('#enable-date-filter').prop('checked', false);
+                $('#date-inputs').addClass('d-none');
+            });
+
+            // Toggle date inputs when checkbox is changed
+            $('#enable-date-filter').on('change', function() {
+                if ($(this).is(':checked')) {
+                    $('#date-inputs').removeClass('d-none');
+                    setDateRangeForMonth(); // Set default date range
+                } else {
+                    $('#date-inputs').addClass('d-none');
+                }
+            });
+
+            // Summary table filter event handlers
+            $('#filter-sku-btn').on('click', function() {
+                $('#sku-date-filter').toggleClass('d-none');
+                if (!$('#sku-date-filter').hasClass('d-none')) {
+                    setDateRangeForMonth(); // Set default dates
+                }
+            });
+
+            $('#filter-category-btn').on('click', function() {
+                $('#category-date-filter').toggleClass('d-none');
+                if (!$('#category-date-filter').hasClass('d-none')) {
+                    setDateRangeForMonth(); // Set default dates
+                }
+            });
+
+            $('#apply-sku-filter').on('click', function() {
+                filterSummaryByDate('sku');
+            });
+
+            $('#apply-category-filter').on('click', function() {
+                filterSummaryByDate('category');
+            });
+
+            $('#reset-sku-filter').on('click', function() {
+                resetSummaryFilter('sku');
+            });
+
+            $('#reset-category-filter').on('click', function() {
+                resetSummaryFilter('category');
             });
 
             // Auto-load summary for current month on page load

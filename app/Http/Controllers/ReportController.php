@@ -534,6 +534,11 @@ class ReportController extends Controller
                     return $this->getMonthlySalesSummary($request);
                 }
 
+                // Check if requesting filtered summary for specific tables
+                if ($request->input('action') === 'get_filtered_summary') {
+                    return $this->getFilteredSummary($request);
+                }
+
                 $query = Product::leftJoin('finished_goods', 'products.id', '=', 'finished_goods.product_id')
                     ->select([
                         'products.id as product_id',
@@ -589,6 +594,9 @@ class ReportController extends Controller
         try {
             $month = $request->input('month', date('m'));
             $year = $request->input('year', date('Y'));
+            $startDate = $request->input('start_date');
+            $endDate = $request->input('end_date');
+            $enableDateFilter = $request->input('enable_date_filter', false);
 
             // Validate month and year
             if (!is_numeric($month) || $month < 1 || $month > 12) {
@@ -603,13 +611,32 @@ class ReportController extends Controller
                 ->orderBy('name_product')
                 ->get();
 
-            // Get sales data for the specified month/year
+            // Get sales data for the specified month/year or date range
             $query = HistorySale::select([
                 'history_sales.no_sku',
                 'history_sales.qty',
                 'history_sales.created_at'
-            ])->whereYear('created_at', $year)
-              ->whereMonth('created_at', $month);
+            ]);
+
+            // Apply date filtering
+            if ($enableDateFilter && $startDate && $endDate) {
+                // Use specific date range
+                $startDateTime = Carbon::parse($startDate)->startOfDay();
+                $endDateTime = Carbon::parse($endDate)->endOfDay();
+                $query->whereBetween('created_at', [$startDateTime, $endDateTime]);
+                
+                // Create period display for date range
+                $periodDisplay = $startDateTime->format('d/m/Y') . ' - ' . $endDateTime->format('d/m/Y');
+                $isFiltered = true;
+            } else {
+                // Use month/year filtering
+                $query->whereYear('created_at', $year)
+                      ->whereMonth('created_at', $month);
+                
+                // Create period display for month/year
+                $periodDisplay = Carbon::create($year, $month, 1)->format('F Y');
+                $isFiltered = true;
+            }
 
             $historySales = $query->get();
 
@@ -783,9 +810,12 @@ class ReportController extends Controller
                     'period' => [
                         'month' => $month,
                         'year' => $year,
+                        'start_date' => $enableDateFilter && $startDate ? $startDate : null,
+                        'end_date' => $enableDateFilter && $endDate ? $endDate : null,
+                        'enable_date_filter' => $enableDateFilter,
                         'month_name' => Carbon::create($year, $month, 1)->format('F'),
-                        'period_display' => Carbon::create($year, $month, 1)->format('F Y'),
-                        'is_filtered' => true
+                        'period_display' => $periodDisplay,
+                        'is_filtered' => $isFiltered
                     ]
                 ]
             ]);
@@ -800,6 +830,191 @@ class ReportController extends Controller
                 'message' => 'Terjadi kesalahan saat mengambil ringkasan data: ' . $e->getMessage()
             ], 500);
         }
+    }
+
+    /**
+     * Get Filtered Summary for specific date range within a month
+     */
+    private function getFilteredSummary(Request $request)
+    {
+        try {
+            $summaryType = $request->input('summary_type'); // 'sku' or 'category'
+            $month = $request->input('month', date('m'));
+            $year = $request->input('year', date('Y'));
+            $startDate = $request->input('start_date');
+            $endDate = $request->input('end_date');
+
+            // Validate inputs
+            if (!in_array($summaryType, ['sku', 'category'])) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invalid summary type'
+                ], 400);
+            }
+
+            if (!$startDate || !$endDate) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Start date and end date are required'
+                ], 400);
+            }
+
+            // Parse dates
+            $startDateTime = Carbon::parse($startDate)->startOfDay();
+            $endDateTime = Carbon::parse($endDate)->endOfDay();
+
+            // Get sales data for the specified date range
+            $query = HistorySale::select([
+                'history_sales.no_sku',
+                'history_sales.qty',
+                'history_sales.created_at'
+            ])->whereBetween('created_at', [$startDateTime, $endDateTime]);
+
+            $historySales = $query->get();
+
+            if ($summaryType === 'sku') {
+                return $this->generateSkuSummary($historySales, $startDate, $endDate);
+            } else {
+                return $this->generateCategorySummary($historySales, $startDate, $endDate);
+            }
+
+        } catch (\Exception $e) {
+            Log::error('Error generating filtered summary', [
+                'error' => $e->getMessage(),
+                'request' => $request->all()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Terjadi kesalahan saat mengambil data: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Generate SKU Summary for filtered date range
+     */
+    private function generateSkuSummary($historySales, $startDate, $endDate)
+    {
+        $skuSummary = [];
+        $totalQty = 0;
+        $totalTransactions = $historySales->count();
+
+        // Process each history sale record
+        foreach ($historySales as $sale) {
+            $skus = is_array($sale->no_sku) ? $sale->no_sku : json_decode($sale->no_sku, true);
+            $quantities = is_array($sale->qty) ? $sale->qty : json_decode($sale->qty, true);
+
+            if (is_array($skus) && is_array($quantities)) {
+                foreach ($skus as $index => $sku) {
+                    $qty = isset($quantities[$index]) ? (int)$quantities[$index] : 0;
+                    $totalQty += $qty;
+
+                    // Get product details
+                    $product = Product::where('sku', $sku)->first();
+
+                    if (!isset($skuSummary[$sku])) {
+                        $skuSummary[$sku] = [
+                            'sku' => $sku,
+                            'name_product' => $product ? $product->name_product : 'Unknown Product',
+                            'category' => $product ? ($product->category_name ?? 'Unknown') : 'Unknown',
+                            'label' => $product ? ($product->label_name ?? 'Unknown') : 'Unknown',
+                            'packaging' => $product ? ($product->packaging ?? '-') : '-',
+                            'qty' => 0,
+                            'transactions' => 0
+                        ];
+                    }
+                    $skuSummary[$sku]['qty'] += $qty;
+                    $skuSummary[$sku]['transactions']++;
+                }
+            }
+        }
+
+        // Sort by quantity descending
+        uasort($skuSummary, function ($a, $b) {
+            return $b['qty'] - $a['qty'];
+        });
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'summary' => array_values($skuSummary),
+                'period_display' => Carbon::parse($startDate)->format('d/m/Y') . ' - ' . Carbon::parse($endDate)->format('d/m/Y'),
+                'total_stats' => [
+                    'total_qty' => $totalQty,
+                    'total_transactions' => $totalTransactions,
+                    'unique_skus' => count($skuSummary)
+                ]
+            ]
+        ]);
+    }
+
+    /**
+     * Generate Category Summary for filtered date range
+     */
+    private function generateCategorySummary($historySales, $startDate, $endDate)
+    {
+        $categorySummary = [];
+        $totalQty = 0;
+        $totalTransactions = $historySales->count();
+
+        // Process each history sale record
+        foreach ($historySales as $sale) {
+            $skus = is_array($sale->no_sku) ? $sale->no_sku : json_decode($sale->no_sku, true);
+            $quantities = is_array($sale->qty) ? $sale->qty : json_decode($sale->qty, true);
+
+            if (is_array($skus) && is_array($quantities)) {
+                foreach ($skus as $index => $sku) {
+                    $qty = isset($quantities[$index]) ? (int)$quantities[$index] : 0;
+                    $totalQty += $qty;
+
+                    // Get product details
+                    $product = Product::where('sku', $sku)->first();
+                    $categoryName = $product ? ($product->category_name ?? 'Unknown Category') : 'Unknown Category';
+
+                    if (!isset($categorySummary[$categoryName])) {
+                        $categorySummary[$categoryName] = [
+                            'category' => $categoryName,
+                            'qty' => 0,
+                            'unique_skus' => 0,
+                            'transactions' => 0,
+                            'skus' => []
+                        ];
+                    }
+
+                    $categorySummary[$categoryName]['qty'] += $qty;
+                    $categorySummary[$categoryName]['transactions']++;
+                    
+                    if (!in_array($sku, $categorySummary[$categoryName]['skus'])) {
+                        $categorySummary[$categoryName]['skus'][] = $sku;
+                        $categorySummary[$categoryName]['unique_skus']++;
+                    }
+                }
+            }
+        }
+
+        // Remove skus array from response to reduce size
+        foreach ($categorySummary as &$category) {
+            unset($category['skus']);
+        }
+
+        // Sort by quantity descending
+        uasort($categorySummary, function ($a, $b) {
+            return $b['qty'] - $a['qty'];
+        });
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'summary' => array_values($categorySummary),
+                'period_display' => Carbon::parse($startDate)->format('d/m/Y') . ' - ' . Carbon::parse($endDate)->format('d/m/Y'),
+                'total_stats' => [
+                    'total_qty' => $totalQty,
+                    'total_transactions' => $totalTransactions,
+                    'unique_categories' => count($categorySummary)
+                ]
+            ]
+        ]);
     }
 
     protected function renderView()

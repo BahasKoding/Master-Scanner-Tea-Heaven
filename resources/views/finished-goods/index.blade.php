@@ -249,6 +249,23 @@
                                            value="{{ date('Y-m') }}" 
                                            title="Filter stok berdasarkan bulan dan tahun">
                                 </div>
+                                <div class="col-lg-3 col-md-6 col-sm-12 mb-2">
+                                    <label for="simulation-date" class="form-label small filter-label">
+                                        <i class="fas fa-flask text-warning"></i> Simulasi Tanggal Sistem
+                                    </label>
+                                    <div class="input-group">
+                                        <input type="date" class="form-control form-control-sm" 
+                                               name="simulation-date" id="simulation-date" 
+                                               value="{{ date('Y-m-d') }}" 
+                                               title="Simulasi tanggal sistem untuk testing">
+                                        <button class="btn btn-outline-warning btn-sm" type="button" id="apply-simulation" title="Terapkan Simulasi">
+                                            <i class="fas fa-play"></i>
+                                        </button>
+                                        <button class="btn btn-outline-secondary btn-sm" type="button" id="reset-simulation" title="Reset ke Tanggal Hari Ini">
+                                            <i class="fas fa-undo"></i>
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
                             <div class="row mt-2">
                                 <div class="col-12">
@@ -259,6 +276,18 @@
                                             Default: bulan berjalan (<strong>{{ date('F Y') }}</strong>)
                                             <br>
                                             Filter yang sedang berjalan saat ini: <strong id="current-filter-display">{{ date('F Y') }}</strong>
+                                        </small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row mt-2" id="simulation-info" style="display: none;">
+                                <div class="col-12">
+                                    <div class="alert alert-warning py-2 mb-0" role="alert">
+                                        <small>
+                                            <i class="fas fa-flask"></i> 
+                                            <strong>MODE SIMULASI AKTIF:</strong> Sistem menggunakan tanggal simulasi: <strong id="simulation-date-display">{{ date('d F Y') }}</strong>
+                                            <br>
+                                            <i class="fas fa-exclamation-triangle"></i> Data yang ditampilkan adalah simulasi berdasarkan tanggal yang dipilih, bukan data real-time.
                                         </small>
                                     </div>
                                 </div>
@@ -290,6 +319,40 @@
                         </div>
                         <small class="text-muted">💡 Field dengan latar abu-abu tidak dapat diedit karena nilainya dihitung
                             otomatis dari sistem</small>
+                    </div>
+
+                    <!-- Button Guide -->
+                    <div class="alert alert-warning" role="alert">
+                        <h6 class="alert-heading"><i class="fas fa-question-circle"></i> Panduan Penggunaan Button</h6>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <p class="mb-1"><strong><i class="fas fa-mouse text-primary"></i> Button Per Produk:</strong></p>
+                                <ul class="mb-2 small">
+                                    <li><strong><i class="fas fa-save text-success"></i> Update:</strong> Simpan perubahan Stok Awal & Defective</li>
+                                    <li><strong><i class="fas fa-sync text-info"></i> Sync:</strong> Sinkronkan stok masuk/keluar dari data terkait</li>
+                                    <li><strong><i class="fas fa-undo text-secondary"></i> Reset:</strong> Reset semua data stok ke nol</li>
+                                </ul>
+                            </div>
+                            <div class="col-md-6">
+                                <p class="mb-1"><strong><i class="fas fa-layer-group text-success"></i> Button Global:</strong></p>
+                                <ul class="mb-2 small">
+                                    <li><strong><i class="fas fa-save text-success"></i> Update All:</strong> Update semua produk sekaligus</li>
+                                    <li><strong><i class="fas fa-sync text-primary"></i> Sync All Data:</strong> Sinkronkan semua data dari sistem</li>
+                                    <li><strong><i class="fas fa-filter text-secondary"></i> Hapus Filter:</strong> Reset semua filter ke default</li>
+                                </ul>
+                            </div>
+                        </div>
+                        <div class="row mt-2">
+                            <div class="col-12">
+                                <div class="alert alert-danger py-2 mb-0" role="alert">
+                                    <small>
+                                        <i class="fas fa-exclamation-triangle"></i> 
+                                        <strong>PENTING:</strong> Ketika filter bulan aktif, hanya field manual (Stok Awal & Defective) yang akan diupdate. 
+                                        Data stok masuk/keluar tidak akan berubah untuk menjaga integritas data bulan lain.
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
                     <div class="dt-responsive table-responsive">
@@ -346,6 +409,10 @@
     <script src="{{ URL::asset('build/js/plugins/sweetalert2.all.min.js') }}"></script>
 
     <script type="text/javascript">
+        // Global simulation state
+        let simulationMode = false;
+        let simulationDate = null;
+
         // Function to update current filter display dynamically using DOM manipulation
         function updateCurrentFilterDisplay(monthYearValue) {
             try {
@@ -389,6 +456,54 @@
             }
         }
 
+        // Function to update simulation date display
+        function updateSimulationDisplay(dateValue) {
+            try {
+                if (!dateValue) return;
+                
+                const date = new Date(dateValue);
+                const monthNames = [
+                    'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+                    'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+                ];
+                
+                const day = date.getDate();
+                const monthName = monthNames[date.getMonth()];
+                const year = date.getFullYear();
+                const displayText = `${day} ${monthName} ${year}`;
+                
+                $('#simulation-date-display').text(displayText);
+                console.log('Updated simulation display to:', displayText);
+            } catch (error) {
+                console.error('Error updating simulation display:', error);
+                $('#simulation-date-display').text(dateValue || 'Invalid Date');
+            }
+        }
+
+        // Function to toggle simulation mode
+        function toggleSimulationMode(enable, dateValue = null) {
+            simulationMode = enable;
+            simulationDate = dateValue;
+            
+            const simulationInfo = $('#simulation-info');
+            
+            if (enable && dateValue) {
+                updateSimulationDisplay(dateValue);
+                simulationInfo.fadeIn(300);
+                
+                // Update filter to match simulation month
+                const simDate = new Date(dateValue);
+                const simMonthYear = simDate.getFullYear() + '-' + String(simDate.getMonth() + 1).padStart(2, '0');
+                $('#filter-month-year').val(simMonthYear);
+                updateCurrentFilterDisplay(simMonthYear);
+                
+                console.log('Simulation mode enabled for date:', dateValue);
+            } else {
+                simulationInfo.fadeOut(300);
+                console.log('Simulation mode disabled');
+            }
+        }
+
         $(document).ready(function() {
             // Initialize the current filter display on page load
             const initialMonthValue = $('#filter-month-year').val() || '{{ date("Y-m") }}';
@@ -417,6 +532,7 @@
                         d.category_product = $('#filter-category').val();
                         d.label = $('#filter-label').val();
                         d.filter_month_year = $('#filter-month-year').val();
+                        d.simulation_date = simulationMode ? simulationDate : null;
                         d._token = "{{ csrf_token() }}";
                         return d;
                     },
@@ -527,12 +643,17 @@
                         render: function(data, type, row) {
                             if (type === 'display') {
                                 return `
-                                    <button type="button" class="btn btn-sm btn-success update-btn" data-id="${row.product_id}">
-                                        <i class="fas fa-save"></i> Update
-                                    </button>
-                                    <button type="button" class="btn btn-sm btn-secondary reset-btn" data-id="${row.product_id}">
-                                        <i class="fas fa-undo"></i> Reset
-                                    </button>
+                                    <div class="btn-group" role="group">
+                                        <button type="button" class="btn btn-sm btn-success update-btn" data-id="${row.product_id}" title="Update Stok Awal & Defective">
+                                            <i class="fas fa-save"></i>
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-info sync-btn" data-id="${row.product_id}" title="Sync Stok Produk Ini">
+                                            <i class="fas fa-sync"></i>
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-secondary reset-btn" data-id="${row.product_id}" title="Reset Stok Produk Ini">
+                                            <i class="fas fa-undo"></i>
+                                        </button>
+                                    </div>
                                 `;
                             }
                             return data;
@@ -609,14 +730,105 @@
                 $('#filter-category').val('');
                 $('#filter-label').val('');
                 
-                // Reset month filter to current month
-                $('#filter-month-year').val('{{ date("Y-m") }}');
-                
-                // Update display to current month when clearing filters
-                updateCurrentFilterDisplay('{{ date("Y-m") }}');
+                // Reset month filter to current month (or simulation month if active)
+                if (simulationMode && simulationDate) {
+                    const simDate = new Date(simulationDate);
+                    const simMonthYear = simDate.getFullYear() + '-' + String(simDate.getMonth() + 1).padStart(2, '0');
+                    $('#filter-month-year').val(simMonthYear);
+                    updateCurrentFilterDisplay(simMonthYear);
+                } else {
+                    $('#filter-month-year').val('{{ date("Y-m") }}');
+                    updateCurrentFilterDisplay('{{ date("Y-m") }}');
+                }
 
                 // Reload table with cleared filters
                 table.ajax.reload(null, false);
+            });
+
+            // Simulation date controls
+            $('#apply-simulation').on('click', function() {
+                const selectedDate = $('#simulation-date').val();
+                
+                if (!selectedDate) {
+                    Swal.fire({
+                        title: 'Tanggal Tidak Valid',
+                        text: 'Silahkan pilih tanggal untuk simulasi.',
+                        icon: 'warning',
+                        confirmButtonText: 'OK'
+                    });
+                    return;
+                }
+                
+                Swal.fire({
+                    title: 'Aktifkan Mode Simulasi?',
+                    html: `
+                        <p>Sistem akan menggunakan tanggal simulasi: <strong>${selectedDate}</strong></p>
+                        <p class="text-warning"><i class="fas fa-exclamation-triangle"></i> Data yang ditampilkan akan disesuaikan dengan tanggal simulasi ini.</p>
+                    `,
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonColor: '#f39c12',
+                    cancelButtonColor: '#6c757d',
+                    confirmButtonText: 'Ya, Aktifkan Simulasi!',
+                    cancelButtonText: 'Batal'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        toggleSimulationMode(true, selectedDate);
+                        
+                        // Reload table with simulation date
+                        table.ajax.reload(null, false);
+                        
+                        Swal.fire({
+                            title: 'Simulasi Diaktifkan!',
+                            text: `Sistem sekarang menggunakan tanggal simulasi: ${selectedDate}`,
+                            icon: 'success',
+                            timer: 2000,
+                            showConfirmButton: false
+                        });
+                    }
+                });
+            });
+            
+            $('#reset-simulation').on('click', function() {
+                if (!simulationMode) {
+                    // Just reset to today's date
+                    $('#simulation-date').val('{{ date("Y-m-d") }}');
+                    return;
+                }
+                
+                Swal.fire({
+                    title: 'Reset Simulasi?',
+                    text: 'Sistem akan kembali menggunakan tanggal hari ini dan data real-time.',
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonColor: '#6c757d',
+                    cancelButtonColor: '#dc3545',
+                    confirmButtonText: 'Ya, Reset!',
+                    cancelButtonText: 'Batal'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        // Reset simulation
+                        toggleSimulationMode(false);
+                        
+                        // Reset date input to today
+                        $('#simulation-date').val('{{ date("Y-m-d") }}');
+                        
+                        // Reset month filter to current month
+                        $('#filter-month-year').val('{{ date("Y-m") }}');
+                        updateCurrentFilterDisplay('{{ date("Y-m") }}');
+                        
+                        // Reload table with real data
+                        table.ajax.reload(null, false);
+                        
+                        Swal.fire({
+                            title: 'Simulasi Direset!',
+                            text: 'Sistem kembali menggunakan data real-time.',
+                            icon: 'success',
+                            timer: 2000,
+                            showConfirmButton: false
+                        });
+                    }
+                });
             });
 
             // Function to calculate live stock for a specific row
@@ -711,7 +923,8 @@
                         _token: '{{ csrf_token() }}',
                         _method: 'PUT',
                         stok_awal: stokAwal,
-                        defective: defective
+                        defective: defective,
+                        filter_month_year: $('#filter-month-year').val() // Include current filter
                     },
                     timeout: 30000, // 30 second timeout
                     success: function(response) {
@@ -753,17 +966,148 @@
                         } else if (xhr.status === 404) {
                             errorMessage = 'Produk tidak ditemukan';
                         } else if (xhr.status === 0) {
-                            errorMessage = 'Tidak dapat terhubung ke server. Periksa koneksi internet Anda.';
+                            errorMessage = 'Koneksi terputus. Periksa jaringan Anda.';
                         } else if (status === 'timeout') {
                             errorMessage = 'Request timeout. Silahkan coba lagi.';
                         }
 
-                        showNotification('error', 'Error!', errorMessage);
+                        showNotification('error', 'Gagal!', errorMessage);
                     },
                     complete: function() {
                         // Re-enable button and restore original text
                         btn.prop('disabled', false);
                         btn.html(originalText);
+                    }
+                });
+            });
+
+            // Sync button click - for individual product sync
+            $(document).on('click', '.sync-btn', function(e) {
+                e.preventDefault();
+
+                const btn = $(this);
+                const productId = btn.data('id');
+                const filterMonthYear = $('#filter-month-year').val();
+
+                if (!productId) {
+                    showNotification('error', 'Error', 'Product ID tidak ditemukan.');
+                    return;
+                }
+
+                Swal.fire({
+                    title: 'Anda yakin?',
+                    text: "Sinkronisasi akan memperbarui stok masuk dan keluar untuk produk ini. Proses ini tidak dapat dibatalkan.",
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#3085d6',
+                    cancelButtonColor: '#d33',
+                    confirmButtonText: 'Ya, sinkronkan!',
+                    cancelButtonText: 'Batal'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        // Disable button and show loading state
+                        btn.prop('disabled', true);
+                        const originalIcon = btn.html();
+                        btn.html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>');
+
+                        // Send sync request
+                        $.ajax({
+                            url: `/finished-goods/${productId}/sync`,
+                            method: 'POST',
+                            data: {
+                                _token: '{{ csrf_token() }}',
+                                filter_month_year: filterMonthYear
+                            },
+                            timeout: 120000, // 2 minute timeout for potentially long sync
+                            success: function(response) {
+                                if (response && response.success) {
+                                    showNotification('success', 'Berhasil!', response.message || 'Produk berhasil disinkronkan.');
+
+                                    // Update the row with new data from server
+                                    if (response.data) {
+                                        updateRowData(productId, response.data);
+                                    }
+                                } else {
+                                    showNotification('error', 'Gagal!', response.message || 'Terjadi kesalahan saat sinkronisasi.');
+                                }
+                            },
+                            error: function(xhr) {
+                                let errorMessage = 'Terjadi kesalahan pada server. Silakan coba lagi.';
+                                if (xhr.responseJSON && xhr.responseJSON.message) {
+                                    errorMessage = xhr.responseJSON.message;
+                                }
+                                showNotification('error', 'Error!', errorMessage);
+                            },
+                            complete: function() {
+                                // Re-enable button and restore original icon
+                                btn.prop('disabled', false);
+                                btn.html(originalIcon);
+                            }
+                        });
+                    }
+                });
+            });
+
+             // Reset button click - with confirmation
+            $(document).on('click', '.reset-btn', function(e) {
+                e.preventDefault();
+
+                const btn = $(this);
+                const productId = btn.data('id');
+                const filterMonthYear = $('#filter-month-year').val();
+
+                if (!productId) {
+                    showNotification('error', 'Error', 'Product ID tidak ditemukan');
+                    return;
+                }
+
+                Swal.fire({
+                    title: 'Anda yakin?',
+                    text: "Ini akan me-reset semua data stok (awal, masuk, keluar, defective) untuk produk ini ke nol. Tindakan ini tidak dapat dibatalkan!",
+                    icon: 'error',
+                    showCancelButton: true,
+                    confirmButtonColor: '#d33',
+                    cancelButtonColor: '#3085d6',
+                    confirmButtonText: 'Ya, reset!',
+                    cancelButtonText: 'Batal'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        // Disable button and show loading state
+                        btn.prop('disabled', true);
+                        const originalIcon = btn.html();
+                        btn.html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>');
+
+                        // Send reset request
+                        $.ajax({
+                            url: `/finished-goods/${productId}/reset`,
+                            method: 'POST',
+                            data: {
+                                _token: '{{ csrf_token() }}',
+                                filter_month_year: filterMonthYear
+                            },
+                            timeout: 30000,
+                            success: function(response) {
+                                if (response && response.success) {
+                                    showNotification('success', 'Berhasil!', response.message || 'Stok produk berhasil di-reset.');
+                                    if (response.data) {
+                                        updateRowData(productId, response.data);
+                                    }
+                                } else {
+                                    showNotification('error', 'Gagal!', response.message || 'Terjadi kesalahan saat me-reset stok.');
+                                }
+                            },
+                            error: function(xhr) {
+                                let errorMessage = 'Terjadi kesalahan pada server.';
+                                if (xhr.responseJSON && xhr.responseJSON.message) {
+                                    errorMessage = xhr.responseJSON.message;
+                                }
+                                showNotification('error', 'Error!', errorMessage);
+                            },
+                            complete: function() {
+                                btn.prop('disabled', false);
+                                btn.html(originalIcon);
+                            }
+                        });
                     }
                 });
             });

@@ -15,8 +15,8 @@ return new class extends Migration
             $table->id();
             $table->foreignId('bahan_baku_id')->constrained('bahan_bakus')->onDelete('cascade');
             $table->integer('stok_awal')->default(0);
-            $table->integer('stok_masuk')->default(0);
-            $table->integer('terpakai')->default(0);
+            $table->integer('stok_masuk')->default(0); // dari purchase bahan baku 
+            $table->integer('terpakai')->default(0); // dari catatan produksi
             $table->integer('defect')->default(0);
             $table->integer('live_stok_gudang')->default(0);
             $table->string('satuan');

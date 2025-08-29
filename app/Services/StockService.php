@@ -6,6 +6,7 @@ use App\Models\CatatanProduksi;
 use App\Models\FinishedGoods;
 use App\Models\HistorySale;
 use App\Models\Product;
+use App\Models\Purchase;
 
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -97,6 +98,123 @@ class StockService
             });
         } catch (\Exception $e) {
             Log::error("Gagal mengurangi stok masuk: " . $e->getMessage());
+            throw $e;
+        }
+    }
+
+    /**
+     * Menambah stok masuk pada Finished Goods dari data pembelian baru.
+     * Hanya berlaku untuk pembelian dengan kategori 'finished_goods'.
+     *
+     * @param Purchase $purchase
+     * @return void
+     */
+    public function addStockFromPurchase(Purchase $purchase)
+    {
+        if ($purchase->kategori !== 'finished_goods') {
+            return;
+        }
+
+        $productId = $purchase->bahan_baku_id;
+        $quantity = $purchase->total_stok_masuk;
+
+        if ($quantity <= 0) {
+            return; // Jangan proses jika tidak ada stok yang masuk
+        }
+
+        try {
+            DB::transaction(function () use ($productId, $quantity) {
+                $finishedGood = FinishedGoods::firstOrNew(['product_id' => $productId]);
+
+                if (!$finishedGood->exists) {
+                    $finishedGood->stok_awal = 0;
+                    $finishedGood->stok_masuk = 0;
+                    $finishedGood->stok_keluar = 0;
+                    $finishedGood->defective = 0;
+                    $finishedGood->live_stock = 0;
+                }
+
+                $finishedGood->stok_masuk += $quantity;
+                $this->recalculateLiveStock($finishedGood);
+                $finishedGood->save();
+
+                Log::info("Stok masuk dari pembelian ditambahkan: Product ID {$productId}, Quantity {$quantity}");
+            });
+        } catch (\Exception $e) {
+            Log::error("Gagal menambahkan stok dari pembelian: " . $e->getMessage());
+            throw $e;
+        }
+    }
+
+    /**
+     * Memperbarui stok masuk pada Finished Goods saat data pembelian diubah.
+     *
+     * @param Purchase $purchase
+     * @return void
+     */
+    public function updateStockFromPurchaseChange(Purchase $purchase)
+    {
+        if ($purchase->kategori !== 'finished_goods' || !$purchase->wasChanged('total_stok_masuk')) {
+            return;
+        }
+
+        $productId = $purchase->bahan_baku_id;
+        $oldQuantity = $purchase->getOriginal('total_stok_masuk');
+        $newQuantity = $purchase->total_stok_masuk;
+        $difference = $newQuantity - $oldQuantity;
+
+        if ($difference == 0) {
+            return;
+        }
+
+        try {
+            DB::transaction(function () use ($productId, $difference) {
+                $finishedGood = FinishedGoods::where('product_id', $productId)->firstOrFail();
+                $finishedGood->stok_masuk += $difference;
+                $this->recalculateLiveStock($finishedGood);
+                $finishedGood->save();
+
+                Log::info("Stok masuk dari pembelian diperbarui: Product ID {$productId}, Perubahan {$difference}");
+            });
+        } catch (\Exception $e) {
+            Log::error("Gagal memperbarui stok dari pembelian: " . $e->getMessage());
+            throw $e;
+        }
+    }
+
+    /**
+     * Mengurangi stok masuk pada Finished Goods saat data pembelian dihapus.
+     *
+     * @param Purchase $purchase
+     * @return void
+     */
+    public function removeStockFromPurchase(Purchase $purchase)
+    {
+        if ($purchase->kategori !== 'finished_goods') {
+            return;
+        }
+
+        $productId = $purchase->bahan_baku_id;
+        $quantity = $purchase->total_stok_masuk;
+
+        if ($quantity <= 0) {
+            return;
+        }
+
+        try {
+            DB::transaction(function () use ($productId, $quantity) {
+                $finishedGood = FinishedGoods::where('product_id', $productId)->first();
+
+                if ($finishedGood) {
+                    $finishedGood->stok_masuk -= $quantity;
+                    $this->recalculateLiveStock($finishedGood);
+                    $finishedGood->save();
+
+                    Log::info("Stok masuk dari pembelian dikurangi: Product ID {$productId}, Quantity {$quantity}");
+                }
+            });
+        } catch (\Exception $e) {
+            Log::error("Gagal mengurangi stok dari pembelian: " . $e->getMessage());
             throw $e;
         }
     }

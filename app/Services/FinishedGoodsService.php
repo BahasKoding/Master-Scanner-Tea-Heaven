@@ -68,18 +68,24 @@ class FinishedGoodsService
      *
      * @param FinishedGoods $finishedGoods
      * @param array $data
+     * @param string|null $filterMonthYear
      * @return FinishedGoods
      */
-    public function updateFinishedGoods(FinishedGoods $finishedGoods, array $data)
+    public function updateFinishedGoods(FinishedGoods $finishedGoods, array $data, $filterMonthYear = null)
     {
-        return DB::transaction(function () use ($finishedGoods, $data) {
+        return DB::transaction(function () use ($finishedGoods, $data, $filterMonthYear) {
             try {
                 // Update manual input values
                 $finishedGoods->stok_awal = $data['stok_awal'];
                 $finishedGoods->defective = $data['defective'];
 
-                // Auto-calculate stock values from related data
-                $this->updateStockFromRelatedData($finishedGoods);
+                // IMPORTANT: Only update auto-calculated values if no monthly filter is applied
+                // When monthly filter is active, we should not modify the stored stok_masuk/stok_keluar
+                // as they represent the cumulative values, not monthly values
+                if (!$filterMonthYear) {
+                    // Auto-calculate stock values from related data only for all-time view
+                    $this->updateStockFromRelatedData($finishedGoods);
+                }
 
                 // Verify data integrity before save
                 if (!is_numeric($finishedGoods->stok_awal) || !is_numeric($finishedGoods->defective)) {
@@ -89,8 +95,11 @@ class FinishedGoodsService
                 // Save the record
                 $finishedGoods->save();
 
-                // Trigger recalculation to ensure live_stock is updated
-                $finishedGoods->recalculateLiveStock();
+                // Only recalculate live_stock if not using monthly filter
+                if (!$filterMonthYear) {
+                    // Trigger recalculation to ensure live_stock is updated
+                    $finishedGoods->recalculateLiveStock();
+                }
 
                 return $finishedGoods;
             } catch (\Exception $e) {
@@ -98,7 +107,8 @@ class FinishedGoodsService
                     'finished_goods_id' => $finishedGoods->id ?? 'unknown',
                     'product_id' => $finishedGoods->product_id ?? 'unknown',
                     'error_message' => $e->getMessage(),
-                    'input_data' => $data
+                    'input_data' => $data,
+                    'filter_month_year' => $filterMonthYear
                 ]);
                 throw $e;
             }
@@ -355,8 +365,14 @@ class FinishedGoodsService
                         $finishedGoods->defective = 0;
                     }
 
-                    // Update stock from related data with monthly filter
-                    $this->updateStockFromRelatedData($finishedGoods, $filterMonthYear);
+                    // IMPORTANT: Only update stored values when no monthly filter is applied
+                    // Monthly filter should only affect display, not stored data
+                    if (!$filterMonthYear) {
+                        // Update stock from related data with monthly filter
+                        $this->updateStockFromRelatedData($finishedGoods, $filterMonthYear);
+                    }
+                    // If monthly filter is active, we only save manual changes (stok_awal, defective)
+                    // without modifying the stored stok_masuk/stok_keluar values
 
                     // Save the record
                     $finishedGoods->save();
@@ -368,7 +384,8 @@ class FinishedGoodsService
                         'product_name' => $product->name_product,
                         'stok_masuk' => $finishedGoods->stok_masuk,
                         'stok_keluar' => $finishedGoods->stok_keluar,
-                        'live_stock' => $finishedGoods->live_stock
+                        'live_stock' => $finishedGoods->live_stock,
+                        'monthly_filter_applied' => $filterMonthYear ? true : false
                     ];
                     $processedCount++;
                 } catch (\Exception $e) {
@@ -645,35 +662,50 @@ class FinishedGoodsService
      * @param int $productId
      * @return FinishedGoods
      */
-    public function resetFinishedGoods(int $productId)
+    public function resetProductStock(int $productId, $filterMonthYear = null)
     {
-        return DB::transaction(function () use ($productId) {
+        return DB::transaction(function () use ($productId, $filterMonthYear) {
             try {
-                $product = Product::findOrFail($productId);
+                // Find or create the finished goods record
+                $finishedGoods = FinishedGoods::firstOrNew(['product_id' => $productId]);
 
-                // Reset to default values
-                $finishedGoods = FinishedGoods::updateOrCreate(
-                    ['product_id' => $productId],
-                    [
-                        'stok_awal' => 0,
-                        'defective' => 0
-                    ]
-                );
+                // Reset manual fields to zero
+                $finishedGoods->stok_awal = 0;
+                $finishedGoods->defective = 0;
 
-                // Recalculate stock from related data
-                $this->updateStockFromRelatedData($finishedGoods);
+                // Recalculate stok_masuk and stok_keluar based on the filter
+                $this->updateStockFromRelatedData($finishedGoods, $filterMonthYear);
 
-                Log::info('Finished goods reset via service', [
+                // Save the changes
+                $finishedGoods->save();
+
+                // Recalculate live stock
+                $finishedGoods->recalculateLiveStock();
+
+                // Log the reset operation
+                Log::info('Product stock reset successfully', [
                     'product_id' => $productId,
-                    'product_name' => $product->name_product,
-                    'finished_goods_id' => $finishedGoods->id
+                    'filter_month_year' => $filterMonthYear,
+                    'new_stock_data' => $finishedGoods->toArray()
                 ]);
 
-                return $finishedGoods;
+                // Return the updated data
+                return [
+                    'id' => $finishedGoods->id,
+                    'product_id' => $finishedGoods->product_id,
+                    'stok_awal' => $finishedGoods->stok_awal,
+                    'stok_masuk' => $finishedGoods->stok_masuk,
+                    'stok_keluar' => $finishedGoods->stok_keluar,
+                    'defective' => $finishedGoods->defective,
+                    'live_stock' => $finishedGoods->live_stock,
+                    'updated_at' => $finishedGoods->updated_at->format('Y-m-d H:i:s')
+                ];
             } catch (\Exception $e) {
-                Log::error('Error resetting finished goods', [
+                Log::error('Error resetting product stock', [
                     'product_id' => $productId,
-                    'error' => $e->getMessage()
+                    'filter_month_year' => $filterMonthYear,
+                    'error' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString()
                 ]);
                 throw $e;
             }

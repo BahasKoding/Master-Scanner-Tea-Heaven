@@ -172,6 +172,7 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/{productId}/reset', [FinishedGoodsController::class, 'reset'])->name('reset');
         Route::post('/data', [FinishedGoodsController::class, 'data'])->name('data');
         Route::post('/sync', [FinishedGoodsController::class, 'sync'])->name('sync');
+        Route::post('/{productId}/sync', [FinishedGoodsController::class, 'syncProduct'])->name('sync-product');
         Route::post('/bulk-update-all', [FinishedGoodsController::class, 'bulkUpdateAll'])->name('bulk-update-all');
         Route::post('/statistics', [FinishedGoodsController::class, 'statistics'])->name('statistics');
         Route::get('/low-stock', [FinishedGoodsController::class, 'lowStock'])->name('low-stock');

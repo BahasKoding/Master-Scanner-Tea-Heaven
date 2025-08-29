@@ -213,6 +213,9 @@ class FinishedGoodsController extends Controller
                 'defective' => 'required|integer|min:0',
             ], $this->getValidationMessages());
 
+            // Get filter month year from request
+            $filterMonthYear = $request->input('filter_month_year');
+
             // Verify numeric values before proceeding
             if (!is_numeric($validated['stok_awal']) || !is_numeric($validated['defective'])) {
                 throw new \InvalidArgumentException('Stok awal dan defective harus berupa angka yang valid');
@@ -223,7 +226,7 @@ class FinishedGoodsController extends Controller
 
             try {
                 // Use FinishedGoodsService for consistent transaction handling
-                $finishedGoods = $this->finishedGoodsService->updateFinishedGoods($finishedGoods, $validated);
+                $finishedGoods = $this->finishedGoodsService->updateFinishedGoods($finishedGoods, $validated, $filterMonthYear);
             } catch (\Exception $serviceError) {
                 throw new \RuntimeException('Terjadi kesalahan saat memproses data. ' . $serviceError->getMessage());
             }
@@ -341,6 +344,45 @@ class FinishedGoodsController extends Controller
     }
 
     /**
+     * Sync stock data for a single finished goods product.
+     */
+    public function syncProduct(Request $request, $productId)
+    {
+        try {
+            // Use the existing service method, which can handle single product sync
+            $filterMonthYear = $request->get('filter_month_year');
+
+            $syncResults = $this->finishedGoodsService->syncFinishedGoodsStock($productId, 1, 0, 1, $filterMonthYear);
+
+            // Log the activity
+            $productName = Product::find($productId)->name_product ?? 'ID ' . $productId;
+            addActivity(
+                'finished_goods',
+                'sync-product',
+                'Pengguna melakukan sinkronisasi stok untuk produk: ' . $productName,
+                $productId
+            );
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Berhasil! Stok untuk produk ' . $productName . ' telah disinkronkan.',
+                'data' => $syncResults
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Gagal melakukan sinkronisasi produk tunggal', [
+                'error' => $e->getMessage(),
+                'product_id' => $productId,
+                'request' => $request->all()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal melakukan sinkronisasi data: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
      * Get finished goods statistics for a specific product
      */
     public function statistics(Request $request)
@@ -400,40 +442,35 @@ class FinishedGoodsController extends Controller
     /**
      * Reset finished goods to default values
      */
-    public function reset($productId)
+    public function reset(Request $request, $productId)
     {
         try {
-            // Use FinishedGoodsService for consistent transaction handling
-            $finishedGoods = $this->finishedGoodsService->resetFinishedGoods($productId);
+            $filterMonthYear = $request->input('filter_month_year');
+
+            // Use FinishedGoodsService to reset and then get updated data
+            $updatedData = $this->finishedGoodsService->resetProductStock($productId, $filterMonthYear);
 
             // Get product name for logging
             $product = Product::find($productId);
+            $productName = $product ? $product->name_product : 'ID ' . $productId;
 
             // Log activity
-            addActivity('finished_goods', 'reset', 'Pengguna mereset finished goods untuk produk: ' . $product->name_product . ' (via service layer)', $finishedGoods->id);
+            addActivity('finished_goods', 'reset', 'Pengguna me-reset stok untuk produk: ' . $productName, $productId);
 
             return response()->json([
                 'success' => true,
-                'message' => 'Berhasil! Data finished goods telah direset dengan service layer.',
-                'data' => [
-                    'id' => $finishedGoods->id,
-                    'product_id' => $finishedGoods->product_id,
-                    'stok_awal' => $finishedGoods->stok_awal,
-                    'stok_masuk' => $finishedGoods->stok_masuk,
-                    'stok_keluar' => $finishedGoods->stok_keluar,
-                    'defective' => $finishedGoods->defective,
-                    'live_stock' => $finishedGoods->live_stock,
-                    'updated_at' => $finishedGoods->updated_at->format('Y-m-d H:i:s')
-                ]
+                'message' => 'Berhasil! Stok untuk produk ' . $productName . ' telah di-reset.',
+                'data' => $updatedData
             ]);
         } catch (\Exception $e) {
-            Log::error('Error saat reset finished goods via service', [
+            Log::error('Error saat me-reset stok produk', [
                 'product_id' => $productId,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
             ]);
             return response()->json([
                 'success' => false,
-                'message' => 'Maaf! Terjadi kesalahan saat reset finished goods. Silahkan coba lagi.'
+                'message' => 'Maaf! Terjadi kesalahan saat me-reset stok. Silahkan coba lagi.'
             ], 500);
         }
     }

@@ -1,0 +1,5 @@
+
+    // Finished Goods routes with custom parameter structure
+    Route::prefix('finished-goods')->name('finished-goods.')->group(function () {
+        Route::get('/', [FinishedGoodsController::class, 'index'])->name('index');
+        Route::post('/', [FinishedGoodsController::class, 'store'])->name('store');
