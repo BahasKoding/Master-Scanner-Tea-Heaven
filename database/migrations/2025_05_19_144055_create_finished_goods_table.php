@@ -18,6 +18,7 @@ return new class extends Migration
             $table->integer('stok_masuk'); // dari catatan produksi + purchase finished goods
             $table->integer('stok_keluar'); // dari hasil scanner
             $table->integer('defective');
+            $table->integer('stok_sisa'); // dari stock opname bulan kemaren
             $table->integer('live_stock');
             $table->timestamps();
         });
