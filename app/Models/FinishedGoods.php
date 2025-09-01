@@ -344,4 +344,78 @@ class FinishedGoods extends Model
             return $this;
         }
     }
+
+    /**
+     * Get dynamic stok_masuk for a specific month.
+     * @param \Carbon\Carbon|null $date
+     * @return int
+     */
+    public function getStokMasukForMonth($date = null)
+    {
+        try {
+            $date = $date ?? now();
+            $startDate = $date->startOfMonth()->toDateString();
+            $endDate = $date->endOfMonth()->toDateString();
+
+            // Get total from production records within the month
+            $totalProduction = CatatanProduksi::where('product_id', $this->product_id)
+                ->whereBetween('created_at', [$startDate, $endDate])
+                ->sum('quantity');
+            
+            // Get total from finished_goods purchases within the month
+            $totalPurchases = Purchase::where('bahan_baku_id', $this->product_id)
+                ->where('kategori', 'finished_goods')
+                ->whereBetween('created_at', [$startDate, $endDate])
+                ->sum('total_stok_masuk');
+            
+            return $totalProduction + $totalPurchases;
+
+        } catch (\Exception $e) {
+            Log::error("Error calculating monthly stok_masuk for product_id {$this->product_id}: " . $e->getMessage());
+            return 0;
+        }
+    }
+
+    /**
+     * Get dynamic stok_keluar for a specific month.
+     * @param \Carbon\Carbon|null $date
+     * @return int
+     */
+    public function getStokKeluarForMonth($date = null)
+    {
+        try {
+            $date = $date ?? now();
+            $startDate = $date->startOfMonth()->toDateString();
+            $endDate = $date->endOfMonth()->toDateString();
+
+            $product = $this->product;
+            if (!$product) {
+                return 0;
+            }
+
+            $totalSales = 0;
+            $historySales = HistorySale::whereNotNull('no_sku')
+                ->whereBetween('created_at', [$startDate, $endDate])
+                ->get();
+
+            foreach ($historySales as $sale) {
+                $skuArray = is_string($sale->no_sku) ? json_decode($sale->no_sku, true) : $sale->no_sku;
+                $qtyArray = is_string($sale->qty) ? json_decode($sale->qty, true) : $sale->qty;
+
+                if (is_array($skuArray) && is_array($qtyArray)) {
+                    foreach ($skuArray as $index => $sku) {
+                        if ($sku === $product->sku) {
+                            $totalSales += $qtyArray[$index] ?? 0;
+                        }
+                    }
+                }
+            }
+            
+            return $totalSales;
+
+        } catch (\Exception $e) {
+            Log::error("Error calculating monthly stok_keluar for product_id {$this->product_id}: " . $e->getMessage());
+            return 0;
+        }
+    }
 }

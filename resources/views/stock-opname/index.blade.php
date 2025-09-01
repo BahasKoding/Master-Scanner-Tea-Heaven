@@ -9,8 +9,8 @@
 
     <!-- [Page specific CSS] start -->
     <!-- data tables css -->
-    <link rel="stylesheet" href="{{ URL::asset('build/css/plugins/datatables/dataTables.bootstrap5.min.css') }}">
-    <link rel="stylesheet" href="{{ URL::asset('build/css/plugins/datatables/buttons.bootstrap5.min.css') }}">
+    <link rel="stylesheet" href="{{ URL::asset('build/css/plugins/dataTables.bootstrap5.min.css') }}">
+    <link rel="stylesheet" href="{{ URL::asset('build/css/plugins/buttons.bootstrap5.min.css') }}">
     <!-- Choices css -->
     <link rel="stylesheet" href="{{ URL::asset('build/css/plugins/choices.min.css') }}">
     <!-- [Page specific CSS] end -->

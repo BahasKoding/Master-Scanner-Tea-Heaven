@@ -94,12 +94,13 @@ class FinishedGoodsService
 
                 // Verify data integrity before save
                 if (!is_numeric($finishedGoods->stok_masuk) || !is_numeric($finishedGoods->stok_keluar)) {
-                    $finishedGoods->updateStokMasukFromAllSources();
-                    $finishedGoods->updateStokKeluarFromHistorySales();
-
-                    $finishedGoods->stok_masuk = $finishedGoods->stok_masuk ?? 0;
-                    $finishedGoods->stok_keluar = $finishedGoods->stok_keluar ?? 0;
+                    $finishedGoods->stok_masuk = $finishedGoods->getStokMasukForMonth() ?? 0;
+                    $finishedGoods->stok_keluar = $finishedGoods->getStokKeluarForMonth() ?? 0;
                 }
+
+                // Recalculate stok_sisa and live_stock
+                $finishedGoods->stok_sisa = $finishedGoods->stok_awal + $finishedGoods->stok_masuk - $finishedGoods->stok_keluar - $finishedGoods->defective;
+                $finishedGoods->live_stock = $finishedGoods->stok_sisa;
 
                 // Save the record
                 $finishedGoods->save();
