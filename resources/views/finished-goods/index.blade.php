@@ -135,10 +135,6 @@
             font-weight: bold;
         }
 
-        .update-btn {
-            margin-right: 5px;
-        }
-
         .table td {
             vertical-align: middle;
         }
@@ -335,7 +331,6 @@
                                     <th>Defective</th>
                                     <th>Stok Sisa</th>
                                     <th>Live Stock</th>
-                                    <th>Aksi</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -618,31 +613,6 @@
                             return data;
                         }
                     },
-                    {
-                        data: 'action',
-                        name: 'action',
-                        orderable: false,
-                        searchable: false,
-                        width: '15%',
-                        render: function(data, type, row) {
-                            if (type === 'display') {
-                                return `
-                                    <div class="btn-group" role="group">
-                                        <button type="button" class="btn btn-sm btn-success update-btn" data-id="${row.product_id}" title="Update Stok Awal, Stok Sisa & Defective">
-                                            <i class="fas fa-save"></i>
-                                        </button>
-                                        <button type="button" class="btn btn-sm btn-info sync-btn" data-id="${row.product_id}" title="Sync Stok Produk Ini">
-                                            <i class="fas fa-sync"></i>
-                                        </button>
-                                        <button type="button" class="btn btn-sm btn-secondary reset-btn" data-id="${row.product_id}" title="Reset Stok Produk Ini">
-                                            <i class="fas fa-undo"></i>
-                                        </button>
-                                    </div>
-                                `;
-                            }
-                            return data;
-                        }
-                    }
                 ],
                 order: [
                     [2, 'asc']
@@ -818,20 +788,20 @@
             // Function to calculate live stock for a specific row
             function calculateRowLiveStock(productId) {
                 // Only get values from enabled inputs (manual inputs)
-                const stokAwal = parseInt($(`input[data-product-id="${productId}"][data-field="stok_awal"]`)
-                    .val()) || 0;
-                const defective = parseInt($(`input[data-product-id="${productId}"][data-field="defective"]`)
-                    .val()) || 0;
+                const stokAwal = $(`input[data-product-id="${productId}"][data-field="stok_awal"]`)
+                    .val() || 0;
+                const defective = $(`input[data-product-id="${productId}"][data-field="defective"]`)
+                    .val() || 0;
 
                 // Get auto values from disabled inputs (just for display, but actual calculation will be server-side)
-                const stokMasuk = parseInt($(`input[data-product-id="${productId}"][data-field="stok_masuk"]`)
-                    .val()) || 0;
-                const stokKeluar = parseInt($(`input[data-product-id="${productId}"][data-field="stok_keluar"]`)
-                    .val()) || 0;
-                const stokSisa = parseInt($(`input[data-product-id="${productId}"][data-field="stok_sisa"]`)
-                    .val()) || 0;
+                const stokMasuk = $(`input[data-product-id="${productId}"][data-field="stok_masuk"]`)
+                    .val() || 0;
+                const stokKeluar = $(`input[data-product-id="${productId}"][data-field="stok_keluar"]`)
+                    .val() || 0;
+                const stokSisa = $(`input[data-product-id="${productId}"][data-field="stok_sisa"]`)
+                    .val() || 0;
 
-                const liveStock = stokAwal + stokMasuk - stokKeluar - defective + stokSisa;
+                const liveStock = parseInt(stokAwal) + parseInt(stokMasuk) - parseInt(stokKeluar) - parseInt(defective) + parseInt(stokSisa);
                 $(`.live-stock[data-product-id="${productId}"]`).text(liveStock);
 
                 return liveStock;
@@ -841,6 +811,58 @@
             $(document).on('input', '.stock-input:not([disabled])', function() {
                 const productId = $(this).data('product-id');
                 calculateRowLiveStock(productId);
+            });
+
+           $(document).on('change', '.stock-input[data-field="stok_awal"], .stock-input[data-field="defective"]', function() {
+                const $input = $(this);
+                const productId = $input.data('product-id');
+                const stokAwal = $(`input[data-product-id="${productId}"][data-field="stok_awal"]`).val();
+                const defective = $(`input[data-product-id="${productId}"][data-field="defective"]`).val();
+
+                $.ajax({
+                    url: `/finished-goods/${productId}`,
+                    method: 'PUT',
+                    data: {
+                        stok_awal: stokAwal ?? 0,
+                        defective: defective ?? 0,
+                        _token: $('meta[name="csrf-token"]').attr('content')
+                    },
+                    success: function(response) {
+                        if (response.success && response.data) {
+                            // Soft reload: update row values sesuai response
+                            updateRowData(productId, response.data);
+
+                            // Optional: tampilkan notifikasi sukses
+                            if (typeof Swal !== 'undefined') {
+                                Swal.fire({
+                                    icon: 'success',
+                                    title: 'Update Berhasil',
+                                    text: response.message,
+                                    timer: 1500,
+                                    showConfirmButton: false
+                                });
+                            }
+                        } else {
+                            // Optional: tampilkan notifikasi error
+                            if (typeof Swal !== 'undefined') {
+                                Swal.fire({
+                                    icon: 'error',
+                                    title: 'Gagal Update',
+                                    text: response.message || 'Terjadi kesalahan saat update data.',
+                                });
+                            }
+                        }
+                    },
+                    error: function(xhr) {
+                        if (typeof Swal !== 'undefined') {
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Gagal Update',
+                                text: xhr.responseJSON?.message || 'Terjadi kesalahan saat update data.',
+                            });
+                        }
+                    }
+                });
             });
 
             // Function to update row data after successful update
@@ -871,266 +893,6 @@
                     alert(title + ': ' + message);
                 }
             }
-
-            // Update button click - with better error handling
-            $(document).on('click', '.update-btn', function(e) {
-                e.preventDefault();
-                
-                const btn = $(this);
-                const productId = btn.data('id');
-
-                // Validate productId
-                if (!productId) {
-                    showNotification('error', 'Error', 'Product ID tidak ditemukan');
-                    return;
-                }
-
-                // Get values from manual input fields only
-                const stokAwalInput = $(`input[data-product-id="${productId}"][data-field="stok_awal"]`);
-                const defectiveInput = $(`input[data-product-id="${productId}"][data-field="defective"]`);
-                
-                if (stokAwalInput.length === 0 || defectiveInput.length === 0) {
-                    showNotification('error', 'Error', 'Input field tidak ditemukan');
-                    return;
-                }
-
-                const stokAwal = parseInt(stokAwalInput.val()) || 0;
-                const defective = parseInt(defectiveInput.val()) || 0;
-
-                // Disable button and show loading state
-                btn.prop('disabled', true);
-                const originalText = btn.html();
-                btn.html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Menyimpan...');
-
-                // Send update request
-                $.ajax({
-                    url: `/finished-goods/${productId}`,
-                    method: 'POST',
-                    data: {
-                        _token: '{{ csrf_token() }}',
-                        _method: 'PUT',
-                        stok_awal: stokAwal,
-                        defective: defective,
-                        filter_month_year: $('#filter-month-year').val() // Include current filter
-                    },
-                    timeout: 30000, // 30 second timeout
-                    success: function(response) {
-                        if (response && response.success) {
-                            showNotification('success', 'Berhasil!', response.message || 'Data berhasil diperbarui');
-
-                            // Update the row with new data
-                            if (response.data) {
-                                updateRowData(productId, response.data);
-                            }
-                        } else {
-                            showNotification('error', 'Gagal!', response.message || 'Terjadi kesalahan');
-                        }
-                    },
-                    error: function(xhr, status, error) {
-                        let errorMessage = 'Terjadi kesalahan saat menyimpan data';
-                        
-                        if (xhr.status === 422) {
-                            // Validation errors
-                            try {
-                                const errorResponse = JSON.parse(xhr.responseText);
-                                if (errorResponse.errors) {
-                                    const errorList = Object.values(errorResponse.errors).flat();
-                                    errorMessage = errorList.join(', ');
-                                } else if (errorResponse.message) {
-                                    errorMessage = errorResponse.message;
-                                }
-                            } catch (parseError) {
-                                errorMessage = 'Data tidak valid. Periksa input Anda.';
-                            }
-                        } else if (xhr.status === 500) {
-                            // Server error
-                            try {
-                                const errorResponse = JSON.parse(xhr.responseText);
-                                errorMessage = errorResponse.message || 'Terjadi kesalahan server';
-                            } catch (parseError) {
-                                errorMessage = 'Terjadi kesalahan server. Silahkan coba lagi.';
-                            }
-                        } else if (xhr.status === 404) {
-                            errorMessage = 'Produk tidak ditemukan';
-                        } else if (xhr.status === 0) {
-                            errorMessage = 'Koneksi terputus. Periksa jaringan Anda.';
-                        } else if (status === 'timeout') {
-                            errorMessage = 'Request timeout. Silahkan coba lagi.';
-                        }
-
-                        showNotification('error', 'Gagal!', errorMessage);
-                    },
-                    complete: function() {
-                        // Re-enable button and restore original text
-                        btn.prop('disabled', false);
-                        btn.html(originalText);
-                    }
-                });
-            });
-
-            // Sync button click - for individual product sync
-            $(document).on('click', '.sync-btn', function(e) {
-                e.preventDefault();
-
-                const btn = $(this);
-                const productId = btn.data('id');
-                const filterMonthYear = $('#filter-month-year').val();
-
-                if (!productId) {
-                    showNotification('error', 'Error', 'Product ID tidak ditemukan.');
-                    return;
-                }
-
-                Swal.fire({
-                    title: 'Anda yakin?',
-                    text: "Sinkronisasi akan memperbarui stok masuk dan keluar untuk produk ini. Proses ini tidak dapat dibatalkan.",
-                    icon: 'warning',
-                    showCancelButton: true,
-                    confirmButtonColor: '#3085d6',
-                    cancelButtonColor: '#d33',
-                    confirmButtonText: 'Ya, sinkronkan!',
-                    cancelButtonText: 'Batal'
-                }).then((result) => {
-                    if (result.isConfirmed) {
-                        // Disable button and show loading state
-                        btn.prop('disabled', true);
-                        const originalIcon = btn.html();
-                        btn.html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>');
-
-                        // Send sync request
-                        $.ajax({
-                            url: `/finished-goods/${productId}/sync`,
-                            method: 'POST',
-                            data: {
-                                _token: '{{ csrf_token() }}',
-                                filter_month_year: filterMonthYear
-                            },
-                            timeout: 120000, // 2 minute timeout for potentially long sync
-                            success: function(response) {
-                                if (response && response.success) {
-                                    showNotification('success', 'Berhasil!', response.message || 'Produk berhasil disinkronkan.');
-
-                                    // Update the row with new data from server
-                                    if (response.data) {
-                                        updateRowData(productId, response.data);
-                                    }
-                                } else {
-                                    showNotification('error', 'Gagal!', response.message || 'Terjadi kesalahan saat sinkronisasi.');
-                                }
-                            },
-                            error: function(xhr) {
-                                let errorMessage = 'Terjadi kesalahan pada server. Silakan coba lagi.';
-                                if (xhr.responseJSON && xhr.responseJSON.message) {
-                                    errorMessage = xhr.responseJSON.message;
-                                }
-                                showNotification('error', 'Error!', errorMessage);
-                            },
-                            complete: function() {
-                                // Re-enable button and restore original icon
-                                btn.prop('disabled', false);
-                                btn.html(originalIcon);
-                            }
-                        });
-                    }
-                });
-            });
-
-             // Reset button click - with confirmation
-            $(document).on('click', '.reset-btn', function(e) {
-                e.preventDefault();
-
-                const btn = $(this);
-                const productId = btn.data('id');
-                const filterMonthYear = $('#filter-month-year').val();
-
-                if (!productId) {
-                    showNotification('error', 'Error', 'Product ID tidak ditemukan');
-                    return;
-                }
-
-                Swal.fire({
-                    title: 'Anda yakin?',
-                    text: "Ini akan me-reset semua data stok (awal, masuk, keluar, defective) untuk produk ini ke nol. Tindakan ini tidak dapat dibatalkan!",
-                    icon: 'error',
-                    showCancelButton: true,
-                    confirmButtonColor: '#d33',
-                    cancelButtonColor: '#3085d6',
-                    confirmButtonText: 'Ya, reset!',
-                    cancelButtonText: 'Batal'
-                }).then((result) => {
-                    if (result.isConfirmed) {
-                        // Disable button and show loading state
-                        btn.prop('disabled', true);
-                        const originalIcon = btn.html();
-                        btn.html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>');
-
-                        // Send reset request
-                        $.ajax({
-                            url: `/finished-goods/${productId}/reset`,
-                            method: 'POST',
-                            data: {
-                                _token: '{{ csrf_token() }}',
-                                filter_month_year: filterMonthYear
-                            },
-                            timeout: 30000,
-                            success: function(response) {
-                                if (response && response.success) {
-                                    showNotification('success', 'Berhasil!', response.message || 'Stok produk berhasil di-reset.');
-                                    if (response.data) {
-                                        updateRowData(productId, response.data);
-                                    }
-                                } else {
-                                    showNotification('error', 'Gagal!', response.message || 'Terjadi kesalahan saat me-reset stok.');
-                                }
-                            },
-                            error: function(xhr) {
-                                let errorMessage = 'Terjadi kesalahan pada server.';
-                                if (xhr.responseJSON && xhr.responseJSON.message) {
-                                    errorMessage = xhr.responseJSON.message;
-                                }
-                                showNotification('error', 'Error!', errorMessage);
-                            },
-                            complete: function() {
-                                btn.prop('disabled', false);
-                                btn.html(originalIcon);
-                            }
-                        });
-                    }
-                });
-            });
-
-            // Reset button click - only reset manual fields
-            $(document).on('click', '.reset-btn', function() {
-                const productId = $(this).data('id');
-
-                Swal.fire({
-                    title: 'Reset Data Manual?',
-                    text: "Apakah Anda yakin ingin mereset data stok manual (Stok Awal & Defective) ke 0?",
-                    icon: 'question',
-                    showCancelButton: true,
-                    confirmButtonColor: '#3085d6',
-                    cancelButtonColor: '#d33',
-                    confirmButtonText: 'Ya, Reset!',
-                    cancelButtonText: 'Batal'
-                }).then((result) => {
-                    if (result.isConfirmed) {
-                        // Reset only manual input fields to 0
-                        $(`input[data-product-id="${productId}"][data-field="stok_awal"]`).val(0);
-                        $(`input[data-product-id="${productId}"][data-field="defective"]`).val(0);
-                        calculateRowLiveStock(productId);
-
-                        Swal.fire({
-                            title: 'Direset!',
-                            text: 'Data stok manual telah direset ke 0.',
-                            icon: 'success',
-                            timer: 1500,
-                            showConfirmButton: false,
-                            toast: true,
-                            position: 'top-end'
-                        });
-                    }
-                });
-            });
         });
         
         // Bulk Update All functionality with progress tracking

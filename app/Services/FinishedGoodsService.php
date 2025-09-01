@@ -86,10 +86,19 @@ class FinishedGoodsService
                     // Auto-calculate stock values from related data only for all-time view
                     $this->updateStockFromRelatedData($finishedGoods);
                 }
-
+                
                 // Verify data integrity before save
                 if (!is_numeric($finishedGoods->stok_awal) || !is_numeric($finishedGoods->defective)) {
                     throw new \InvalidArgumentException('Invalid numeric values for stok_awal or defective');
+                }
+
+                // Verify data integrity before save
+                if (!is_numeric($finishedGoods->stok_masuk) || !is_numeric($finishedGoods->stok_keluar)) {
+                    $finishedGoods->updateStokMasukFromAllSources();
+                    $finishedGoods->updateStokKeluarFromHistorySales();
+
+                    $finishedGoods->stok_masuk = $finishedGoods->stok_masuk ?? 0;
+                    $finishedGoods->stok_keluar = $finishedGoods->stok_keluar ?? 0;
                 }
 
                 // Save the record
@@ -169,7 +178,7 @@ class FinishedGoodsService
             $finishedGoods->updateStokMasukFromAllSources();
 
             // Calculate stok_keluar from history sales
-            $finishedGoods->updateStokKeluarFromSales();
+            $finishedGoods->updateStokKeluarFromHistorySales();
 
             // Calculate stok_sisa from opname data
             $finishedGoods->updateStokSisaFromOpname();
