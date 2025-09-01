@@ -155,6 +155,10 @@
         .sisa-display {
             font-weight: bold;
         }
+        .is-saving { 
+            opacity: .7; 
+        }
+
     </style>
 @endsection
 
@@ -168,12 +172,16 @@
                     <div class="d-flex justify-content-between align-items-center flex-wrap">
                         <h5 class="mb-2 mb-sm-0">Daftar Finished Goods - Semua Produk</h5>
                         <div class="d-flex flex-wrap">
-                            <button id="update-all" class="btn btn-success me-2 mb-2 mb-sm-0">
+                            {{-- dinonaktifkan sementara --}}
+
+                            {{-- <button id="update-all" class="btn btn-success me-2 mb-2 mb-sm-0">
                                 <i class="fas fa-save"></i> Update All
                             </button>
                             <button id="sync-all" class="btn btn-primary me-2 mb-2 mb-sm-0">
                                 <i class="fas fa-sync"></i> Sync All Data
-                            </button>
+                            </button> --}}
+
+                            {{-- end dinonaktifkan sementara --}}
                             <button id="clear-filters" class="btn btn btn-secondary me-2 mb-2 mb-sm-0">
                                 <i class="fas fa-filter"></i> Hapus Filter
                             </button>
@@ -293,18 +301,30 @@
                     <!-- End Filter Section -->
 
                     <!-- Info Box -->
-                    <div class="alert alert-info" role="alert">
-                        <h6 class="alert-heading"><i class="fas fa-info-circle"></i> Informasi Input Data</h6>
-                        <div class="row">
-                            <div class="col-md-6">
-                                <p class="mb-1"><strong><i class="fas fa-edit text-primary"></i> Manual Input:</strong>
-                                </p>
+                    <div class="mb-3">
+                        <button class="btn btn-sm btn-outline-info w-100 mb-2" 
+                                type="button" 
+                                data-bs-toggle="collapse" 
+                                data-bs-target="#infoInputData" 
+                                aria-expanded="false" 
+                                aria-controls="infoInputData"
+                                id="info-toggle-btn">
+                            <i class="fas fa-info-circle"></i> <span id="info-toggle-text">Tampilkan Informasi Input Data</span> 
+                            <i class="fas fa-chevron-down" id="info-chevron"></i>
+                        </button>
+
+                        <div class="collapse" id="infoInputData">
+                            <div class="alert alert-info mb-0" role="alert">
+                            <h6 class="alert-heading"><i class="fas fa-info-circle"></i> Informasi Input Data</h6>
+                            <div class="row">
+                                <div class="col-md-6">
+                                <p class="mb-1"><strong><i class="fas fa-edit text-primary"></i> Manual Input:</strong></p>
                                 <ul class="mb-2">
                                     <li><strong>Stok Awal:</strong> Input manual oleh user</li>
                                     <li><strong>Defective:</strong> Input manual oleh user</li>
                                 </ul>
-                            </div>
-                            <div class="col-md-6">
+                                </div>
+                                <div class="col-md-6">
                                 <p class="mb-1"><strong><i class="fas fa-cog text-secondary"></i> Otomatis:</strong></p>
                                 <ul class="mb-2">
                                     <li><strong>Stok Masuk:</strong> Dari Catatan Produksi + Purchase Finished Goods</li>
@@ -312,10 +332,11 @@
                                     <li><strong>Stok Sisa:</strong> Dari hasil Stock Opname</li>
                                     <li><strong>Live Stock:</strong> Kalkulasi otomatis</li>
                                 </ul>
+                                </div>
+                            </div>
+                            <small class="text-muted">💡 Field dengan latar abu-abu tidak dapat diedit karena nilainya dihitung otomatis dari sistem</small>
                             </div>
                         </div>
-                        <small class="text-muted">💡 Field dengan latar abu-abu tidak dapat diedit karena nilainya dihitung
-                            otomatis dari sistem</small>
                     </div>
 
                     <div class="dt-responsive table-responsive">
@@ -349,7 +370,9 @@
 @section('scripts')
     <!-- Core JS files -->
     <script src="{{ URL::asset('build/js/plugins/jquery-3.6.0.min.js') }}"></script>
-    <script src="{{ URL::asset('build/js/plugins/bootstrap.min.js') }}"></script>
+    {{-- <script src="{{ URL::asset('build/js/plugins/bootstrap.min.js') }}"></script> --}}
+    <script src="{{ URL::asset('build/js/plugins/bootstrap.bundle.min.js') }}"></script>
+
 
     <!-- DataTables Core -->
     <script src="{{ URL::asset('build/js/plugins/dataTables.min.js') }}"></script>
@@ -472,6 +495,17 @@
             const initialMonthValue = $('#filter-month-year').val() || '{{ date("Y-m") }}';
             updateCurrentFilterDisplay(initialMonthValue);
             
+            // Handle info toggle button text and chevron rotation
+            $('#infoInputData').on('show.bs.collapse', function () {
+                $('#info-toggle-text').text('Sembunyikan Informasi Input Data');
+                $('#info-chevron').removeClass('fa-chevron-down').addClass('fa-chevron-up');
+            });
+            
+            $('#infoInputData').on('hide.bs.collapse', function () {
+                $('#info-toggle-text').text('Tampilkan Informasi Input Data');
+                $('#info-chevron').removeClass('fa-chevron-up').addClass('fa-chevron-down');
+            });
+            
             // Initialize choices for select inputs
             var filterProductChoices = new Choices('#filter-product', {
                 searchEnabled: true,
@@ -527,14 +561,16 @@
                         orderable: false,
                         searchable: false,
                         width: '10%',
+                        // stok_awal_display
                         render: function(data, type, row) {
                             if (type === 'display') {
                                 return `<input type="number" class="form-control form-control-sm stock-input" 
                                         data-field="stok_awal" data-product-id="${row.product_id}" 
-                                        value="${data}" min="0" style="width: 80px;">`;
+                                        value="${data}" data-prev="${data}" min="0" style="width: 80px;">`;
                             }
                             return data;
                         }
+
                     },
                     {
                         data: 'stok_masuk_display',
@@ -574,14 +610,16 @@
                         orderable: false,
                         searchable: false,
                         width: '10%',
+                        // defective_display
                         render: function(data, type, row) {
                             if (type === 'display') {
                                 return `<input type="number" class="form-control form-control-sm stock-input" 
                                         data-field="defective" data-product-id="${row.product_id}" 
-                                        value="${data}" min="0" style="width: 80px;">`;
+                                        value="${data}" data-prev="${data}" min="0" style="width: 80px;">`;
                             }
                             return data;
                         }
+
                     },
                     {
                         data: 'stok_sisa_display',
@@ -813,54 +851,102 @@
                 calculateRowLiveStock(productId);
             });
 
-           $(document).on('change', '.stock-input[data-field="stok_awal"], .stock-input[data-field="defective"]', function() {
+            const Toast = Swal.mixin({
+                toast: true,
+                position: 'top-end',
+                showConfirmButton: false,
+                timer: 1700,
+                timerProgressBar: true,
+                didOpen: (toast) => {
+                    toast.addEventListener('mouseenter', Swal.stopTimer);
+                    toast.addEventListener('mouseleave', Swal.resumeTimer);
+                }
+            });
+
+
+            $(document).on('change', '.stock-input[data-field="stok_awal"], .stock-input[data-field="defective"]', function() {
                 const $input = $(this);
                 const productId = $input.data('product-id');
-                const stokAwal = $(`input[data-product-id="${productId}"][data-field="stok_awal"]`).val();
-                const defective = $(`input[data-product-id="${productId}"][data-field="defective"]`).val();
+                const fieldKey  = $input.data('field'); // 'stok_awal' | 'defective'
+                const fieldLabel = fieldKey === 'stok_awal' ? 'Stok Awal' : 'Defective';
+
+                // nilai baru & lama
+                const newVal = parseInt(($input.val() ?? 0), 10) || 0;
+                const oldVal = parseInt(($input.data('prev') ?? 0), 10) || 0;
+
+                // ambil info produk dari row DataTables
+                const $tr = $input.closest('tr');
+                const rowData = (typeof table !== 'undefined') ? table.row($tr).data() : null;
+                const productName = rowData?.name_product ?? `Produk ID ${productId}`;
+                const sku = rowData?.sku ? ` (${rowData.sku})` : '';
+
+                // state UI kecil biar terasa responsif
+                const setSavingUI = (saving) => {
+                    if (saving) {
+                    $input.prop('disabled', true).addClass('is-saving');
+                    } else {
+                    $input.prop('disabled', false).removeClass('is-saving');
+                    }
+                };
 
                 $.ajax({
                     url: `/finished-goods/${productId}`,
                     method: 'PUT',
                     data: {
-                        stok_awal: stokAwal ?? 0,
-                        defective: defective ?? 0,
-                        _token: $('meta[name="csrf-token"]').attr('content')
+                    // kirim 2 field sesuai endpointmu
+                    stok_awal: (fieldKey === 'stok_awal') ? newVal : ($(`input[data-product-id="${productId}"][data-field="stok_awal"]`).val() ?? 0),
+                    defective: (fieldKey === 'defective') ? newVal : ($(`input[data-product-id="${productId}"][data-field="defective"]`).val() ?? 0),
+                    // penting: ikutkan filter bulan yang sedang aktif
+                    filter_month_year: $('#filter-month-year').val(),
+                    _token: $('meta[name="csrf-token"]').attr('content')
+                    },
+                    beforeSend: function() {
+                    setSavingUI(true);
                     },
                     success: function(response) {
-                        if (response.success && response.data) {
-                            // Soft reload: update row values sesuai response
-                            updateRowData(productId, response.data);
+                    setSavingUI(false);
 
-                            // Optional: tampilkan notifikasi sukses
-                            if (typeof Swal !== 'undefined') {
-                                Swal.fire({
-                                    icon: 'success',
-                                    title: 'Update Berhasil',
-                                    text: response.message,
-                                    timer: 1500,
-                                    showConfirmButton: false
-                                });
-                            }
-                        } else {
-                            // Optional: tampilkan notifikasi error
-                            if (typeof Swal !== 'undefined') {
-                                Swal.fire({
-                                    icon: 'error',
-                                    title: 'Gagal Update',
-                                    text: response.message || 'Terjadi kesalahan saat update data.',
-                                });
-                            }
-                        }
+                    if (response.success && response.data) {
+                        // update nilai row dari server agar sinkron
+                        updateRowData(productId, response.data);
+
+                        // update baseline "prev" ke nilai baru supaya perubahan berikutnya akurat
+                        $input.data('prev', newVal);
+
+                        // tampilkan toast detail perubahan
+                        const arrow = newVal > oldVal ? '⬆️' : (newVal < oldVal ? '⬇️' : '⟲');
+                        Toast.fire({
+                        icon: 'success',
+                        title: 'Perubahan tersimpan',
+                        html: `<b>${productName}</b>${sku}<br><small>${fieldLabel}: <b>${oldVal}</b> → <b>${newVal}</b> ${arrow}</small>`
+                        });
+                    } else {
+                        // error dari server (validasi, dll.)
+                        Toast.fire({
+                        icon: 'error',
+                        title: response.message || 'Gagal menyimpan perubahan',
+                        html: `<b>${productName}</b>${sku}<br><small>${fieldLabel}: <b>${oldVal}</b> → <b>${newVal}</b></small>`
+                        });
+
+                        // rollback tampilan input ke nilai lama
+                        $input.val(oldVal);
+                    }
                     },
                     error: function(xhr) {
-                        if (typeof Swal !== 'undefined') {
-                            Swal.fire({
-                                icon: 'error',
-                                title: 'Gagal Update',
-                                text: xhr.responseJSON?.message || 'Terjadi kesalahan saat update data.',
-                            });
-                        }
+                    setSavingUI(false);
+
+                    const msg = (xhr.responseJSON && xhr.responseJSON.message)
+                        ? xhr.responseJSON.message
+                        : 'Terjadi kesalahan saat update data';
+
+                    Toast.fire({
+                        icon: 'error',
+                        title: msg,
+                        html: `<b>${productName}</b>${sku}<br><small>${fieldLabel}: <b>${oldVal}</b> → <b>${newVal}</b></small>`
+                    });
+
+                    // rollback tampilan input ke nilai lama
+                    $input.val(oldVal);
                     }
                 });
             });
@@ -868,10 +954,10 @@
             // Function to update row data after successful update
             function updateRowData(productId, data) {
                 // Update input values
-                $(`input[data-product-id="${productId}"][data-field="stok_awal"]`).val(data.stok_awal);
+                $(`input[data-product-id="${productId}"][data-field="stok_awal"]`).data('prev', data.stok_awal);
                 $(`input[data-product-id="${productId}"][data-field="stok_masuk"]`).val(data.stok_masuk);
                 $(`input[data-product-id="${productId}"][data-field="stok_keluar"]`).val(data.stok_keluar);
-                $(`input[data-product-id="${productId}"][data-field="defective"]`).val(data.defective);
+                $(`input[data-product-id="${productId}"][data-field="defective"]`).data('prev', data.defective);
                 $(`input[data-product-id="${productId}"][data-field="stok_sisa"]`).val(data.stok_sisa || 0);
                 
                 // Update live stock display
