@@ -42,7 +42,7 @@ class FinishedGoods extends Model
             // Example calculation - you can modify this based on your opname data structure
             // $opnameTotal = StockOpname::where('product_id', $this->product_id)
             //     ->sum('sisa_stock'); // or whatever field represents remaining stock
-            
+
             // Temporary: Set to 0 until opname system is implemented
             $this->stok_sisa = 0;
             

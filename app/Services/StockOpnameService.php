@@ -271,30 +271,49 @@ class StockOpnameService
     private function getItemsByType(string $type): Collection
     {
         \Log::info('StockOpname: Getting items by type', ['type' => $type]);
-        
+
         try {
+            // POINT 1: Mengambil semua opname bulan ini dan mengekstrak item_id nya
+            // --------------------------------------------------------------------
+
+            // Ambil semua opname bulan ini beserta item-itemnya.
+            // Optimasi: Hanya load kolom item_id dan foreign key dari relasi items
+            $thisMonthOpnames = StockOpname::where('type', $type)
+                ->with('items:opname_id,item_id') 
+                ->where('tanggal_opname', '>=', now()->startOfMonth())
+                ->where('tanggal_opname', '<=', now()->endOfMonth())
+                ->get();
+
+            // Buat list flat dari semua item_id yang sudah ada di opname bulan ini.
+            // Inilah jawaban untuk "Point 1" Anda.
+            $excludedItemIds = $thisMonthOpnames->pluck('items')->flatten()->pluck('item_id')->unique()->toArray();
+
+            \Log::info('StockOpname: Found existing item IDs in this month to exclude.', [
+                'type' => $type,
+                'count' => count($excludedItemIds),
+                'item_ids' => $excludedItemIds
+            ]);
+
+
+            // POINT 2: Menggunakan list $excludedItemIds untuk filter
+            // ---------------------------------------------------------
+
             switch ($type) {
                 case 'bahan_baku':
-                    // Get ALL inventory bahan baku records (matching finished goods pattern exactly)
-                    $inventories = InventoryBahanBaku::with('bahanBaku')->get();
-                    \Log::info('StockOpname: InventoryBahanBaku count', ['count' => $inventories->count()]);
+                    // BARU: Tambahkan ->whereNotIn() untuk menyaring data
+                    $inventories = InventoryBahanBaku::with('bahanBaku')
+                        ->whereNotIn('bahan_baku_id', $excludedItemIds)
+                        ->get();
+
+                    \Log::info('StockOpname: InventoryBahanBaku count after exclusion', ['count' => $inventories->count()]);
                     
-                    // Debug: Log all inventory data
-                    foreach ($inventories as $inv) {
-                        \Log::info('StockOpname: Inventory data', [
-                            'id' => $inv->id,
-                            'bahan_baku_id' => $inv->bahan_baku_id,
-                            'has_bahan_baku' => $inv->bahanBaku !== null,
-                            'nama_barang' => $inv->bahanBaku->nama_barang ?? 'NULL',
-                            'live_stok_gudang' => $inv->live_stok_gudang
-                        ]);
-                    }
-                    
+                    // ... (logging lama bisa Anda hapus/simpan sesuai kebutuhan)
+
                     if ($inventories->isEmpty()) {
                         \Log::info('StockOpname: InventoryBahanBaku empty, using fallback to BahanBaku');
-                        // Fallback: get from BahanBaku directly
-                        $bahanBakus = \App\Models\BahanBaku::all();
-                        \Log::info('StockOpname: BahanBaku fallback count', ['count' => $bahanBakus->count()]);
+                        // BARU: Filter juga di fallback
+                        $bahanBakus = \App\Models\BahanBaku::whereNotIn('id', $excludedItemIds)->get();
+                        \Log::info('StockOpname: BahanBaku fallback count after exclusion', ['count' => $bahanBakus->count()]);
                         
                         return $bahanBakus->map(function ($bahanBaku) {
                             return [
@@ -307,27 +326,11 @@ class StockOpnameService
                         });
                     }
                     
-                    // Filter out inventories without bahanBaku relationship (same as finished goods pattern)
-                    $validInventories = $inventories->filter(function ($inventory) {
-                        return $inventory->bahanBaku !== null;
-                    });
+                    $validInventories = $inventories->filter(fn ($inventory) => $inventory->bahanBaku !== null);
                     
-                    \Log::info('StockOpname: Valid inventories count', ['count' => $validInventories->count()]);
-                    
-                    // Debug: Log valid inventory data
-                    foreach ($validInventories as $inv) {
-                        \Log::info('StockOpname: Valid inventory', [
-                            'bahan_baku_id' => $inv->bahan_baku_id,
-                            'nama_barang' => $inv->bahanBaku->nama_barang,
-                            'sku_induk' => $inv->bahanBaku->sku_induk,
-                            'live_stok_gudang' => $inv->live_stok_gudang
-                        ]);
-                    }
-                    
-                    // Map ALL valid inventory records (not just unique bahan baku)
                     return $validInventories->map(function ($inventory) {
                         return [
-                            'item_id' => $inventory->bahan_baku_id, // Use bahan_baku_id from inventory
+                            'item_id' => $inventory->bahan_baku_id,
                             'item_name' => $inventory->bahanBaku->nama_barang ?? 'Unknown',
                             'item_sku' => $inventory->bahanBaku->sku_induk ?? '-',
                             'stok_sistem' => $inventory->live_stok_gudang ?? 0,
@@ -336,15 +339,18 @@ class StockOpnameService
                     });
 
                 case 'finished_goods':
-                    // Try to get from FinishedGoods first
-                    $finishedGoods = FinishedGoods::with('product')->get();
-                    \Log::info('StockOpname: FinishedGoods count', ['count' => $finishedGoods->count()]);
-                    
+                    // BARU: Tambahkan ->whereNotIn() sesuai permintaan "Point 2" Anda
+                    $finishedGoods = FinishedGoods::with('product')
+                        ->whereNotIn('product_id', $excludedItemIds)
+                        ->get();
+
+                    \Log::info('StockOpname: FinishedGoods count after exclusion', ['count' => $finishedGoods->count()]);
+
                     if ($finishedGoods->isEmpty()) {
                         \Log::info('StockOpname: FinishedGoods empty, using fallback to Product');
-                        // Fallback: get from Product directly
-                        $products = \App\Models\Product::all();
-                        \Log::info('StockOpname: Product fallback count', ['count' => $products->count()]);
+                        // BARU: Filter juga di fallback
+                        $products = \App\Models\Product::whereNotIn('id', $excludedItemIds)->get();
+                        \Log::info('StockOpname: Product fallback count after exclusion', ['count' => $products->count()]);
                         
                         return $products->map(function ($product) {
                             return [
@@ -357,12 +363,7 @@ class StockOpnameService
                         });
                     }
                     
-                    // Filter out finished goods without product relationship
-                    $validFinishedGoods = $finishedGoods->filter(function ($finished) {
-                        return $finished->product !== null;
-                    });
-                    
-                    \Log::info('StockOpname: Valid finished goods count', ['count' => $validFinishedGoods->count()]);
+                    $validFinishedGoods = $finishedGoods->filter(fn ($finished) => $finished->product !== null);
                     
                     return $validFinishedGoods->map(function ($finished) {
                         return [
@@ -375,8 +376,9 @@ class StockOpnameService
                     });
 
                 case 'sticker':
-                    $stickers = Sticker::all();
-                    \Log::info('StockOpname: Stickers count', ['count' => $stickers->count()]);
+                    // BARU: Tambahkan ->whereNotIn() untuk konsistensi
+                    $stickers = Sticker::whereNotIn('id', $excludedItemIds)->get();
+                    \Log::info('StockOpname: Stickers count after exclusion', ['count' => $stickers->count()]);
                     
                     return $stickers->map(function ($sticker) {
                         return [
@@ -392,7 +394,6 @@ class StockOpnameService
                     return collect([]);
             }
         } catch (Exception $e) {
-            // Log the error for debugging
             \Log::error('StockOpname: Error getting items by type', [
                 'type' => $type,
                 'error' => $e->getMessage(),

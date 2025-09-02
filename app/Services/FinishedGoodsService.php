@@ -99,8 +99,8 @@ class FinishedGoodsService
                 }
 
                 // Recalculate stok_sisa and live_stock
-                $finishedGoods->stok_sisa = $finishedGoods->stok_awal + $finishedGoods->stok_masuk - $finishedGoods->stok_keluar - $finishedGoods->defective;
-                $finishedGoods->live_stock = $finishedGoods->stok_sisa;
+                $finishedGoods->stok_sisa = 0;
+                $finishedGoods->live_stock = $finishedGoods->stok_awal + $finishedGoods->stok_masuk - $finishedGoods->stok_keluar - $finishedGoods->defective;
 
                 // Save the record
                 $finishedGoods->save();
