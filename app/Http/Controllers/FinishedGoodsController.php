@@ -209,54 +209,78 @@ class FinishedGoodsController extends Controller
     public function update(Request $request, $id)
     {
         try {
-            // Find the product first
+            // 1) Validasi
             $product = Product::findOrFail($id);
-
+    
             $validated = $request->validate([
                 'stok_awal' => 'required|integer|min:0',
                 'defective' => 'required|integer|min:0',
             ], $this->getValidationMessages());
-
-            // Get filter month year from request
+    
+            // 2) Ambil filter bulan (format Y-m) dari request
             $filterMonthYear = $request->input('filter_month_year');
-
-            // Verify numeric values before proceeding
+    
+            // 3) Pastikan angka valid
             if (!is_numeric($validated['stok_awal']) || !is_numeric($validated['defective'])) {
                 throw new \InvalidArgumentException('Stok awal dan defective harus berupa angka yang valid');
             }
-            
-
-            // Get existing finished goods record or create new
+    
+            // 4) Ambil / buat FG
             $finishedGoods = FinishedGoods::firstOrNew(['product_id' => $id]);
-
+    
+            // 5) Update via service (service SUDAH hormati monthly filter)
             try {
-                // Use FinishedGoodsService for consistent transaction handling
                 $finishedGoods = $this->finishedGoodsService->updateFinishedGoods($finishedGoods, $validated, $filterMonthYear);
             } catch (\Exception $serviceError) {
                 throw new \RuntimeException('Terjadi kesalahan saat memproses data. ' . $serviceError->getMessage());
             }
-
-            // Log activity
+    
+            // 6) Siapkan objek row pseudo untuk pakai helper display (konsisten dgn DataTables)
+            $row = (object) [
+                'product_id'        => $finishedGoods->product_id,
+                'sku'               => $product->sku,
+                'finished_goods_id' => $finishedGoods->id,
+                'stok_awal'         => $finishedGoods->stok_awal,
+                'stok_masuk'        => $finishedGoods->stok_masuk,
+                'stok_keluar'       => $finishedGoods->stok_keluar,
+                'defective'         => $finishedGoods->defective,
+                'stok_sisa'         => $finishedGoods->stok_sisa,
+                'live_stock'        => $finishedGoods->live_stock,
+            ];
+    
+            // 7) Nilai DISPLAY sesuai filter bulan
+            $stokMasukDisplay  = $this->getStokMasuk($row, $filterMonthYear);
+            $stokKeluarDisplay = $this->getStokKeluar($row, $filterMonthYear);
+            $stokSisaDisplay   = $this->getStokSisaDisplay($row, $filterMonthYear);
+            $liveStockDisplay  = $this->getLiveStock($row, $filterMonthYear);
+    
+            // 8) Logging aktivitas
             $action = $finishedGoods->wasRecentlyCreated ? 'create' : 'update';
             $message = $finishedGoods->wasRecentlyCreated
                 ? 'Pengguna membuat finished goods baru untuk produk: ' . $product->name_product
                 : 'Pengguna memperbarui finished goods untuk produk: ' . $product->name_product;
-
             addActivity('finished_goods', $action, $message, $finishedGoods->id);
-            
+    
+            // 9) Response: sertakan stored value + DISPLAY value
             return response()->json([
                 'success' => true,
                 'message' => 'Berhasil! Data stok finished goods telah diperbarui.',
                 'data' => [
-                    'id' => $finishedGoods->id,
-                    'product_id' => $finishedGoods->product_id,
-                    'stok_awal' => $finishedGoods->stok_awal,
-                    'stok_masuk' => $finishedGoods->stok_masuk,
+                    // stored
+                    'id'          => $finishedGoods->id,
+                    'product_id'  => $finishedGoods->product_id,
+                    'stok_awal'   => $finishedGoods->stok_awal,
+                    'stok_masuk'  => $finishedGoods->stok_masuk,
                     'stok_keluar' => $finishedGoods->stok_keluar,
-                    'defective' => $finishedGoods->defective,
-                    'stok_sisa' => $finishedGoods->stok_sisa,
-                    'live_stock' => $finishedGoods->live_stock,
-                    'updated_at' => $finishedGoods->updated_at->format('Y-m-d H:i:s')
+                    'defective'   => $finishedGoods->defective,
+                    'stok_sisa'   => $finishedGoods->stok_sisa,
+                    'live_stock'  => $finishedGoods->live_stock,
+                    'updated_at'  => $finishedGoods->updated_at->format('Y-m-d H:i:s'),
+                    // display for monthly view
+                    'stok_masuk_display'  => $stokMasukDisplay,
+                    'stok_keluar_display' => $stokKeluarDisplay,
+                    'stok_sisa_display'   => $stokSisaDisplay,
+                    'live_stock_display'  => $liveStockDisplay,
                 ]
             ]);
         } catch (ValidationException $e) {
@@ -287,6 +311,7 @@ class FinishedGoodsController extends Controller
             ], 500);
         }
     }
+    
 
     /**
      * Get finished goods data for DataTables.
@@ -605,7 +630,7 @@ class FinishedGoodsController extends Controller
             ->addColumn('stok_masuk_display', fn($row) => $this->getStokMasuk($row, $filterMonthYear))
             ->addColumn('stok_keluar_display', fn($row) => $this->getStokKeluar($row, $filterMonthYear))
             ->addColumn('defective_display', fn($row) => $row->defective ?? 0)
-            ->addColumn('stok_sisa_display', fn($row) => $row->stok_sisa ?? 0)
+            ->addColumn('stok_sisa_display', fn($row) => $this->getStokSisaDisplay($row, $filterMonthYear))
             ->addColumn('live_stock_display', fn($row) => $this->getLiveStock($row, $filterMonthYear))
             ->filterColumn('name_product', fn($query, $keyword) => $query->where('products.name_product', 'like', "%{$keyword}%"))
             ->filterColumn('sku', fn($query, $keyword) => $query->where('products.sku', 'like', "%{$keyword}%"))
@@ -637,37 +662,47 @@ class FinishedGoodsController extends Controller
     protected function getStokMasuk($row, $filterMonthYear = null)
     {
         try {
-            // Use cached value if no monthly filter and value exists
+            // Jika TIDAK ada filter bulan dan data FG sudah punya cached value → pakai stored
             if (!$filterMonthYear && $row->finished_goods_id && $row->stok_masuk !== null) {
-                return $row->stok_masuk;
+                return (int) $row->stok_masuk;
             }
-            
-            // Build optimized query with single execution
+    
+            // ==== MODE BULANAN ====
+            // Produksi: filter by created_at (seperti sebelumnya)
             $productionSum = CatatanProduksi::where('product_id', $row->product_id)
-                ->when($filterMonthYear, function($query) use ($filterMonthYear) {
-                    $year = date('Y', strtotime($filterMonthYear . '-01'));
+                ->when($filterMonthYear, function ($query) use ($filterMonthYear) {
+                    $year  = date('Y', strtotime($filterMonthYear . '-01'));
                     $month = date('m', strtotime($filterMonthYear . '-01'));
                     return $query->whereYear('created_at', $year)
-                                ->whereMonth('created_at', $month);
+                                 ->whereMonth('created_at', $month);
                 })
                 ->sum('quantity');
-            
-            $purchaseSum = Purchase::where('bahan_baku_id', $row->product_id)
-                ->where('kategori', 'finished_goods')
-                ->when($filterMonthYear, function($query) use ($filterMonthYear) {
-                    $year = date('Y', strtotime($filterMonthYear . '-01'));
-                    $month = date('m', strtotime($filterMonthYear . '-01'));
-                    return $query->whereYear('created_at', $year)
-                                ->whereMonth('created_at', $month);
-                })
-                ->sum('total_stok_masuk');
-            
-            return $productionSum + $purchaseSum;
+    
+            // Purchase FG: GUNAKAN tanggal_kedatangan_barang (bukan created_at)
+            $purchaseQuery = Purchase::where('kategori', 'finished_goods')
+                ->where('bahan_baku_id', $row->product_id)
+                ->whereNotNull('tanggal_kedatangan_barang')
+                ->where('qty_barang_masuk', '>', 0);
+    
+            if ($filterMonthYear) {
+                $year  = date('Y', strtotime($filterMonthYear . '-01'));
+                $month = date('m', strtotime($filterMonthYear . '-01'));
+                $purchaseQuery->whereYear('tanggal_kedatangan_barang', $year)
+                              ->whereMonth('tanggal_kedatangan_barang', $month);
+            }
+    
+            $purchaseSum = (int) $purchaseQuery->sum('total_stok_masuk');
+    
+            return (int)$productionSum + (int)$purchaseSum;
         } catch (\Exception $e) {
-            Log::error('Error calculating dynamic stok_masuk', ['error' => $e->getMessage()]);
-            return $row->stok_masuk ?? 0;
+            Log::error('FGController.getStokMasuk ERROR', [
+                'product_id' => $row->product_id ?? null,
+                'error'      => $e->getMessage()
+            ]);
+            return (int) ($row->stok_masuk ?? 0);
         }
     }
+    
 
     protected function getStokKeluar($row, $filterMonthYear = null)
     {
@@ -781,5 +816,27 @@ class FinishedGoodsController extends Controller
             ]);
         }
     }
+
+    protected function getStokSisaDisplay($row, $filterMonthYear = null)
+    {
+        try {
+            // Tanpa filter bulan → pakai stored value
+            if (!$filterMonthYear) {
+                return (int)($row->stok_sisa ?? 0);
+            }
+
+            // Dengan filter bulan → ambil dari opname bulan LALU (status selesai)
+            // Pakai method Model yang sudah kamu buat di Point 2 (fallback 0 bila belum ada tabel)
+            $fg = FinishedGoods::firstOrNew(['product_id' => $row->product_id]);
+            return (int)$fg->getStokSisaFromLastMonthOpname($filterMonthYear);
+        } catch (\Exception $e) {
+            Log::error('Error getting stok_sisa_display', [
+                'product_id' => $row->product_id ?? null,
+                'error' => $e->getMessage()
+            ]);
+            return (int)($row->stok_sisa ?? 0);
+        }
+    }
+
 
 }

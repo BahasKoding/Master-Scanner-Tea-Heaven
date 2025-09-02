@@ -953,15 +953,26 @@
 
             // Function to update row data after successful update
             function updateRowData(productId, data) {
-                // Update input values
+                // Apakah sedang monthly view? (input month selalu ada nilainya)
+                const isMonthly = !!($('#filter-month-year').val());
+
+                // Update baseline manual (prev) dari server agar akurat untuk input berikutnya
                 $(`input[data-product-id="${productId}"][data-field="stok_awal"]`).data('prev', data.stok_awal);
-                $(`input[data-product-id="${productId}"][data-field="stok_masuk"]`).val(data.stok_masuk);
-                $(`input[data-product-id="${productId}"][data-field="stok_keluar"]`).val(data.stok_keluar);
                 $(`input[data-product-id="${productId}"][data-field="defective"]`).data('prev', data.defective);
-                $(`input[data-product-id="${productId}"][data-field="stok_sisa"]`).val(data.stok_sisa || 0);
-                
-                // Update live stock display
-                $(`.live-stock[data-product-id="${productId}"]`).text(data.live_stock);
+
+                // Tentukan sumber angka auto:
+                // - monthly → pakai *_display (fallback ke stored)
+                // - non-monthly → pakai stored
+                const masukVal  = isMonthly ? (data.stok_masuk_display  ?? data.stok_masuk  ?? 0) : (data.stok_masuk  ?? 0);
+                const keluarVal = isMonthly ? (data.stok_keluar_display ?? data.stok_keluar ?? 0) : (data.stok_keluar ?? 0);
+                const sisaVal   = isMonthly ? (data.stok_sisa_display   ?? data.stok_sisa   ?? 0) : (data.stok_sisa   ?? 0);
+                const liveVal   = isMonthly ? (data.live_stock_display  ?? data.live_stock  ?? 0) : (data.live_stock  ?? 0);
+
+                // Update field auto (disabled) & badge live stock
+                $(`input[data-product-id="${productId}"][data-field="stok_masuk"]`).val(masukVal);
+                $(`input[data-product-id="${productId}"][data-field="stok_keluar"]`).val(keluarVal);
+                $(`input[data-product-id="${productId}"][data-field="stok_sisa"]`).val(sisaVal);
+                $(`.live-stock[data-product-id="${productId}"]`).text(liveVal);
             }
 
             // Fallback notification function

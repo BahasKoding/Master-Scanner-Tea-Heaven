@@ -6,6 +6,9 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Log;
 use App\Models\Purchase;
+use App\Models\CatatanProduksi;  
+use App\Models\HistorySale;      
+use Carbon\Carbon;     
 
 class FinishedGoods extends Model
 {
@@ -65,33 +68,44 @@ class FinishedGoods extends Model
     }
 
     /**
-     * Auto-update stok_masuk from both CatatanProduksi and Purchase (finished_goods)
-     * This method calculates total quantity from production records AND purchases
+     * Auto-update stok_masuk dari CatatanProduksi + Purchase FG (ALL-TIME)
+     * Purchase menggunakan tanggal_kedatangan_barang (bukan created_at)
      */
     public function updateStokMasukFromAllSources()
     {
         try {
-            // Get total from production records
+            // Produksi (all-time)
             $totalProduction = CatatanProduksi::where('product_id', $this->product_id)
                 ->sum('quantity');
 
-            // Get total from finished_goods purchases
-            $totalPurchases = Purchase::where('bahan_baku_id', $this->product_id)
-                ->where('kategori', 'finished_goods')
+            // Purchase FG (all-time), hanya yang sudah diterima
+            $totalPurchases = Purchase::finishedGoods()
+                ->forProduct($this->product_id)
+                ->receivedOnly()
                 ->sum('total_stok_masuk');
 
-            // Combine both sources
-            $this->stok_masuk = $totalProduction + $totalPurchases;
+            $this->stok_masuk = (int)$totalProduction + (int)$totalPurchases;
+
+            // Recalculate live stock setelah stok_masuk berubah
             $this->recalculateLiveStock();
 
-            Log::info("Auto-updated stok_masuk for product_id {$this->product_id}: Production={$totalProduction}, Purchases={$totalPurchases}, Total={$this->stok_masuk}");
+            Log::info("FG.updateStokMasukFromAllSources OK", [
+                'product_id'      => $this->product_id,
+                'total_production'=> $totalProduction,
+                'total_purchases' => $totalPurchases,
+                'stok_masuk'      => $this->stok_masuk,
+            ]);
 
             return $this;
         } catch (\Exception $e) {
-            Log::error("Failed to update stok_masuk from all sources for product_id {$this->product_id}: " . $e->getMessage());
+            Log::error("FG.updateStokMasukFromAllSources ERROR", [
+                'product_id' => $this->product_id,
+                'error'      => $e->getMessage(),
+            ]);
             return $this;
         }
     }
+
 
     /**
      * DEPRECATED: Use updateStokMasukFromAllSources() instead
@@ -117,10 +131,11 @@ class FinishedGoods extends Model
 
     /**
      * Auto-update stok_keluar from HistorySale
-     * FIXED: Only update if database value is 0 or inconsistent
-     * This preserves values updated by StockService
-     */
-    public function updateStokKeluarFromHistorySales()
+     * Menulis stok_keluar:
+     *   - DEFAULT: hanya jika nilai DB = 0 dan hitungan dinamis > 0 (tidak override StockService)
+     *   - FORCE MODE: jika $force = true, selalu timpa dengan nilai dinamis (>= 0)
+    */
+    public function updateStokKeluarFromHistorySales(bool $force = false)
     {
         try {
             $product = $this->product;
@@ -129,18 +144,20 @@ class FinishedGoods extends Model
                 return $this;
             }
 
-            $currentStokKeluar = $this->stok_keluar;
-            $dynamicStokKeluar = $this->calculateDynamicStokKeluar();
+            $currentStokKeluar  = (int) ($this->stok_keluar ?? 0);
+            $dynamicStokKeluar  = (int) $this->calculateDynamicStokKeluar();
 
-            // FIXED: Only override if database value is 0 but we have sales data
-            // This prevents overriding values that were updated by StockService
-            if ($currentStokKeluar == 0 && $dynamicStokKeluar > 0) {
+            $shouldOverride = $force
+                ? ($dynamicStokKeluar >= 0)                   // force: timpa apapun nilainya
+                : ($currentStokKeluar === 0 && $dynamicStokKeluar > 0); // default: hanya kalau DB = 0 dan ada data
+
+            if ($shouldOverride) {
                 $this->stok_keluar = $dynamicStokKeluar;
                 $this->recalculateLiveStock();
-                
-                Log::info("Updated stok_keluar from dynamic calculation for product_id {$this->product_id} (SKU: {$product->sku}): {$currentStokKeluar} -> {$dynamicStokKeluar}");
+
+                Log::info("Updated stok_keluar for product_id {$this->product_id} (SKU: {$product->sku}) -> {$currentStokKeluar} => {$dynamicStokKeluar} [force=" . ($force ? 'yes' : 'no') . "]");
             } else {
-                Log::info("Keeping database stok_keluar for product_id {$this->product_id} (SKU: {$product->sku}): database={$currentStokKeluar}, dynamic={$dynamicStokKeluar}");
+                Log::info("Keeping stok_keluar for product_id {$this->product_id} (SKU: {$product->sku}): db={$currentStokKeluar}, dyn={$dynamicStokKeluar}, force=" . ($force ? 'yes' : 'no'));
             }
 
             return $this;
@@ -153,7 +170,8 @@ class FinishedGoods extends Model
     /**
      * Calculate dynamic stok keluar without updating the model
      * Helper method for comparison purposes
-     */
+    */
+
     private function calculateDynamicStokKeluar()
     {
         try {
@@ -346,35 +364,38 @@ class FinishedGoods extends Model
     }
 
     /**
-     * Get dynamic stok_masuk for a specific month.
-     * @param \Carbon\Carbon|null $date
-     * @return int
+     * Dapatkan stok_masuk (BULANAN) = Produksi bulan itu + Purchase FG yang DITERIMA bulan itu.
+     * $date optional; default now().
      */
     public function getStokMasukForMonth($date = null)
     {
         try {
             $date = $date ?? now();
-            $startDate = $date->startOfMonth()->toDateString();
-            $endDate = $date->endOfMonth()->toDateString();
+            $ym   = $date->format('Y-m');
 
-            // Get total from production records within the month
+            // Produksi bulan itu (berdasarkan created_at)
             $totalProduction = CatatanProduksi::where('product_id', $this->product_id)
-                ->whereBetween('created_at', [$startDate, $endDate])
+                ->whereYear('created_at', $date->year)
+                ->whereMonth('created_at', $date->month)
                 ->sum('quantity');
-            
-            // Get total from finished_goods purchases within the month
-            $totalPurchases = Purchase::where('bahan_baku_id', $this->product_id)
-                ->where('kategori', 'finished_goods')
-                ->whereBetween('created_at', [$startDate, $endDate])
-                ->sum('total_stok_masuk');
-            
-            return $totalProduction + $totalPurchases;
 
+            // Purchase FG bulan itu berdasarkan TANGGAL KEDATANGAN
+            $totalPurchases = Purchase::finishedGoods()
+                ->forProduct($this->product_id)
+                ->receivedOnly()
+                ->forMonth($ym)
+                ->sum('total_stok_masuk');
+
+            return (int)$totalProduction + (int)$totalPurchases;
         } catch (\Exception $e) {
-            Log::error("Error calculating monthly stok_masuk for product_id {$this->product_id}: " . $e->getMessage());
+            Log::error("FG.getStokMasukForMonth ERROR", [
+                'product_id' => $this->product_id,
+                'error'      => $e->getMessage(),
+            ]);
             return 0;
         }
     }
+
 
     /**
      * Get dynamic stok_keluar for a specific month.
@@ -418,4 +439,35 @@ class FinishedGoods extends Model
             return 0;
         }
     }
+
+    /**
+     * Ambil stok_sisa dari hasil stock opname BULAN LALU (status: selesai)
+     * @param string $filterMonthYear Format 'Y-m' (contoh: '2025-09')
+     * @return int
+    */
+    public function getStokSisaFromLastMonthOpname(string $filterMonthYear): int
+    {
+        try {
+            // Tentukan bulan lalu berdasarkan filter
+            $datePrev = Carbon::createFromFormat('Y-m', $filterMonthYear)->subMonth();
+            $year = $datePrev->year;
+            $month = $datePrev->month;
+
+            // TODO: GANTI dengan query real begitu tabel opname tersedia.
+            // Contoh (sesuaikan nama model/kolom):
+            //
+            // return StockOpname::where('product_id', $this->product_id)
+            //     ->whereYear('created_at', $year)
+            //     ->whereMonth('created_at', $month)
+            //     ->where('status', 'selesai')
+            //     ->value('stok_sisa') ?? 0;
+
+            // Sementara fallback:
+            return 0;
+        } catch (\Exception $e) {
+            Log::error("Error getStokSisaFromLastMonthOpname for product_id {$this->product_id}: " . $e->getMessage());
+            return 0;
+        }
+    }
+
 }

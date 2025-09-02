@@ -194,6 +194,7 @@ class PurchaseService
                 $finishedGoods->stok_awal = 0;
                 $finishedGoods->defective = 0;
                 $finishedGoods->stok_keluar = 0; // FIX: Set default stok_keluar to prevent SQL error
+                $finishedGoods->stok_sisa = 0;
             }
 
             // FIXED: Use the new method that combines both sources

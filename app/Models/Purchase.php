@@ -95,7 +95,7 @@ class Purchase extends Model
      */
     public function getTotalStokMasukCalculatedAttribute()
     {
-        return $this->qty_barang_masuk - $this->barang_defect_tanpa_retur + $this->barang_diretur_ke_supplier;
+        return $this->qty_barang_masuk - $this->barang_defect_tanpa_retur - $this->barang_diretur_ke_supplier;
     }
 
     /**
@@ -135,13 +135,19 @@ class Purchase extends Model
     protected static function boot()
     {
         parent::boot();
-
+    
         static::saving(function ($purchase) {
-            $purchase->total_stok_masuk = $purchase->qty_barang_masuk - $purchase->barang_defect_tanpa_retur + $purchase->barang_diretur_ke_supplier;
+            // Pastikan angka integer aman
+            $qtyMasuk = (int) ($purchase->qty_barang_masuk ?? 0);
+            $defect   = (int) ($purchase->barang_defect_tanpa_retur ?? 0);
+            $retur    = (int) ($purchase->barang_diretur_ke_supplier ?? 0);
+    
+            // KEPUTUSAN BISNIS: retur ke supplier MENGURANGI stok masuk
+            $purchase->total_stok_masuk = max(0, $qtyMasuk - $defect - $retur);
         });
-
+    
         static::saved(function ($purchase) {
-            // Update inventory for bahan baku purchases
+            // Update inventory untuk Bahan Baku
             if ($purchase->kategori === 'bahan_baku' && $purchase->bahan_baku_id) {
                 $inventory = InventoryBahanBaku::firstOrCreate(
                     ['bahan_baku_id' => $purchase->bahan_baku_id],
@@ -154,14 +160,13 @@ class Purchase extends Model
                         'satuan' => $purchase->bahanBaku ? $purchase->bahanBaku->satuan : 'pcs'
                     ]
                 );
-                
                 $inventory->updateStokMasukFromPurchases();
                 $inventory->save();
             }
+            // (Catatan) Untuk FG, propagasi ke FG dilakukan via PurchaseService
         });
-
+    
         static::deleted(function ($purchase) {
-            // Update inventory when purchase is deleted
             if ($purchase->kategori === 'bahan_baku' && $purchase->bahan_baku_id) {
                 $inventory = InventoryBahanBaku::where('bahan_baku_id', $purchase->bahan_baku_id)->first();
                 if ($inventory) {
@@ -171,4 +176,42 @@ class Purchase extends Model
             }
         });
     }
+    /**
+     * Scope khusus data Purchase kategori finished_goods
+     */
+    public function scopeFinishedGoods($query)
+    {
+        return $query->where('kategori', 'finished_goods');
+    }
+
+    /**
+     * Scope filter untuk product_id (di kolom bahan_baku_id ketika kategori = finished_goods)
+     */
+    public function scopeForProduct($query, $productId)
+    {
+        return $query->where('bahan_baku_id', $productId);
+    }
+
+    /**
+     * Scope hanya yang sudah diterima (punya tanggal & qty masuk > 0)
+     */
+    public function scopeReceivedOnly($query)
+    {
+        return $query->whereNotNull('tanggal_kedatangan_barang')
+                    ->where('qty_barang_masuk', '>', 0);
+    }
+
+    /**
+     * Scope filter bulanan berdasarkan TANGGAL KEDATANGAN (bukan created_at)
+     * $ym format: 'YYYY-MM'
+     */
+    public function scopeForMonth($query, string $ym)
+    {
+        $year  = date('Y', strtotime($ym . '-01'));
+        $month = date('m', strtotime($ym . '-01'));
+
+        return $query->whereYear('tanggal_kedatangan_barang', $year)
+                    ->whereMonth('tanggal_kedatangan_barang', $month);
+    }
+    
 }

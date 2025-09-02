@@ -8,6 +8,7 @@ use App\Models\CatatanProduksi;
 use App\Models\HistorySale;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Carbon\Carbon;
 
 class FinishedGoodsService
 {
@@ -66,6 +67,9 @@ class FinishedGoodsService
     /**
      * Update finished goods record
      *
+     * - Sumber kebenaran live_stock: Model::recalculateLiveStock()
+     * - Hormati monthly filter: JANGAN hitung ulang stok_masuk/keluar/sisa saat $filterMonthYear ada
+     *
      * @param FinishedGoods $finishedGoods
      * @param array $data
      * @param string|null $filterMonthYear
@@ -75,49 +79,41 @@ class FinishedGoodsService
     {
         return DB::transaction(function () use ($finishedGoods, $data, $filterMonthYear) {
             try {
-                // Update manual input values
-                $finishedGoods->stok_awal = $data['stok_awal'];
-                $finishedGoods->defective = $data['defective'];
+                // 1) Update input manual
+                $finishedGoods->stok_awal = (int) $data['stok_awal'];
+                $finishedGoods->defective = (int) $data['defective'];
 
-                // IMPORTANT: Only update auto-calculated values if no monthly filter is applied
-                // When monthly filter is active, we should not modify the stored stok_masuk/stok_keluar
-                // as they represent the cumulative values, not monthly values
+                // 2) Hanya hitung ulang stok otomatis saat TIDAK ada monthly filter (all-time)
                 if (!$filterMonthYear) {
-                    // Auto-calculate stock values from related data only for all-time view
                     $this->updateStockFromRelatedData($finishedGoods);
                 }
-                
-                // Verify data integrity before save
+
+                // 3) Validasi angka dasar
                 if (!is_numeric($finishedGoods->stok_awal) || !is_numeric($finishedGoods->defective)) {
                     throw new \InvalidArgumentException('Invalid numeric values for stok_awal or defective');
                 }
 
-                // Verify data integrity before save
+                // 4) Safety net untuk stok_masuk/keluar jika null/NaN (ambil kalkulasi bulanan dari Model helper)
                 if (!is_numeric($finishedGoods->stok_masuk) || !is_numeric($finishedGoods->stok_keluar)) {
-                    $finishedGoods->stok_masuk = $finishedGoods->getStokMasukForMonth() ?? 0;
+                    $finishedGoods->stok_masuk  = $finishedGoods->getStokMasukForMonth() ?? 0;
                     $finishedGoods->stok_keluar = $finishedGoods->getStokKeluarForMonth() ?? 0;
                 }
 
-                // Recalculate stok_sisa and live_stock
-                $finishedGoods->stok_sisa = 0;
-                $finishedGoods->live_stock = $finishedGoods->stok_awal + $finishedGoods->stok_masuk - $finishedGoods->stok_keluar - $finishedGoods->defective;
+                // 5) NORMALISASI stok_sisa lalu serahkan perhitungan live_stock ke Model (satu sumber kebenaran)
+                $finishedGoods->stok_sisa = (int) ($finishedGoods->stok_sisa ?? 0);
+                $finishedGoods->recalculateLiveStock();
 
-                // Save the record
+                // 6) Simpan
                 $finishedGoods->save();
 
-                // Only recalculate live_stock if not using monthly filter
-                if (!$filterMonthYear) {
-                    // Trigger recalculation to ensure live_stock is updated
-                    $finishedGoods->recalculateLiveStock();
-                }
-
+                // 7) Tidak perlu recalc lagi—sudah dilakukan di langkah (5)
                 return $finishedGoods;
             } catch (\Exception $e) {
                 Log::error('Failed to update finished goods', [
                     'finished_goods_id' => $finishedGoods->id ?? 'unknown',
-                    'product_id' => $finishedGoods->product_id ?? 'unknown',
-                    'error_message' => $e->getMessage(),
-                    'input_data' => $data,
+                    'product_id'        => $finishedGoods->product_id ?? 'unknown',
+                    'error_message'     => $e->getMessage(),
+                    'input_data'        => $data,
                     'filter_month_year' => $filterMonthYear
                 ]);
                 throw $e;
@@ -165,32 +161,61 @@ class FinishedGoodsService
     }
 
     /**
-     * Update stock values from related data (CatatanProduksi, Purchase, and HistorySale)
-     * Consolidated approach for both monthly and all-time calculations
+     * Update nilai stok dari tabel terkait.
+     *
+     * Perilaku:
+     * - Jika $filterMonthYear == null  → hitung agregat ALL-TIME, izinkan persist.
+     * - Jika $filterMonthYear != null → hitung NILAI BULAN TERSEBUT (untuk tampilan), JANGAN persist.
+     * - $force: jika true, paksa timpa stok_keluar dari history (berguna untuk bulk sync).
      *
      * @param FinishedGoods $finishedGoods
-     * @param string|null $filterMonthYear
+     * @param string|null $filterMonthYear Format "Y-m" (contoh "2025-09") atau null
+     * @param bool $force
      * @return void
-     */
-    private function updateStockFromRelatedData(FinishedGoods $finishedGoods, $filterMonthYear = null)
+    */
+    private function updateStockFromRelatedData(FinishedGoods $finishedGoods, $filterMonthYear = null, bool $force = false)
     {
         try {
-            // Calculate stok_masuk using unified approach
-            $finishedGoods->updateStokMasukFromAllSources();
+            // Pastikan relasi product ada (untuk akses SKU di model)
+            if (!$finishedGoods->relationLoaded('product')) {
+                $finishedGoods->load('product');
+            }
 
-            // Calculate stok_keluar from history sales
-            $finishedGoods->updateStokKeluarFromHistorySales();
+            if ($filterMonthYear) {
+                // === MODE BULANAN: tampilkan nilai bulan ini ===
+                // WARNING: Jangan di-save() seusai pemanggilan ini!
 
-            // Calculate stok_sisa from opname data
-            $finishedGoods->updateStokSisaFromOpname();
+                // stok masuk (produksi + purchases) bulan ini
+                $finishedGoods->stok_masuk = (int)($finishedGoods->getStokMasukForMonth(
+                    Carbon::createFromFormat('Y-m', $filterMonthYear)
+                ) ?? 0);
 
-            // Recalculate live stock with the updated values
+                // stok keluar (sales) bulan ini
+                $finishedGoods->stok_keluar = (int)($finishedGoods->getStokKeluarForMonth(
+                    Carbon::createFromFormat('Y-m', $filterMonthYear)
+                ) ?? 0);
+
+                // stok sisa = dari opname bulan LALU (status selesai)
+                $finishedGoods->stok_sisa = (int)$finishedGoods->getStokSisaFromLastMonthOpname($filterMonthYear);
+
+                // hitung live_stock (jangan save)
+                $finishedGoods->recalculateLiveStock();
+                return;
+            }
+
+            // === MODE ALL-TIME: persist ke DB ===
+            $finishedGoods->updateStokMasukFromAllSources();        // tulis stok_masuk
+            $finishedGoods->updateStokKeluarFromHistorySales($force); // tulis stok_keluar (force jika diminta)
+            $finishedGoods->updateStokSisaFromOpname();             // tulis stok_sisa
+
             $finishedGoods->recalculateLiveStock();
+            // NOTE: save() dilakukan di pemanggil (agar transaksi terkontrol satu tempat)
         } catch (\Exception $e) {
             Log::error('Failed to update stock from related data', [
-                'product_id' => $finishedGoods->product_id,
+                'product_id'        => $finishedGoods->product_id,
                 'filter_month_year' => $filterMonthYear,
-                'error' => $e->getMessage()
+                'force'             => $force,
+                'error'             => $e->getMessage()
             ]);
             throw $e;
         }
@@ -670,56 +695,59 @@ class FinishedGoodsService
     }
 
     /**
-     * Reset finished goods to default values
+     * Reset finished goods ke nilai default
      *
-     * @param int $productId
-     * @return FinishedGoods
+     * Perilaku:
+     * - Selalu set stok_awal, defective, stok_sisa = 0
+     * - Jika TANPA filter bulan: tarik agregat terbaru all-time (persist), lalu simpan
+     * - Jika DENGAN filter bulan: JANGAN tarik agregat all-time (hindari overwrite). Hanya recalc live_stock dari kondisi saat ini lalu simpan.
      */
     public function resetProductStock(int $productId, $filterMonthYear = null)
     {
         return DB::transaction(function () use ($productId, $filterMonthYear) {
             try {
-                // Find or create the finished goods record
                 $finishedGoods = FinishedGoods::firstOrNew(['product_id' => $productId]);
 
-                // Reset manual fields to zero
+                // Reset manual fields
                 $finishedGoods->stok_awal = 0;
                 $finishedGoods->defective = 0;
                 $finishedGoods->stok_sisa = 0;
 
-                // Recalculate stok_masuk and stok_keluar based on the filter
-                $this->updateStockFromRelatedData($finishedGoods, $filterMonthYear);
+                if (!$filterMonthYear) {
+                    // All-time: update dari semua sumber & persist
+                    $this->updateStockFromRelatedData($finishedGoods, null);
+                    $finishedGoods->recalculateLiveStock();
+                    $finishedGoods->save();
+                } else {
+                    // Monthly view: jangan overwrite agregat all-time
+                    // Hitung live_stock berdasarkan state saat ini (yang baru direset manual)
+                    $finishedGoods->recalculateLiveStock();
+                    $finishedGoods->save(); // simpan perubahan manualnya saja
+                }
 
-                // Save the changes
-                $finishedGoods->save();
-
-                // Recalculate live stock
-                $finishedGoods->recalculateLiveStock();
-
-                // Log the reset operation
                 Log::info('Product stock reset successfully', [
-                    'product_id' => $productId,
+                    'product_id'        => $productId,
                     'filter_month_year' => $filterMonthYear,
-                    'new_stock_data' => $finishedGoods->toArray()
+                    'new_stock_data'    => $finishedGoods->toArray()
                 ]);
 
-                // Return the updated data
                 return [
-                    'id' => $finishedGoods->id,
-                    'product_id' => $finishedGoods->product_id,
-                    'stok_awal' => $finishedGoods->stok_awal,
-                    'stok_masuk' => $finishedGoods->stok_masuk,
+                    'id'          => $finishedGoods->id,
+                    'product_id'  => $finishedGoods->product_id,
+                    'stok_awal'   => $finishedGoods->stok_awal,
+                    'stok_masuk'  => $finishedGoods->stok_masuk,
                     'stok_keluar' => $finishedGoods->stok_keluar,
-                    'defective' => $finishedGoods->defective,
-                    'live_stock' => $finishedGoods->live_stock,
-                    'updated_at' => $finishedGoods->updated_at->format('Y-m-d H:i:s')
+                    'defective'   => $finishedGoods->defective,
+                    'stok_sisa'   => $finishedGoods->stok_sisa,
+                    'live_stock'  => $finishedGoods->live_stock,
+                    'updated_at'  => $finishedGoods->updated_at->format('Y-m-d H:i:s')
                 ];
             } catch (\Exception $e) {
                 Log::error('Error resetting product stock', [
-                    'product_id' => $productId,
+                    'product_id'        => $productId,
                     'filter_month_year' => $filterMonthYear,
-                    'error' => $e->getMessage(),
-                    'trace' => $e->getTraceAsString()
+                    'error'             => $e->getMessage(),
+                    'trace'             => $e->getTraceAsString()
                 ]);
                 throw $e;
             }
@@ -823,143 +851,126 @@ class FinishedGoodsService
     }
 
     /**
-     * Bulk update all finished goods stock data with chunking
-     * Updates stok_masuk, stok_keluar, and live_stock for all records
-     *
-     * @param int $chunkSize Size of each processing chunk
-     * @param int $offset Starting offset for processing
-     * @param int|null $totalRecords Total records to be processed
-     * @return array
-     */
+     * Bulk update semua finished goods (all-time) dengan chunking
+     * - Menggunakan $force=true untuk memastikan stok_keluar sinkron dari HistorySale
+    */
     public function bulkUpdateAllStock($chunkSize = 50, $offset = 0, $totalRecords = null, $filterMonthYear = null)
     {
         try {
-            // Get all products that need stock updates
             $query = Product::query();
-            
-            // Get total count if not provided (first call)
+
             if ($totalRecords === null) {
                 $totalRecords = $query->count();
             }
-            
-            // No records to process
+
             if ($totalRecords == 0) {
                 return [
-                    'success' => true,
-                    'message' => 'No products found to update',
-                    'progress' => 100,
-                    'completed' => true,
-                    'total_records' => 0,
+                    'success'           => true,
+                    'message'           => 'No products found to update',
+                    'progress'          => 100,
+                    'completed'         => true,
+                    'total_records'     => 0,
                     'processed_records' => 0,
-                    'results' => []
+                    'results'           => []
                 ];
             }
-            
-            // Get chunk of products to process
+
             $products = $query->skip($offset)->take($chunkSize)->get();
             $updateResults = [];
-            $successCount = 0;
-            $errorCount = 0;
-            
-            // Process each product in the chunk
+            $successCount  = 0;
+            $errorCount    = 0;
+
             foreach ($products as $product) {
                 DB::beginTransaction();
                 try {
-                    // Get or create finished goods record
                     $finishedGoods = FinishedGoods::firstOrNew(['product_id' => $product->id]);
 
-                    // If it's a new record, set default values
                     if (!$finishedGoods->exists) {
-                        $finishedGoods->stok_awal = 0;
-                        $finishedGoods->defective = 0;
-                        $finishedGoods->stok_sisa = 0;
-                        $finishedGoods->stok_keluar = 0; // Ensure stok_keluar is set
+                        $finishedGoods->stok_awal   = 0;
+                        $finishedGoods->defective   = 0;
+                        $finishedGoods->stok_sisa   = 0;
+                        $finishedGoods->stok_keluar = 0;
                     }
 
-                    // Update all stock values from related data
-                    $this->updateStockFromRelatedData($finishedGoods);
-                    
-                    // Force recalculation of live stock
+                    // Bulk update SELALU all-time dan pakai FORCE untuk stok_keluar
+                    $this->updateStockFromRelatedData($finishedGoods, null, true);
                     $finishedGoods->recalculateLiveStock();
 
-                    // Save the record
                     $finishedGoods->save();
                     DB::commit();
-                    
+
                     $updateResults[] = [
-                        'status' => 'success',
-                        'product_id' => $product->id,
-                        'product_name' => $product->name_product,
-                        'sku' => $product->sku,
-                        'stok_awal' => $finishedGoods->stok_awal,
-                        'stok_masuk' => $finishedGoods->stok_masuk,
+                        'status'      => 'success',
+                        'product_id'  => $product->id,
+                        'product_name'=> $product->name_product,
+                        'sku'         => $product->sku,
+                        'stok_awal'   => $finishedGoods->stok_awal,
+                        'stok_masuk'  => $finishedGoods->stok_masuk,
                         'stok_keluar' => $finishedGoods->stok_keluar,
-                        'defective' => $finishedGoods->defective,
-                        'live_stock' => $finishedGoods->live_stock
+                        'defective'   => $finishedGoods->defective,
+                        'live_stock'  => $finishedGoods->live_stock
                     ];
                     $successCount++;
                 } catch (\Exception $e) {
                     DB::rollBack();
                     $updateResults[] = [
-                        'status' => 'error',
-                        'product_id' => $product->id,
+                        'status'       => 'error',
+                        'product_id'   => $product->id,
                         'product_name' => $product->name_product,
-                        'sku' => $product->sku,
-                        'error' => $e->getMessage()
+                        'sku'          => $product->sku,
+                        'error'        => $e->getMessage()
                     ];
                     $errorCount++;
-                    
                     Log::error('Failed to bulk update individual finished goods', [
                         'product_id' => $product->id,
-                        'error' => $e->getMessage()
+                        'error'      => $e->getMessage()
                     ]);
                 }
             }
-            
-            // Calculate progress
-            $newOffset = $offset + $chunkSize;
+
+            $newOffset   = $offset + $chunkSize;
             $isCompleted = $newOffset >= $totalRecords;
-            $progress = min(100, round(($newOffset / $totalRecords) * 100));
-            
+            $progress    = min(100, round(($newOffset / $totalRecords) * 100));
+
             Log::info('Bulk update finished goods chunk processed', [
-                'chunk_size' => $chunkSize,
-                'offset' => $offset,
-                'new_offset' => $newOffset,
+                'chunk_size'    => $chunkSize,
+                'offset'        => $offset,
+                'new_offset'    => $newOffset,
                 'total_records' => $totalRecords,
                 'success_count' => $successCount,
-                'error_count' => $errorCount,
-                'progress' => $progress,
-                'completed' => $isCompleted
+                'error_count'   => $errorCount,
+                'progress'      => $progress,
+                'completed'     => $isCompleted
             ]);
 
             return [
-                'success' => true,
-                'message' => "Updated {$successCount} records successfully" . ($errorCount > 0 ? " with {$errorCount} errors" : ""),
-                'progress' => $progress,
-                'completed' => $isCompleted,
-                'total_records' => $totalRecords,
+                'success'           => true,
+                'message'           => "Updated {$successCount} records successfully" . ($errorCount > 0 ? " with {$errorCount} errors" : ""),
+                'progress'          => $progress,
+                'completed'         => $isCompleted,
+                'total_records'     => $totalRecords,
                 'processed_records' => $newOffset,
-                'next_offset' => $isCompleted ? null : $newOffset,
-                'success_count' => $successCount,
-                'error_count' => $errorCount,
-                'results' => $updateResults
+                'next_offset'       => $isCompleted ? null : $newOffset,
+                'success_count'     => $successCount,
+                'error_count'       => $errorCount,
+                'results'           => $updateResults
             ];
         } catch (\Exception $e) {
             Log::error('Failed to bulk update finished goods stock', [
-                'offset' => $offset,
+                'offset'     => $offset,
                 'chunk_size' => $chunkSize,
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'error'      => $e->getMessage(),
+                'trace'      => $e->getTraceAsString()
             ]);
-            
+
             return [
-                'success' => false,
-                'message' => 'Error processing bulk update: ' . $e->getMessage(),
-                'total_records' => $totalRecords,
+                'success'           => false,
+                'message'           => 'Error processing bulk update: ' . $e->getMessage(),
+                'total_records'     => $totalRecords,
                 'processed_records' => $offset,
-                'progress' => $offset > 0 ? round(($offset / $totalRecords) * 100) : 0,
-                'completed' => false,
-                'error' => $e->getMessage()
+                'progress'          => $offset > 0 ? round(($offset / $totalRecords) * 100) : 0,
+                'completed'         => false,
+                'error'             => $e->getMessage()
             ];
         }
     }
@@ -977,4 +988,17 @@ class FinishedGoodsService
         // Use the unified calculation method
         return $this->calculateStokKeluar($productId, $filterMonthYear);
     }
+
+    /**
+     * Helper: dapatkan awal & akhir bulan dari "Y-m"
+     * @param string $ym
+     * @return array{0: \Carbon\Carbon, 1: \Carbon\Carbon}
+    */
+    private function getMonthRange(string $ym): array
+    {
+        $start = Carbon::createFromFormat('Y-m', $ym)->startOfMonth();
+        $end   = (clone $start)->endOfMonth();
+        return [$start, $end];
+    }
+
 }

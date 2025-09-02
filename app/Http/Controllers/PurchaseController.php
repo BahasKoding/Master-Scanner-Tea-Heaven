@@ -74,61 +74,78 @@ class PurchaseController extends Controller
     {
         $errors = [];
         
-        $qtyMasuk = (int) ($data['qty_barang_masuk'] ?? 0);
-        $defect = (int) ($data['barang_defect_tanpa_retur'] ?? 0);
-        $retur = (int) ($data['barang_diretur_ke_supplier'] ?? 0);
-        $qtyPembelian = (int) ($data['qty_pembelian'] ?? 0);
-        
-        // 1. Basic logical validation
+        $qtyMasuk      = (int) ($data['qty_barang_masuk'] ?? 0);
+        $defect        = (int) ($data['barang_defect_tanpa_retur'] ?? 0);
+        $retur         = (int) ($data['barang_diretur_ke_supplier'] ?? 0);
+        $qtyPembelian  = (int) ($data['qty_pembelian'] ?? 0);
+
+        // 1) Basic logical checks
         if ($defect > $qtyMasuk) {
-            $errors['barang_defect_tanpa_retur'] = ['Jumlah barang defect (' . number_format($defect) . ') tidak boleh melebihi jumlah barang masuk (' . number_format($qtyMasuk) . ')'];
+            $errors['barang_defect_tanpa_retur'] = [
+                'Jumlah barang defect (' . number_format($defect) . ') tidak boleh melebihi jumlah barang masuk (' . number_format($qtyMasuk) . ')'
+            ];
         }
-        
+
         if ($retur > $qtyMasuk) {
-            $errors['barang_diretur_ke_supplier'] = ['Jumlah barang retur (' . number_format($retur) . ') tidak boleh melebihi jumlah barang masuk (' . number_format($qtyMasuk) . ')'];
+            $errors['barang_diretur_ke_supplier'] = [
+                'Jumlah barang retur ke supplier (' . number_format($retur) . ') tidak boleh melebihi jumlah barang masuk (' . number_format($qtyMasuk) . ')'
+            ];
         }
-        
-        // 2. Combined validation: defect + retur should not exceed incoming
+
+        // 2) Defect + retur tidak boleh melebihi qty masuk
         if (($defect + $retur) > $qtyMasuk) {
-            $errors['calculation_error'] = ['Total defect + retur (' . number_format($defect + $retur) . ') tidak boleh melebihi jumlah barang masuk (' . number_format($qtyMasuk) . ')'];
+            $errors['calculation_error'] = [
+                'Total defect + retur (' . number_format($defect + $retur) . ') tidak boleh melebihi jumlah barang masuk (' . number_format($qtyMasuk) . ')'
+            ];
         }
-        
-        // 3. Total stock calculation validation
-        $calculatedTotal = $qtyMasuk - $defect + $retur;
+
+        // 3) Total stok masuk = masuk - defect - retur  (tidak boleh negatif)
+        $calculatedTotal = $qtyMasuk - $defect - $retur;
         if ($calculatedTotal < 0) {
-            $errors['negative_total_stock'] = ['Total stok masuk tidak boleh negatif. Periksa kembali kalkulasi: ' . $qtyMasuk . ' - ' . $defect . ' + ' . $retur . ' = ' . $calculatedTotal];
+            $errors['negative_total_stock'] = [
+                'Total stok masuk tidak boleh negatif. Periksa kembali kalkulasi: ' . $qtyMasuk . ' - ' . $defect . ' - ' . $retur . ' = ' . $calculatedTotal
+            ];
         }
-        
-        // 4. Business rule validation: unrealistic defect/return rates
+
+        // 4) Business warning: defect/retur rate tinggi
         if ($qtyMasuk > 0) {
             $defectRate = ($defect / $qtyMasuk) * 100;
-            $returnRate = ($retur / $qtyMasuk) * 100;
-            
+            $returnRate = ($retur  / $qtyMasuk) * 100;
+
             if ($defectRate > 50) {
-                $errors['barang_defect_tanpa_retur'] = ['Tingkat defect terlalu tinggi (' . number_format($defectRate, 1) . '%). Periksa kembali jumlah barang defect.'];
+                $errors['barang_defect_tanpa_retur'] = [
+                    'Tingkat defect terlalu tinggi (' . number_format($defectRate, 1) . '%). Periksa kembali jumlah barang defect.'
+                ];
             }
-            
+
             if ($returnRate > 50) {
-                $errors['barang_diretur_ke_supplier'] = ['Tingkat retur terlalu tinggi (' . number_format($returnRate, 1) . '%). Periksa kembali jumlah barang retur.'];
+                $errors['barang_diretur_ke_supplier'] = [
+                    'Tingkat retur ke supplier terlalu tinggi (' . number_format($returnRate, 1) . '%). Periksa kembali jumlah retur.'
+                ];
             }
         }
-        
-        // 5. Incoming goods should not exceed purchased quantity
+
+        // 5) Qty masuk tidak boleh melebihi qty pembelian (opsional, tetap dipertahankan)
         if ($qtyPembelian > 0 && $qtyMasuk > $qtyPembelian) {
-            $errors['qty_barang_masuk'] = ['Jumlah barang masuk (' . number_format($qtyMasuk) . ') tidak boleh melebihi quantity pembelian (' . number_format($qtyPembelian) . '). Periksa kembali data.'];
+            $errors['qty_barang_masuk'] = [
+                'Jumlah barang masuk (' . number_format($qtyMasuk) . ') tidak boleh melebihi quantity pembelian (' . number_format($qtyPembelian) . '). Periksa kembali data.'
+            ];
         }
-        
-        // 6. Warning for zero incoming goods but has defect/return
+
+        // 6) Tidak mungkin ada defect/retur bila qty masuk = 0
         if ($qtyMasuk == 0 && ($defect > 0 || $retur > 0)) {
-            $errors['qty_barang_masuk'] = ['Tidak dapat memiliki barang defect atau retur jika tidak ada barang masuk.'];
+            $errors['qty_barang_masuk'] = [
+                'Tidak dapat memiliki barang defect atau retur jika tidak ada barang masuk.'
+            ];
         }
-        
+
         if (!empty($errors)) {
             throw ValidationException::withMessages($errors);
         }
-        
+
         return $data;
     }
+
 
     /**
      * Display a listing of the resource.
@@ -335,7 +352,7 @@ class PurchaseController extends Controller
             $this->validateCalculations($validated);
 
             // Calculate and set total_stok_masuk
-            $validated['total_stok_masuk'] = $validated['qty_barang_masuk'] - $validated['barang_defect_tanpa_retur'] + $validated['barang_diretur_ke_supplier'];
+            $validated['total_stok_masuk'] = $validated['qty_barang_masuk'] - $validated['barang_defect_tanpa_retur'] - $validated['barang_diretur_ke_supplier'];
 
             // Use PurchaseService for consistent stock integration
             $purchaseService = app(PurchaseService::class);
@@ -501,7 +518,7 @@ class PurchaseController extends Controller
             $this->validateCalculations($validated);
 
             // Calculate and set total_stok_masuk
-            $validated['total_stok_masuk'] = $validated['qty_barang_masuk'] - $validated['barang_defect_tanpa_retur'] + $validated['barang_diretur_ke_supplier'];
+            $validated['total_stok_masuk'] = $validated['qty_barang_masuk'] - $validated['barang_defect_tanpa_retur'] - $validated['barang_diretur_ke_supplier'];
 
             $oldItemName = $purchase->item_name;
 
@@ -688,49 +705,56 @@ class PurchaseController extends Controller
     {
         try {
             $data = $request->validate([
-                'qty_pembelian' => 'required|integer|min:0',
-                'qty_barang_masuk' => 'nullable|integer|min:0',
-                'barang_defect_tanpa_retur' => 'nullable|integer|min:0',
-                'barang_diretur_ke_supplier' => 'nullable|integer|min:0',
+                'qty_pembelian'               => 'required|integer|min:0',
+                'qty_barang_masuk'            => 'nullable|integer|min:0',
+                'barang_defect_tanpa_retur'   => 'nullable|integer|min:0',
+                'barang_diretur_ke_supplier'  => 'nullable|integer|min:0',
             ]);
 
-            // Set default values
-            $data['qty_barang_masuk'] = $data['qty_barang_masuk'] ?? 0;
-            $data['barang_defect_tanpa_retur'] = $data['barang_defect_tanpa_retur'] ?? 0;
+            // defaults
+            $data['qty_barang_masuk']           = $data['qty_barang_masuk'] ?? 0;
+            $data['barang_defect_tanpa_retur']  = $data['barang_defect_tanpa_retur'] ?? 0;
             $data['barang_diretur_ke_supplier'] = $data['barang_diretur_ke_supplier'] ?? 0;
 
-            // Perform calculation validation
+            // server-side logical validation
             $this->validateCalculations($data);
 
-            // Calculate total
-            $totalStokMasuk = $data['qty_barang_masuk'] - $data['barang_defect_tanpa_retur'] + $data['barang_diretur_ke_supplier'];
+            // total = masuk - defect - retur
+            $totalStokMasuk = $data['qty_barang_masuk']
+                            - $data['barang_defect_tanpa_retur']
+                            - $data['barang_diretur_ke_supplier'];
 
-            // Calculate rates for informational purposes
-            $defectRate = $data['qty_barang_masuk'] > 0 ? ($data['barang_defect_tanpa_retur'] / $data['qty_barang_masuk']) * 100 : 0;
-            $returnRate = $data['qty_barang_masuk'] > 0 ? ($data['barang_diretur_ke_supplier'] / $data['qty_barang_masuk']) * 100 : 0;
+            $defectRate = $data['qty_barang_masuk'] > 0
+                ? ($data['barang_defect_tanpa_retur'] / $data['qty_barang_masuk']) * 100 : 0;
+            $returnRate = $data['qty_barang_masuk'] > 0
+                ? ($data['barang_diretur_ke_supplier'] / $data['qty_barang_masuk']) * 100 : 0;
 
             return response()->json([
                 'success' => true,
                 'message' => 'Kalkulasi valid',
                 'data' => [
-                    'total_stok_masuk' => $totalStokMasuk,
-                    'defect_rate' => round($defectRate, 2),
-                    'return_rate' => round($returnRate, 2),
-                    'calculation_formula' => $data['qty_barang_masuk'] . ' - ' . $data['barang_defect_tanpa_retur'] . ' + ' . $data['barang_diretur_ke_supplier'] . ' = ' . $totalStokMasuk
+                    'total_stok_masuk'    => max(0, $totalStokMasuk), // guard non-negatif
+                    'defect_rate'         => round($defectRate, 2),
+                    'return_rate'         => round($returnRate, 2),
+                    'calculation_formula' => $data['qty_barang_masuk'].' - '.$data['barang_defect_tanpa_retur'].' - '.$data['barang_diretur_ke_supplier'].' = '.max(0, $totalStokMasuk),
                 ]
             ]);
         } catch (ValidationException $e) {
+            $masuk = (int) ($request->input('qty_barang_masuk', 0));
+            $def   = (int) ($request->input('barang_defect_tanpa_retur', 0));
+            $ret   = (int) ($request->input('barang_diretur_ke_supplier', 0));
+
             return response()->json([
                 'success' => false,
                 'message' => 'Terdapat kesalahan kalkulasi',
-                'errors' => $e->errors(),
-                'data' => [
-                    'total_stok_masuk' => ($data['qty_barang_masuk'] ?? 0) - ($data['barang_defect_tanpa_retur'] ?? 0) + ($data['barang_diretur_ke_supplier'] ?? 0)
+                'errors'  => $e->errors(),
+                'data'    => [
+                    'total_stok_masuk' => max(0, $masuk - $def - $ret)
                 ]
             ], 422);
         } catch (\Exception $e) {
             Log::error('Failed to validate purchase calculations', [
-                'error' => $e->getMessage(),
+                'error'   => $e->getMessage(),
                 'request' => $request->all()
             ]);
 
@@ -740,4 +764,5 @@ class PurchaseController extends Controller
             ], 500);
         }
     }
+
 }

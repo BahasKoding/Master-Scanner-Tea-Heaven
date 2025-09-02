@@ -30,4 +30,8 @@ class Kernel extends ConsoleKernel
 
         require base_path('routes/console.php');
     }
+    // protected $commands = [
+    //     \App\Console\Commands\FinishedGoodsSanityCheck::class,
+    // ];
+    // nanti diaktifkan kalau emg dibutuhkan/sudah beres semua
 }
