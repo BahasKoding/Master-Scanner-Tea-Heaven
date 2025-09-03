@@ -45,9 +45,10 @@ class FinishedGoods extends Model
             // Example calculation - you can modify this based on your opname data structure
             // $opnameTotal = StockOpname::where('product_id', $this->product_id)
             //     ->sum('sisa_stock'); // or whatever field represents remaining stock
+            $latestLiveStock = $this->getStokSisaFromLastMonthOpname(now()->format('Y-m'));
 
             // Temporary: Set to 0 until opname system is implemented
-            $this->stok_sisa = 0;
+            $this->stok_sisa = $latestLiveStock;
             
             Log::info('Updated stok_sisa from opname data', [
                 'product_id' => $this->product_id,
@@ -450,19 +451,22 @@ class FinishedGoods extends Model
         try {
             // Tentukan bulan lalu berdasarkan filter
             $datePrev = Carbon::createFromFormat('Y-m', $filterMonthYear)->subMonth();
-            $year = $datePrev->year;
-            $month = $datePrev->month;
+            
+            $latestOpname = StockOpname::where('product_id', $this->product_id)
+                ->whereYear('tanggal_opname', $datePrev->year)
+                ->whereMonth('tanggal_opname', $datePrev->month)
+                ->where('status', 'selesai')
+                ->where('type', 'finished_goods')
+                ->orderBy('tanggal_opname', 'desc')
+                ->first();
 
-            // TODO: GANTI dengan query real begitu tabel opname tersedia.
-            // Contoh (sesuaikan nama model/kolom):
-            //
-            // return StockOpname::where('product_id', $this->product_id)
-            //     ->whereYear('created_at', $year)
-            //     ->whereMonth('created_at', $month)
-            //     ->where('status', 'selesai')
-            //     ->value('stok_sisa') ?? 0;
+            $relatedItem = $latestOpname
+                ? $latestOpname->items()->where('product_id', $this->product_id)->first()
+                : null;
 
-            // Sementara fallback:
+            if ($latestOpname) {
+                return $relatedItem->stok_sisa;
+            }
             return 0;
         } catch (\Exception $e) {
             Log::error("Error getStokSisaFromLastMonthOpname for product_id {$this->product_id}: " . $e->getMessage());
