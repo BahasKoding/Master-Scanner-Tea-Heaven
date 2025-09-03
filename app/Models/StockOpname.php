@@ -51,7 +51,6 @@ class StockOpname extends Model
         $types = [
             'bahan_baku' => 'Bahan Baku',
             'finished_goods' => 'Finished Goods',
-            'sticker' => 'Sticker'
         ];
         
         return $types[$this->type] ?? $this->type;

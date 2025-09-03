@@ -322,47 +322,6 @@ class FinishedGoods extends Model
         }
     }
 
-    /**
-     * Check if this product has sticker integration
-     * Products with sticker should reduce finished goods when sticker is used
-     */
-    public function hasStickerIntegration()
-    {
-        $product = $this->product;
-        if (!$product) {
-            return false;
-        }
-
-        // Check if product has sticker (labels 1, 2, 5 according to StickerController)
-        return in_array($product->label, [1, 2, 5]);
-    }
-
-    /**
-     * Update stock when sticker is used (for products with sticker integration)
-     */
-    public function updateStockFromStickerUsage($stickerQuantity)
-    {
-        if (!$this->hasStickerIntegration()) {
-            return $this;
-        }
-
-        try {
-            // For sticker products, when sticker is used, it means finished goods are consumed
-            // This should be reflected in stok_keluar or handled separately
-            // For now, we'll log this for tracking
-            Log::info("Sticker usage detected for product_id {$this->product_id}: {$stickerQuantity} stickers used");
-
-            // You can implement additional logic here if needed
-            // For example, if 1 sticker = 1 finished product, then:
-            // $this->stok_keluar += $stickerQuantity;
-            // $this->recalculateLiveStock();
-
-            return $this;
-        } catch (\Exception $e) {
-            Log::error("Failed to update stock from sticker usage for product_id {$this->product_id}: " . $e->getMessage());
-            return $this;
-        }
-    }
 
     /**
      * Dapatkan stok_masuk (BULANAN) = Produksi bulan itu + Purchase FG yang DITERIMA bulan itu.

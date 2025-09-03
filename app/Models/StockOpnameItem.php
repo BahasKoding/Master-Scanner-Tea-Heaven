@@ -45,10 +45,6 @@ class StockOpnameItem extends Model
         return $this->belongsTo(Product::class, 'item_id');
     }
 
-    public function sticker(): BelongsTo
-    {
-        return $this->belongsTo(Sticker::class, 'item_id');
-    }
 
     // Mutators
     public function setStokFisikAttribute($value)
@@ -78,11 +74,6 @@ class StockOpnameItem extends Model
                     // Try to get from Product table using item_id
                     $product = Product::find($this->item_id);
                     return $product->name_product ?? $this->item_name;
-                    
-                case 'sticker':
-                    // Try to get from Sticker table using item_id
-                    $sticker = Sticker::find($this->item_id);
-                    return $sticker->ukuran ?? $this->item_name;
                     
                 default:
                     return $this->item_name;
@@ -115,10 +106,6 @@ class StockOpnameItem extends Model
                     // Try to get from Product table using item_id
                     $product = Product::find($this->item_id);
                     return $product->sku ?? '-';
-                    
-                case 'sticker':
-                    // Stickers don't have SKU
-                    return '-';
                     
                 default:
                     return '-';

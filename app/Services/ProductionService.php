@@ -3,7 +3,6 @@
 namespace App\Services;
 
 use App\Models\CatatanProduksi;
-use App\Models\Sticker;
 use App\Models\BahanBaku;
 use App\Models\InventoryBahanBaku;
 use App\Models\FinishedGoods;
@@ -42,9 +41,6 @@ class ProductionService
 
                 // 3. Update raw materials inventory (terpakai)
                 $this->updateRawMaterialsInventory($catatanProduksi, 'create');
-
-                // 4. Update sticker production if applicable
-                $this->updateStickerProduction($catatanProduksi->product_id);
 
                 // 5. Log comprehensive activity
                 $this->logProductionActivity('created', $catatanProduksi, $data);
@@ -93,13 +89,6 @@ class ProductionService
                 // 3. Update raw materials inventory for both old and new materials
                 $this->updateRawMaterialsInventory($catatanProduksi, 'update', $oldBahanBakuIds);
 
-                // 4. Update sticker production for both old and new products if changed
-                if ($oldProductId !== $catatanProduksi->product_id) {
-                    $this->updateStickerProduction($oldProductId);
-                    $this->updateStickerProduction($catatanProduksi->product_id);
-                } else {
-                    $this->updateStickerProduction($catatanProduksi->product_id);
-                }
 
                 // 5. Log comprehensive activity
                 $this->logProductionActivity('updated', $catatanProduksi, $data, [
@@ -143,9 +132,6 @@ class ProductionService
 
                 // 3. Delete production record
                 $result = $catatanProduksi->delete();
-
-                // 4. Update sticker production
-                $this->updateStickerProduction($productId);
 
                 // 5. Log comprehensive activity
                 $this->logProductionActivity('deleted', null, [], [
@@ -207,33 +193,6 @@ class ProductionService
         }
     }
 
-    /**
-     * Update sticker production for the given product
-     * 
-     * @param int $productId
-     * @return void
-     */
-    private function updateStickerProduction($productId)
-    {
-        try {
-            // Ensure sticker exists and update its production
-            $sticker = Sticker::ensureStickerExists($productId);
-
-            if ($sticker) {
-                Log::info("Sticker production updated for product ID: {$productId}", [
-                    'sticker_id' => $sticker->id,
-                    'new_production' => $sticker->produksi_dynamic,
-                    'sisa_dynamic' => $sticker->sisa_dynamic
-                ]);
-            }
-        } catch (\Exception $e) {
-            Log::error("Failed to update sticker production for product ID: {$productId}", [
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
-            ]);
-            // Don't throw here - sticker update is not critical for main operation
-        }
-    }
 
     /**
      * Log comprehensive production activity
@@ -297,9 +256,6 @@ class ProductionService
 
                     // Re-sync raw materials inventory
                     $this->updateRawMaterialsInventory($production, 'sync');
-
-                    // Re-sync sticker production
-                    $this->updateStickerProduction($production->product_id);
 
                     $syncResults['successful']++;
                     $syncResults['details'][] = [

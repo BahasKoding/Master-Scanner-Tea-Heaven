@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Collection;
 use Exception;
+use Illuminate\Support\Facades\Log;
 
 class StockOpnameService
 {
@@ -71,17 +72,21 @@ class StockOpnameService
     {
         DB::beginTransaction();
         try {
+            $month = $stockOpname->tanggal_opname instanceof Carbon
+                ? $stockOpname->tanggal_opname
+                : Carbon::parse($stockOpname->tanggal_opname);
+
             foreach ($items as $itemData) {
                 $item = StockOpnameItem::find($itemData['id']);
                 if ($item && $item->opname_id == $stockOpname->id) {
-                    // Get current live stock for accurate variance calculation
-                    $currentLiveStock = $this->getCurrentLiveStock($stockOpname->type, $item->item_id);
+                    // Get current live stock for the opname month (FG = this-month-only)
+                    $currentLiveStock = $this->getCurrentLiveStock($stockOpname->type, $item->item_id, $month);
 
                     // Update item data
-                    $item->stok_fisik = $itemData['stok_fisik'];
-                    $item->stok_sistem = $currentLiveStock; // Update to current live stock
-                    $item->selisih = $itemData['stok_fisik'] - $currentLiveStock; // Calculate based on live stock
-                    $item->notes = $itemData['notes'] ?? null;
+                    $item->stok_fisik   = $itemData['stok_fisik'];
+                    $item->stok_sistem  = $currentLiveStock;
+                    $item->selisih      = $itemData['stok_fisik'] - $currentLiveStock;
+                    $item->notes        = $itemData['notes'] ?? null;
                     $item->save();
                 }
             }
@@ -140,7 +145,7 @@ class StockOpnameService
      */
     public function getVarianceAnalysis(StockOpname $stockOpname): array
     {
-        // Refresh stok_sistem to current live stock before analysis
+        // Refresh stok_sistem to current live stock before analysis (per-bulan untuk FG)
         $this->refreshStokSistem($stockOpname);
 
         $items = $stockOpname->items()->whereNotNull('stok_fisik')->get();
@@ -293,28 +298,16 @@ class StockOpnameService
             $date = $date ?? Carbon::now();
             $startOfMonth = $date->copy()->startOfMonth();
             $endOfMonth = $date->copy()->endOfMonth();
+
             switch ($type) {
                 case 'bahan_baku':
-                    // Get ALL inventory bahan baku records (matching finished goods pattern exactly)
                     $inventories = InventoryBahanBaku::with('bahanBaku')
                         ->whereBetween('updated_at', [$startOfMonth, $endOfMonth])
                         ->get();
                     \Log::info('StockOpname: InventoryBahanBaku count', ['count' => $inventories->count()]);
 
-                    // Debug: Log all inventory data
-                    foreach ($inventories as $inv) {
-                        \Log::info('StockOpname: Inventory data', [
-                            'id' => $inv->id,
-                            'bahan_baku_id' => $inv->bahan_baku_id,
-                            'has_bahan_baku' => $inv->bahanBaku !== null,
-                            'nama_barang' => $inv->bahanBaku->nama_barang ?? 'NULL',
-                            'live_stok_gudang' => $inv->live_stok_gudang
-                        ]);
-                    }
-
                     if ($inventories->isEmpty()) {
-                        \Log::info('StockOpname: InventoryBahanBaku empty, using fallback to BahanBaku');
-                        // Fallback: get from BahanBaku directly
+                        Log::info('StockOpname: InventoryBahanBaku empty, using fallback to BahanBaku');
                         $bahanBakus = \App\Models\BahanBaku::all();
                         \Log::info('StockOpname: BahanBaku fallback count', ['count' => $bahanBakus->count()]);
 
@@ -329,27 +322,13 @@ class StockOpnameService
                         });
                     }
 
-                    // Filter out inventories without bahanBaku relationship (same as finished goods pattern)
                     $validInventories = $inventories->filter(function ($inventory) {
                         return $inventory->bahanBaku !== null;
                     });
 
-                    \Log::info('StockOpname: Valid inventories count', ['count' => $validInventories->count()]);
-
-                    // Debug: Log valid inventory data
-                    foreach ($validInventories as $inv) {
-                        \Log::info('StockOpname: Valid inventory', [
-                            'bahan_baku_id' => $inv->bahan_baku_id,
-                            'nama_barang' => $inv->bahanBaku->nama_barang,
-                            'sku_induk' => $inv->bahanBaku->sku_induk,
-                            'live_stok_gudang' => $inv->live_stok_gudang
-                        ]);
-                    }
-
-                    // Map ALL valid inventory records (not just unique bahan baku)
                     return $validInventories->map(function ($inventory) {
                         return [
-                            'item_id' => $inventory->bahan_baku_id, // Use bahan_baku_id from inventory
+                            'item_id' => $inventory->bahan_baku_id,
                             'item_name' => $inventory->bahanBaku->nama_barang ?? 'Unknown',
                             'item_sku' => $inventory->bahanBaku->sku_induk ?? '-',
                             'stok_sistem' => $inventory->live_stok_gudang ?? 0,
@@ -358,56 +337,24 @@ class StockOpnameService
                     });
 
                 case 'finished_goods':
-                    // Try to get from FinishedGoods first
-                    $finishedGoods = FinishedGoods::with('product')
-                        ->whereBetween('updated_at', [$startOfMonth, $endOfMonth])
+                    // JANGAN filter created_at/updated_at; opname butuh daftar lengkap produk
+                    $products = \App\Models\Product::query()
+                        ->select('id', 'sku', 'name_product')
+                        ->orderBy('sku')
                         ->get();
-                    \Log::info('StockOpname: FinishedGoods count', ['count' => $finishedGoods->count()]);
 
-                    // if ($finishedGoods->isEmpty()) {
-                    \Log::info('StockOpname: FinishedGoods empty, using fallback to Product');
-                    // Fallback: get from Product directly
-                    $products = \App\Models\Product::whereBetween('created_at', [$startOfMonth, $endOfMonth])->get();
-                    \Log::info('StockOpname: Product fallback count', ['count' => $products->count()]);
+                    \Log::info('StockOpname: Product count for FG opname', ['count' => $products->count()]);
 
-                    return $products->map(function ($product) {
+                    // Hitung stok sistem PER PRODUK untuk bulan opname (this-month-only)
+                    return $products->map(function ($product) use ($date) {
+                        $stokSystem = $this->getFgSystemStockForMonth($product->id, $date);
+
                         return [
-                            'item_id' => $product->id,
-                            'item_name' => $product->name_product ?? 'Unknown',
-                            'item_sku' => $product->sku ?? '-',
-                            'stok_sistem' => 0,
-                            'satuan' => 'pcs'
-                        ];
-                    });
-                    // }
-
-                    // // Filter out finished goods without product relationship
-                    // $validFinishedGoods = $finishedGoods->filter(function ($finished) {
-                    //     return $finished->product !== null;
-                    // });
-
-                    // // \Log::info('StockOpname: Valid finished goods count', ['count' => $validFinishedGoods->count()]);
-
-                    // return $validFinishedGoods->map(function ($finished) {
-                    //     return [
-                    //         'item_id' => $finished->product->id,
-                    //         'item_name' => $finished->product->name_product ?? 'Unknown',
-                    //         'item_sku' => $finished->product->sku ?? '-',
-                    //         'stok_sistem' => $finished->live_stock ?? 0,
-                    //         'satuan' => 'pcs'
-                    //     ];
-                    // });
-
-                case 'sticker':
-                    $stickers = Sticker::all();
-                    \Log::info('StockOpname: Stickers count', ['count' => $stickers->count()]);
-
-                    return $stickers->map(function ($sticker) {
-                        return [
-                            'item_id' => $sticker->id,
-                            'item_name' => $sticker->ukuran ?? 'Unknown',
-                            'stok_sistem' => $sticker->stok_stiker ?? 0,
-                            'satuan' => 'pcs'
+                            'item_id'     => $product->id,
+                            'item_name'   => $product->name_product ?? 'Unknown',
+                            'item_sku'    => $product->sku ?? '-',
+                            'stok_sistem' => $stokSystem,
+                            'satuan'      => 'pcs',
                         ];
                     });
 
@@ -416,7 +363,6 @@ class StockOpnameService
                     return collect([]);
             }
         } catch (Exception $e) {
-            // Log the error for debugging
             \Log::error('StockOpname: Error getting items by type', [
                 'type' => $type,
                 'error' => $e->getMessage(),
@@ -427,34 +373,52 @@ class StockOpnameService
     }
 
     /**
+     * Hitung stok sistem FG KHUSUS bulan opname (this-month-only).
+     * Rumus: stok_sisa_prev + stok_masuk_bulan_ini - stok_keluar_bulan_ini - defective_bulan_ini
+     */
+    private function getFgSystemStockForMonth(int $productId, Carbon $month): int
+    {
+        $fg = FinishedGoods::firstOrCreate(
+            ['product_id' => $productId],
+            ['stok_awal' => 0, 'stok_masuk' => 0, 'stok_keluar' => 0, 'defective' => 0, 'stok_sisa' => 0, 'live_stock' => 0]
+        );
+
+        $ym           = $month->format('Y-m');
+        $stokSisaPrev = (int) $fg->getStokSisaFromLastMonthOpname($ym); // hasil opname bulan lalu
+        $masukMonth   = (int) $fg->getStokMasukForMonth($month);        // produksi + purchase FG bulan ini
+        $keluarMonth  = (int) $fg->getStokKeluarForMonth($month);       // sales bulan ini
+        $defMonth     = 0; // kalau nanti ada pencatatan defective bulanan, isi di sini
+
+        return $stokSisaPrev + $masukMonth - $keluarMonth - $defMonth;
+    }
+
+    /**
      * Get current live stock for an item based on type and item_id
-     * This method provides real-time stock calculation instead of static snapshot
+     * Sensitif konteks bulan opname:
+     * - bahan_baku: tetap gunakan live_stok_gudang kumulatif (sesuai desain saat ini).
+     * - finished_goods: gunakan stok sistem PER BULAN opname (this-month-only).
      *
      * @param string $type
      * @param int $itemId
+     * @param Carbon|null $month
      * @return int
      */
-    public function getCurrentLiveStock(string $type, int $itemId): int
+    public function getCurrentLiveStock(string $type, int $itemId, ?Carbon $month = null): int
     {
         try {
             switch ($type) {
                 case 'bahan_baku':
                     $inventory = InventoryBahanBaku::where('bahan_baku_id', $itemId)->first();
-                    return $inventory ? ($inventory->live_stok_gudang ?? 0) : 0;
+                    return $inventory ? (int) ($inventory->live_stok_gudang ?? 0) : 0;
 
                 case 'finished_goods':
-                    $finished = FinishedGoods::where('product_id', $itemId)->first();
-                    return $finished ? ($finished->live_stock ?? 0) : 0;
-
-                case 'sticker':
-                    $sticker = Sticker::find($itemId);
-                    return $sticker ? ($sticker->stok_stiker ?? 0) : 0;
+                    $month = $month ?? now();
+                    return $this->getFgSystemStockForMonth($itemId, $month);
 
                 default:
                     return 0;
             }
         } catch (Exception $e) {
-            // Log error and return 0 as fallback
             \Log::error('Error getting current live stock: ' . $e->getMessage(), [
                 'type' => $type,
                 'item_id' => $itemId
@@ -476,12 +440,16 @@ class StockOpnameService
         $changes = [];
         $totalChanges = 0;
 
+        $month = $opname->tanggal_opname instanceof Carbon
+            ? $opname->tanggal_opname
+            : Carbon::parse($opname->tanggal_opname);
+
         foreach ($items as $item) {
             $originalStock = $item->stok_sistem;
-            $currentStock = $this->getCurrentLiveStock($opname->type, $item->item_id);
-            $stockChange = $currentStock - $originalStock;
+            $currentStock  = $this->getCurrentLiveStock($opname->type, $item->item_id, $month);
+            $stockChange   = $currentStock - $originalStock;
 
-            // Update stok_sistem to current live stock
+            // Update stok_sistem to current (per-bulan untuk FG)
             $item->stok_sistem = $currentStock;
 
             // Track changes for notification
@@ -504,7 +472,6 @@ class StockOpnameService
             $item->save();
         }
 
-        // Log stock changes for audit trail
         if ($totalChanges > 0) {
             \Log::info('StockOpname: Stock sistem refreshed with changes', [
                 'opname_id' => $opname->id,
@@ -547,19 +514,16 @@ class StockOpnameService
             'total_items' => $updateSummary['total_items']
         ]);
 
-        // Use database transaction for data consistency
         \DB::beginTransaction();
 
         try {
             foreach ($items as $item) {
                 try {
-                    // Skip items with no variance (already accurate)
                     if ($item->selisih == 0) {
                         $updateSummary['skipped_items']++;
                         continue;
                     }
 
-                    // Update stock based on opname type
                     switch ($opname->type) {
                         case 'bahan_baku':
                             $this->updateBahanBakuStock($item);
@@ -567,10 +531,6 @@ class StockOpnameService
 
                         case 'finished_goods':
                             $this->updateFinishedGoodsStock($item);
-                            break;
-
-                        case 'sticker':
-                            $this->updateStickerStock($item);
                             break;
 
                         default:
@@ -594,13 +554,11 @@ class StockOpnameService
                 }
             }
 
-            // Commit transaction if all updates successful or acceptable error rate
             if (
                 $updateSummary['failed_items'] == 0 ||
                 ($updateSummary['failed_items'] / $updateSummary['total_items']) < 0.1
             ) {
                 \DB::commit();
-
                 \Log::info('StockOpname: System stock update completed successfully', $updateSummary);
             } else {
                 \DB::rollback();
@@ -637,7 +595,6 @@ class StockOpnameService
             return;
         }
 
-        // Store old values for audit trail
         $oldValues = [
             'stok_awal' => $inventory->stok_awal,
             'stok_masuk' => $inventory->stok_masuk,
@@ -646,16 +603,12 @@ class StockOpnameService
             'live_stok_gudang' => $inventory->live_stok_gudang
         ];
 
-        // RESET FLOW: Set stok_awal = stok_fisik, reset all other fields to 0
         $inventory->stok_awal = $item->stok_fisik;
         $inventory->stok_masuk = 0;
         $inventory->terpakai = 0;
         $inventory->defect = 0;
-        // live_stok_gudang will be recalculated automatically via accessor
-
         $inventory->save();
 
-        // Create comprehensive audit trail
         $this->createStockAdjustmentLog(
             $item,
             'bahan_baku',
@@ -664,14 +617,6 @@ class StockOpnameService
             $item->stok_fisik - $oldValues['live_stok_gudang'],
             "RESET FLOW: stok_awal={$item->stok_fisik}, stok_masuk=0, terpakai=0, defect=0"
         );
-
-        \Log::info('StockOpname: Reset bahan baku stock via RESET FLOW', [
-            'item_id' => $item->item_id,
-            'item_name' => $item->item_name,
-            'old_values' => $oldValues,
-            'new_stok_awal' => $item->stok_fisik,
-            'reset_fields' => ['stok_masuk', 'terpakai', 'defect']
-        ]);
     }
 
     /**
@@ -692,25 +637,20 @@ class StockOpnameService
             return;
         }
 
-        // Store old values for audit trail
         $oldValues = [
-            'stok_awal' => $finishedGoods->stok_awal,
-            'stok_masuk' => $finishedGoods->stok_masuk,
+            'stok_awal'   => $finishedGoods->stok_awal,
+            'stok_masuk'  => $finishedGoods->stok_masuk,
             'stok_keluar' => $finishedGoods->stok_keluar,
-            'defective' => $finishedGoods->defective,
-            'live_stock' => $finishedGoods->live_stock
+            'defective'   => $finishedGoods->defective,
+            'live_stock'  => $finishedGoods->live_stock
         ];
 
-        // RESET FLOW: Set stok_awal = stok_fisik, reset all other fields to 0
-        $finishedGoods->stok_awal = $item->stok_fisik;
-        $finishedGoods->stok_masuk = 0;
+        $finishedGoods->stok_awal   = $item->stok_fisik;
+        $finishedGoods->stok_masuk  = 0;
         $finishedGoods->stok_keluar = 0;
-        $finishedGoods->defective = 0;
-        // live_stock will be recalculated automatically via accessor
-
+        $finishedGoods->defective   = 0;
         $finishedGoods->save();
 
-        // Create comprehensive audit trail
         $this->createStockAdjustmentLog(
             $item,
             'finished_goods',
@@ -719,80 +659,10 @@ class StockOpnameService
             $item->stok_fisik - $oldValues['live_stock'],
             "RESET FLOW: stok_awal={$item->stok_fisik}, stok_masuk=0, stok_keluar=0, defective=0"
         );
-
-        \Log::info('StockOpname: Reset finished goods stock via RESET FLOW', [
-            'item_id' => $item->item_id,
-            'item_name' => $item->item_name,
-            'old_values' => $oldValues,
-            'new_stok_awal' => $item->stok_fisik,
-            'reset_fields' => ['stok_masuk', 'stok_keluar', 'defective']
-        ]);
-    }
-
-    /**
-     * Reset sticker stock using RESET FLOW - all fields reset except stok_awal
-     * NEW LOGIC: stok_awal = stok_fisik, all other fields = 0
-     *
-     * @param StockOpnameItem $item
-     * @return void
-     */
-    private function updateStickerStock(StockOpnameItem $item): void
-    {
-        $sticker = \App\Models\Sticker::find($item->item_id);
-        if (!$sticker) {
-            \Log::warning('StockOpname: Sticker not found for stock reset', [
-                'item_id' => $item->item_id,
-                'item_name' => $item->item_name
-            ]);
-            return;
-        }
-
-        // Store old values for audit trail
-        $oldValues = [
-            'stok_awal' => $sticker->stok_awal ?? 0,
-            'stok_masuk' => $sticker->stok_masuk ?? 0,
-            'stok_keluar' => $sticker->stok_keluar ?? 0,
-            'live_stok' => $sticker->live_stok ?? 0
-        ];
-
-        // RESET FLOW: Set stok_awal = stok_fisik, reset all other fields to 0
-        $sticker->stok_awal = $item->stok_fisik;
-        $sticker->stok_masuk = 0;
-        $sticker->stok_keluar = 0;
-        // live_stok will be recalculated automatically via accessor
-
-        $sticker->save();
-
-        // Create comprehensive audit trail
-        $this->createStockAdjustmentLog(
-            $item,
-            'sticker',
-            $oldValues['live_stok'],
-            $item->stok_fisik,
-            $item->stok_fisik - $oldValues['live_stok'],
-            "RESET FLOW: stok_awal={$item->stok_fisik}, stok_masuk=0, stok_keluar=0"
-        );
-
-        \Log::info('StockOpname: Reset sticker stock via RESET FLOW', [
-            'item_id' => $item->item_id,
-            'item_name' => $item->item_name,
-            'old_values' => $oldValues,
-            'new_stok_awal' => $item->stok_fisik,
-            'reset_fields' => ['stok_masuk', 'stok_keluar']
-        ]);
     }
 
     /**
      * Create comprehensive audit trail for stock adjustments
-     * This method logs all stock changes with detailed information for compliance
-     *
-     * @param StockOpnameItem $item
-     * @param string $stockType
-     * @param float $oldStock
-     * @param float $newStock
-     * @param float $adjustment
-     * @param string $details
-     * @return void
      */
     private function createStockAdjustmentLog(
         StockOpnameItem $item,
@@ -803,7 +673,6 @@ class StockOpnameService
         string $details
     ): void {
         try {
-            // Create detailed audit log
             \Log::info('StockOpname: Stock Adjustment Audit Trail', [
                 'opname_id' => $item->opname_id,
                 'item_id' => $item->item_id,
@@ -816,15 +685,10 @@ class StockOpnameService
                 'physical_count' => $item->stok_fisik,
                 'system_stock_before' => $item->stok_sistem,
                 'variance' => $item->selisih,
-                'details' => $details,
                 'user_id' => auth()->id() ?? 'system',
                 'timestamp' => now()->toDateTimeString(),
                 'ip_address' => request()->ip() ?? 'unknown'
             ]);
-
-            // TODO: In future, create StockAdjustment model record for database audit trail
-            // This would store the audit information in a dedicated table for reporting
-
         } catch (\Exception $e) {
             \Log::error('StockOpname: Failed to create audit trail', [
                 'error' => $e->getMessage(),
@@ -834,13 +698,6 @@ class StockOpnameService
         }
     }
 
-    /**
-     * Categorize variance by severity
-     *
-     * @param float $variance
-     * @param float $systemStock
-     * @return string
-     */
     private function categorizeVariance(float $variance, float $systemStock): string
     {
         if ($variance == 0) return 'exact';
@@ -853,12 +710,6 @@ class StockOpnameService
         return 'low';
     }
 
-    /**
-     * Get priority level based on variance percentage
-     *
-     * @param float $percentage
-     * @return string
-     */
     private function getPriority(float $percentage): string
     {
         $absPercentage = abs($percentage);
@@ -868,13 +719,6 @@ class StockOpnameService
         return 'low';
     }
 
-    /**
-     * Get recommendation text based on variance
-     *
-     * @param float $variance
-     * @param float $percentage
-     * @return string
-     */
     private function getRecommendationText(float $variance, float $percentage): string
     {
         if ($variance > 0) {
@@ -894,19 +738,15 @@ class StockOpnameService
     {
         $query = StockOpname::query();
 
-        // Apply filters
         if (!empty($filters['type'])) {
             $query->where('type', $filters['type']);
         }
-
         if (!empty($filters['status'])) {
             $query->where('status', $filters['status']);
         }
-
         if (!empty($filters['date_from'])) {
             $query->whereDate('tanggal_opname', '>=', $filters['date_from']);
         }
-
         if (!empty($filters['date_to'])) {
             $query->whereDate('tanggal_opname', '<=', $filters['date_to']);
         }
@@ -925,17 +765,10 @@ class StockOpnameService
             'by_type' => [
                 'bahan_baku' => $opnames->where('type', 'bahan_baku')->count(),
                 'finished_goods' => $opnames->where('type', 'finished_goods')->count(),
-                'sticker' => $opnames->where('type', 'sticker')->count(),
             ]
         ];
     }
 
-    /**
-     * Calculate average variance percentage
-     *
-     * @param Collection $opnames
-     * @return float
-     */
     private function calculateAverageVariance(Collection $opnames): float
     {
         $totalVariance = 0;
@@ -956,10 +789,7 @@ class StockOpnameService
 
     /**
      * Check if there are concurrent transactions that might affect stock during opname
-     * This method helps identify potential stock changes during opname period
-     *
-     * @param StockOpname $opname
-     * @return array
+     * NOTE: HistorySale kamu pakai SKU JSON, bukan product_id — logic ini opsional & belum diubah.
      */
     public function checkConcurrentTransactions(StockOpname $opname): array
     {
@@ -969,7 +799,6 @@ class StockOpnameService
         try {
             switch ($opname->type) {
                 case 'bahan_baku':
-                    // Check for recent purchases after opname creation
                     $recentPurchases = \App\Models\Purchase::where('created_at', '>', $opnameDate)
                         ->whereIn('bahan_baku_id', $opname->items->pluck('item_id'))
                         ->count();
@@ -980,22 +809,13 @@ class StockOpnameService
                     break;
 
                 case 'finished_goods':
-                    // Check for recent production after opname creation
+                    // NOTE: Placeholder—perlu mapping product_id->sku untuk cek HistorySale
                     $recentProduction = \App\Models\CatatanProduksi::where('created_at', '>', $opnameDate)
-                        ->whereIn('product_id', $opname->items->pluck('item_id'))
-                        ->count();
-
-                    // Check for recent sales after opname creation
-                    $recentSales = \App\Models\HistorySale::where('created_at', '>', $opnameDate)
                         ->whereIn('product_id', $opname->items->pluck('item_id'))
                         ->count();
 
                     if ($recentProduction > 0) {
                         $warnings[] = "Ada {$recentProduction} transaksi produksi setelah opname dibuat";
-                    }
-
-                    if ($recentSales > 0) {
-                        $warnings[] = "Ada {$recentSales} transaksi penjualan setelah opname dibuat";
                     }
                     break;
             }
@@ -1010,19 +830,19 @@ class StockOpnameService
     /**
      * Get stock movement summary during opname period
      * This helps understand what changed between opname creation and current time
-     *
-     * @param StockOpname $opname
-     * @return array
      */
     public function getStockMovementSummary(StockOpname $opname): array
     {
         $summary = [];
-        $opnameDate = $opname->created_at;
+
+        $month = $opname->tanggal_opname instanceof Carbon
+            ? $opname->tanggal_opname
+            : Carbon::parse($opname->tanggal_opname);
 
         foreach ($opname->items as $item) {
-            $currentStock = $this->getCurrentLiveStock($opname->type, $item->item_id);
-            $originalStock = $item->stok_sistem; // Original snapshot when opname was created
-            $movement = $currentStock - $originalStock;
+            $currentStock  = $this->getCurrentLiveStock($opname->type, $item->item_id, $month);
+            $originalStock = $item->stok_sistem; // snapshot saat create
+            $movement      = $currentStock - $originalStock;
 
             if ($movement != 0) {
                 $summary[] = [
@@ -1041,11 +861,6 @@ class StockOpnameService
 
     /**
      * KONDISI 1: Reset stok awal from completed opname results
-     * Auto-reset all stok_awal values based on stok_fisik from opname
-     *
-     * @param StockOpname $opname
-     * @return array
-     * @throws Exception
      */
     public function resetStokAwalFromOpname(StockOpname $opname): array
     {
@@ -1077,8 +892,6 @@ class StockOpnameService
 
                     if ($updated) {
                         $resetSummary['updated_items']++;
-
-                        // Create audit log
                         $this->createStokAwalAuditLog($item, $opname->type, $item->stok_fisik, 'bulk_reset_from_opname');
                     } else {
                         $resetSummary['skipped_items']++;
@@ -1099,13 +912,11 @@ class StockOpnameService
                 }
             }
 
-            // Commit if acceptable error rate
             if (
                 $resetSummary['failed_items'] == 0 ||
                 ($resetSummary['failed_items'] / $resetSummary['total_items']) < 0.1
             ) {
                 DB::commit();
-
                 \Log::info('StockOpname: Stok awal reset completed successfully', $resetSummary);
             } else {
                 DB::rollback();
@@ -1126,12 +937,6 @@ class StockOpnameService
 
     /**
      * KONDISI 2: Update stok awal per row when individual item is updated
-     * Real-time update of stok_awal when user updates stok_fisik
-     *
-     * @param StockOpname $opname
-     * @param StockOpnameItem $item
-     * @return array
-     * @throws Exception
      */
     public function updateStokAwalPerRow(StockOpname $opname, StockOpnameItem $item): array
     {
@@ -1150,7 +955,6 @@ class StockOpnameService
             $updated = $this->resetStokAwalForItem($opname->type, $item);
 
             if ($updated) {
-                // Create audit log
                 $this->createStokAwalAuditLog($item, $opname->type, $item->stok_fisik, 'per_row_update');
 
                 \Log::info('StockOpname: Per-row stok awal update successful', [
@@ -1181,10 +985,6 @@ class StockOpnameService
 
     /**
      * Reset stok awal for individual item based on opname type
-     *
-     * @param string $opnameType
-     * @param StockOpnameItem $item
-     * @return bool
      */
     private function resetStokAwalForItem(string $opnameType, StockOpnameItem $item): bool
     {
@@ -1207,15 +1007,6 @@ class StockOpnameService
                         return true;
                     }
                     break;
-
-                case 'sticker':
-                    $sticker = \App\Models\Sticker::find($item->item_id);
-                    if ($sticker) {
-                        $sticker->stok_awal = $item->stok_fisik;
-                        $sticker->save();
-                        return true;
-                    }
-                    break;
             }
 
             return false;
@@ -1231,28 +1022,21 @@ class StockOpnameService
 
     /**
      * Create comprehensive audit trail for stok awal changes
-     *
-     * @param StockOpnameItem $item
-     * @param string $opnameType
-     * @param float $newStokAwal
-     * @param string $updateType
-     * @return void
      */
     private function createStokAwalAuditLog(
         StockOpnameItem $item,
         string $opnameType,
-        float $newStokAwal,
-        string $updateType
+        string $updateType,
+        float $newStokAwal = null
     ): void {
         try {
-            // Create detailed audit log
             \Log::info('StockOpname: Stok Awal Update Audit Trail', [
                 'opname_id' => $item->opname_id,
                 'item_id' => $item->item_id,
                 'item_name' => $item->item_name,
                 'opname_type' => $opnameType,
                 'update_type' => $updateType,
-                'new_stok_awal' => $newStokAwal,
+                'new_stok_awal' => $newStokAwal ?? $item->stok_fisik,
                 'stok_fisik' => $item->stok_fisik,
                 'stok_sistem_before' => $item->stok_sistem,
                 'variance' => $item->selisih,
@@ -1260,10 +1044,6 @@ class StockOpnameService
                 'timestamp' => now()->toDateTimeString(),
                 'ip_address' => request()->ip() ?? 'unknown'
             ]);
-
-            // TODO: In future, create StokAwalAdjustment model record for database audit trail
-            // This would store the audit information in a dedicated table for reporting
-
         } catch (\Exception $e) {
             \Log::error('StockOpname: Failed to create stok awal audit trail', [
                 'error' => $e->getMessage(),
@@ -1275,9 +1055,6 @@ class StockOpnameService
 
     /**
      * Create a dummy item when no actual items are found
-     *
-     * @param StockOpname $opname
-     * @return void
      */
     private function createDummyItem(StockOpname $opname): void
     {
@@ -1293,7 +1070,7 @@ class StockOpnameService
 
         StockOpnameItem::create([
             'opname_id' => $opname->id,
-            'item_id' => 0, // Use 0 for dummy items
+            'item_id' => 0,
             'item_name' => $dummyNames[$opname->type] ?? 'Dummy Item',
             'stok_sistem' => 0,
             'satuan' => $dummyUnits[$opname->type] ?? 'pcs'
