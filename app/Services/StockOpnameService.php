@@ -387,7 +387,7 @@ class StockOpnameService
         $stokSisaPrev = (int) $fg->getStokSisaFromLastMonthOpname($ym); // hasil opname bulan lalu
         $masukMonth   = (int) $fg->getStokMasukForMonth($month);        // produksi + purchase FG bulan ini
         $keluarMonth  = (int) $fg->getStokKeluarForMonth($month);       // sales bulan ini
-        $defMonth     = 0; // kalau nanti ada pencatatan defective bulanan, isi di sini
+        $defMonth     = (int) $fg->defective ?? 0; // kalau nanti ada pencatatan defective bulanan, isi di sini
 
         return $stokSisaPrev + $masukMonth - $keluarMonth - $defMonth;
     }

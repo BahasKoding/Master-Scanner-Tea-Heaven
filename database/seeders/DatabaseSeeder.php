@@ -33,9 +33,9 @@ class DatabaseSeeder extends Seeder
         $this->call([
             BahanBakuSeeder::class,
             ProductSeeder::class,
-            FinishedGoodsSeeder::class,
+            // FinishedGoodsSeeder::class,
             HistorySaleSeeder::class, // data 1-31 juli 2025
-            FinishedGoodsSyncValuesSeeder::class,  
+            // FinishedGoodsSyncValuesSeeder::class,  
         ]);
     }
 

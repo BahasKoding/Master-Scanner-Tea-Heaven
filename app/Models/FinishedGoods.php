@@ -346,7 +346,7 @@ class FinishedGoods extends Model
                 ->forMonth($ym)
                 ->sum('total_stok_masuk');
 
-            return (int)$totalProduction + (int)$totalPurchases;
+            return ($this->stok_awal ?? 0) + (int) $totalProduction + (int) $totalPurchases;
         } catch (\Exception $e) {
             Log::error("FG.getStokMasukForMonth ERROR", [
                 'product_id' => $this->product_id,
@@ -424,7 +424,7 @@ class FinishedGoods extends Model
                 : null;
 
             if ($latestOpname) {
-                return $relatedItem->stok_sisa;
+                return $relatedItem->stok_fisik;
             }
             return 0;
         } catch (\Exception $e) {
