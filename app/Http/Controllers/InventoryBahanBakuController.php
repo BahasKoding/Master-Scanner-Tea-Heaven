@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\InventoryBahanBaku;
 use App\Models\BahanBaku;
+use App\Models\CatatanProduksi;
+use App\Models\Purchase;
 use App\Services\InventoryBahanBakuService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -300,7 +302,7 @@ class InventoryBahanBakuController extends Controller
                         return '<span class="badge bg-success">Good Stock</span>';
                     }
                 })
-                ->rawColumns(['action', 'status_stock'])
+                ->rawColumns(['status_stock'])
                 ->smart(true)
                 ->make(true);
         } catch (\Exception $e) {
@@ -631,7 +633,7 @@ class InventoryBahanBakuController extends Controller
             })
             ->filterColumn('nama_barang', fn($query, $keyword) => $query->where('bahan_bakus.nama_barang', 'like', "%{$keyword}%"))
             ->filterColumn('sku_induk', fn($query, $keyword) => $query->where('bahan_bakus.sku_induk', 'like', "%{$keyword}%"))
-            ->rawColumns(['action', 'status_stock'])
+            ->rawColumns(['status_stock'])
             ->smart(false) // Disable smart search for better performance
             ->make(true);
     }

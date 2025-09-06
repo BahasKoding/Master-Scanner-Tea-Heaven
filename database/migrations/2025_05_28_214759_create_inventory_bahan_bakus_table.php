@@ -18,7 +18,7 @@ return new class extends Migration
             $table->integer('stok_masuk')->default(0); // dari purchase bahan baku 
             $table->integer('terpakai')->default(0); // dari catatan produksi
             $table->integer('defect')->default(0);
-            $table->integer('stok_sisa'); // dari stock opname bulan kemaren
+            $table->integer('stok_sisa')->default(0); // dari stock opname bulan kemaren
             $table->integer('live_stok_gudang')->default(0);
             $table->string('satuan');
             $table->timestamps();

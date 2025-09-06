@@ -411,8 +411,7 @@ class FinishedGoods extends Model
             // Tentukan bulan lalu berdasarkan filter
             $datePrev = Carbon::createFromFormat('Y-m', $filterMonthYear)->subMonth();
             
-            $latestOpname = StockOpname::where('product_id', $this->product_id)
-                ->whereYear('tanggal_opname', $datePrev->year)
+            $latestOpname = StockOpname::whereYear('tanggal_opname', $datePrev->year)
                 ->whereMonth('tanggal_opname', $datePrev->month)
                 ->where('status', 'selesai')
                 ->where('type', 'finished_goods')
@@ -420,7 +419,7 @@ class FinishedGoods extends Model
                 ->first();
 
             $relatedItem = $latestOpname
-                ? $latestOpname->items()->where('product_id', $this->product_id)->first()
+                ? $latestOpname->items()->where('item_id', $this->product_id)->first()
                 : null;
 
             if ($latestOpname) {

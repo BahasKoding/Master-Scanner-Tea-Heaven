@@ -197,6 +197,9 @@ class InventoryBahanBakuService
             // Recalculate terpakai from catatan produksi
             InventoryBahanBaku::recalculateTerpakaiFromProduksi($bahanBakuId);
 
+            // Recalculate stok_sisa
+            InventoryBahanBaku::recalculateStokSisaFromOpname($bahanBakuId);
+
             Log::info('Inventory data recalculated', [
                 'bahan_baku_id' => $bahanBakuId
             ]);

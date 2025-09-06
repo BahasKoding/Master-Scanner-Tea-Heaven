@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
@@ -17,6 +18,7 @@ class InventoryBahanBaku extends Model
         'stok_masuk',
         'terpakai',
         'defect',
+        'stok_sisa',
         'live_stok_gudang',
         'satuan'
     ];
@@ -26,6 +28,7 @@ class InventoryBahanBaku extends Model
         'stok_masuk' => 'integer',
         'terpakai' => 'integer',
         'defect' => 'integer',
+        'stok_sisa' => 'integer',
         'live_stok_gudang' => 'integer'
     ];
 
@@ -191,6 +194,84 @@ class InventoryBahanBaku extends Model
             return $this;
         } catch (\Exception $e) {
             Log::error("Failed to update terpakai from produksi for bahan_baku_id {$this->bahan_baku_id}: " . $e->getMessage());
+            return $this;
+        }
+    }
+
+    public static function recalculateStokSisaFromOpname($bahanBakuId)
+    {
+        try {
+            $inventory = self::where('bahan_baku_id', $bahanBakuId)->first();
+            if ($inventory) {
+                $inventory->updateStokSisaFromOpname();
+                $inventory->save();
+                return $inventory;
+            }
+            return null;
+        } catch (\Exception $e) {
+            Log::error('Failed to recalculate stok_sisa from opname', [
+                'bahan_baku_id' => $bahanBakuId,
+                'error' => $e->getMessage()
+            ]);
+            throw $e;
+        }
+    }
+
+    public function getStokSisaFromLastMonthOpname(string $filterMonthYear): int
+    {
+        try {
+            // Tentukan bulan lalu berdasarkan filter
+            $datePrev = Carbon::createFromFormat('Y-m', $filterMonthYear)->subMonth();
+            
+            $latestOpname = StockOpname::whereYear('tanggal_opname', $datePrev->year)
+                ->whereMonth('tanggal_opname', $datePrev->month)
+                ->where('status', 'selesai')
+                ->where('type', 'bahan_baku')
+                ->orderBy('tanggal_opname', 'desc')
+                ->first();
+
+            $relatedItem = $latestOpname
+                ? $latestOpname->items()->where('item_id', $this->bahan_baku_id)->first()
+                : null;
+
+            if ($latestOpname) {
+                return $this->stok_sisa = $relatedItem ? $relatedItem->stok_fisik : 0;
+            }
+            return 0;
+        } catch (\Exception $e) {
+            Log::error("Error getStokSisaFromLastMonthOpname for bahan_baku_id {$this->bahan_baku_id}: " . $e->getMessage());
+            return 0;
+        }
+    }
+
+    public function updateStokSisaFromOpname()
+    {
+        try {
+            // TODO: Replace with actual stock opname table/model when available
+            // For now, we'll set a default value or calculate from existing data
+            
+            // Example calculation - you can modify this based on your opname data structure
+            // $opnameTotal = StockOpname::where('product_id', $this->product_id)
+            //     ->sum('sisa_stock'); // or whatever field represents remaining stock
+            $latestLiveStock = $this->getStokSisaFromLastMonthOpname(now()->format('Y-m'));
+
+            // Temporary: Set to 0 until opname system is implemented
+            $this->stok_sisa = $latestLiveStock;
+            
+            Log::info('Updated stok_sisa from opname data', [
+                'product_id' => $this->product_id,
+                'stok_sisa' => $this->stok_sisa
+            ]);
+            
+            return $this;
+        } catch (\Exception $e) {
+            Log::error('Error updating stok_sisa from opname', [
+                'product_id' => $this->product_id,
+                'error' => $e->getMessage()
+            ]);
+            
+            // Set default value on error
+            $this->stok_sisa = 0;
             return $this;
         }
     }

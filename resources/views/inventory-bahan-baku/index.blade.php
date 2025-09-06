@@ -297,7 +297,6 @@
                                     <th>Terpakai <small class="text-muted d-block">Monthly</small></th>
                                     <th>Defect</th>
                                     <th>Live Stock <small class="text-muted d-block">Calculated</small></th>
-                                    <th>Aksi</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -477,26 +476,6 @@
                             return data;
                         }
                     },
-                    {
-                        data: 'action',
-                        name: 'action',
-                        orderable: false,
-                        searchable: false,
-                        width: '15%',
-                        render: function(data, type, row) {
-                            if (type === 'display') {
-                                return `
-                                    <button type="button" class="btn btn-sm btn-success update-btn" data-id="${row.bahan_baku_id}">
-                                        <i class="fas fa-save"></i> Update
-                                    </button>
-                                    <button type="button" class="btn btn-sm btn-secondary reset-btn" data-id="${row.bahan_baku_id}">
-                                        <i class="fas fa-undo"></i> Reset
-                                    </button>
-                                `;
-                            }
-                            return data;
-                        }
-                    }
                 ],
                 order: [
                     [2, 'asc']
@@ -603,7 +582,7 @@
                     .val()) || 0;
 
                 const liveStock = stokAwal + stokMasuk - terpakai - defect;
-                $(`.live-stock[data-bahan-baku-id="${bahanBakuId}"]`).text(Math.max(0, liveStock));
+                $(`.live-stock[data-bahan-baku-id="${bahanBakuId}"]`).text(liveStock);
 
                 return liveStock;
             }
@@ -612,116 +591,6 @@
             $(document).on('input', '.stock-input:not([disabled])', function() {
                 const bahanBakuId = $(this).data('bahan-baku-id');
                 calculateRowLiveStock(bahanBakuId);
-            });
-
-            // Update button click - only send manual input fields
-            $(document).on('click', '.update-btn', function() {
-                const bahanBakuId = $(this).data('id');
-
-                // Only get values from manual input fields (enabled inputs)
-                const stokAwal = parseInt($(
-                    `input[data-bahan-baku-id="${bahanBakuId}"][data-field="stok_awal"]`).val()) || 0;
-                const defect = parseInt($(`input[data-bahan-baku-id="${bahanBakuId}"][data-field="defect"]`)
-                    .val()) || 0;
-
-                // Disable button during update
-                $(this).prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Updating...');
-
-                // Prepare form data - only send manual fields
-                const formData = new FormData();
-                formData.append('stok_awal', stokAwal);
-                formData.append('defect', defect);
-                formData.append('_method', 'PUT');
-                formData.append('_token', '{{ csrf_token() }}');
-
-                $.ajax({
-                    url: `/inventory-bahan-baku/${bahanBakuId}`,
-                    method: 'POST',
-                    data: formData,
-                    processData: false,
-                    contentType: false,
-                    success: function(response) {
-                        if (response.success) {
-                            // Show success message
-                            Swal.fire({
-                                title: 'Berhasil!',
-                                text: response.message,
-                                icon: 'success',
-                                timer: 1500,
-                                showConfirmButton: false,
-                                toast: true,
-                                position: 'top-end'
-                            });
-
-                            // Reload table to get updated dynamic values
-                            table.ajax.reload(null, false);
-                        }
-                    },
-                    error: function(xhr) {
-                        if (xhr.status === 422) {
-                            // Validation errors
-                            const errors = xhr.responseJSON.errors;
-                            const errorMessages = Object.values(errors).flat();
-
-                            Swal.fire({
-                                title: 'Mohon Periksa Input Anda',
-                                html: errorMessages.join('<br>'),
-                                icon: 'warning',
-                                confirmButtonText: 'Saya Mengerti',
-                                confirmButtonColor: '#3085d6'
-                            });
-                        } else {
-                            // Other errors
-                            Swal.fire({
-                                title: 'Gagal Memperbarui',
-                                text: xhr.responseJSON?.message ||
-                                    'Tidak dapat memperbarui inventory saat ini.',
-                                icon: 'error',
-                                confirmButtonText: 'OK',
-                                confirmButtonColor: '#3085d6'
-                            });
-                        }
-                    },
-                    complete: function() {
-                        // Re-enable button
-                        $(`.update-btn[data-id="${bahanBakuId}"]`).prop('disabled', false).html(
-                            '<i class="fas fa-save"></i> Update');
-                    }
-                });
-            });
-
-            // Reset button click - only reset manual fields
-            $(document).on('click', '.reset-btn', function() {
-                const bahanBakuId = $(this).data('id');
-
-                Swal.fire({
-                    title: 'Reset Data Manual?',
-                    text: "Apakah Anda yakin ingin mereset data stok manual (Stok Awal & Defect) ke 0?",
-                    icon: 'question',
-                    showCancelButton: true,
-                    confirmButtonColor: '#3085d6',
-                    cancelButtonColor: '#d33',
-                    confirmButtonText: 'Ya, Reset!',
-                    cancelButtonText: 'Batal'
-                }).then((result) => {
-                    if (result.isConfirmed) {
-                        // Reset only manual input fields to 0
-                        $(`input[data-bahan-baku-id="${bahanBakuId}"][data-field="stok_awal"]`).val(
-                            0);
-                        $(`input[data-bahan-baku-id="${bahanBakuId}"][data-field="defect"]`).val(0);
-                        calculateRowLiveStock(bahanBakuId);
-
-                        Swal.fire({
-                            title: 'Direset!',
-                            text: 'Data stok manual telah direset ke 0.',
-                            icon: 'success',
-                            timer: 1500,
-                            showConfirmButton: false,
-                            toast: true,
-                            position: 'top-end'
-                        });
-                    }
-                });
             });
 
             // Track modified fields
@@ -812,6 +681,81 @@
                 }).then((result) => {
                     if (result.isConfirmed) {
                         performBulkUpdate(updates, btn, originalText);
+                    }
+                });
+            });
+
+            $(document).on('change', '.stock-input[data-field="stok_awal"], .stock-input[data-field="defect"]', function() {
+                console.log('Manual input field changed, updating inventory...');
+
+                const bahanBakuId = $(this).data('bahan-baku-id');
+                const updateButton = $(`.update-btn[data-id="${bahanBakuId}"]`);
+
+                // Get values from the input fields for the specific item
+                const stokAwal = parseInt($(`input[data-bahan-baku-id="${bahanBakuId}"][data-field="stok_awal"]`).val()) || 0;
+                const defect = parseInt($(`input[data-bahan-baku-id="${bahanBakuId}"][data-field="defect"]`).val()) || 0;
+
+                // Temporarily disable the update button to prevent multiple submissions
+                updateButton.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Updating...');
+
+                // Prepare form data
+                const formData = new FormData();
+                formData.append('stok_awal', stokAwal);
+                formData.append('defect', defect);
+                formData.append('_method', 'PUT');
+                formData.append('_token', '{{ csrf_token() }}');
+
+                $.ajax({
+                    url: `/inventory-bahan-baku/${bahanBakuId}`,
+                    method: 'POST',
+                    data: formData,
+                    processData: false,
+                    contentType: false,
+                    success: function(response) {
+                        if (response.success) {
+                            // Show success message
+                            Swal.fire({
+                                title: 'Berhasil!',
+                                text: response.message,
+                                icon: 'success',
+                                timer: 1500,
+                                showConfirmButton: false,
+                                toast: true,
+                                position: 'top-end'
+                            });
+
+                            // Reload table to get updated dynamic values
+                            // This is optional if you're not using DataTables or similar
+                            // table.ajax.reload(null, false);
+                        }
+                    },
+                    error: function(xhr) {
+                        if (xhr.status === 422) {
+                            // Validation errors
+                            const errors = xhr.responseJSON.errors;
+                            const errorMessages = Object.values(errors).flat();
+
+                            Swal.fire({
+                                title: 'Mohon Periksa Input Anda',
+                                html: errorMessages.join('<br>'),
+                                icon: 'warning',
+                                confirmButtonText: 'Saya Mengerti',
+                                confirmButtonColor: '#3085d6'
+                            });
+                        } else {
+                            // Other errors
+                            Swal.fire({
+                                title: 'Gagal Memperbarui',
+                                text: xhr.responseJSON?.message || 'Tidak dapat memperbarui inventory saat ini.',
+                                icon: 'error',
+                                confirmButtonText: 'OK',
+                                confirmButtonColor: '#3085d6'
+                            });
+                        }
+                    },
+                    complete: function() {
+                        // Re-enable the button regardless of success or error
+                        updateButton.prop('disabled', false).html('<i class="fas fa-save"></i> Update');
                     }
                 });
             });
