@@ -78,6 +78,7 @@ class InventoryBahanBakuController extends Controller
                         'inventory_bahan_bakus.stok_masuk',
                         'inventory_bahan_bakus.terpakai',
                         'inventory_bahan_bakus.defect',
+                        'inventory_bahan_bakus.stok_sisa',
                         'inventory_bahan_bakus.live_stok_gudang'
                     ]);
 
@@ -247,6 +248,7 @@ class InventoryBahanBakuController extends Controller
                     'inventory_bahan_bakus.stok_masuk',
                     'inventory_bahan_bakus.terpakai',
                     'inventory_bahan_bakus.defect',
+                    'inventory_bahan_bakus.stok_sisa',
                     'inventory_bahan_bakus.live_stok_gudang'
                 ]);
 
@@ -619,6 +621,9 @@ class InventoryBahanBakuController extends Controller
             ->addColumn('terpakai_display', fn($row) => $this->getTerpakai($row, $filterMonthYear))
             ->editColumn('defect', function ($row) {
                 return $row->defect ?? 0;
+            })
+            ->editColumn('stok_sisa', function ($row) {
+                return $row->stok_sisa ?? 0;
             })
             ->addColumn('live_stok_display', fn($row) => $this->getLiveStock($row, $filterMonthYear))
             ->addColumn('status_stock', function ($row) use ($filterMonthYear) {

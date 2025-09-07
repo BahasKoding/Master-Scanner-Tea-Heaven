@@ -217,10 +217,9 @@
                                     <label for="filter-month-year" class="form-label small filter-label">
                                         <i class="fas fa-calendar-alt"></i> Filter Bulan/Tahun
                                     </label>
-                                    <input type="month" class="form-control form-control-sm" 
-                                           name="filter-month-year" id="filter-month-year" 
-                                           value="{{ $filterMonthYear ?? date('Y-m') }}" 
-                                           title="Filter stok masuk/terpakai berdasarkan bulan dan tahun">
+                                    <input type="month" class="form-control form-control-sm" name="filter-month-year"
+                                        id="filter-month-year" value="{{ $filterMonthYear ?? date('Y-m') }}"
+                                        title="Filter stok masuk/terpakai berdasarkan bulan dan tahun">
                                 </div>
                             </div>
                         </div>
@@ -247,12 +246,13 @@
                             <i class="fas fa-calendar-alt text-info me-2"></i>
                             <div>
                                 <small class="mb-0">
-                                    <strong>Filter Bulan Aktif:</strong> 
+                                    <strong>Filter Bulan Aktif:</strong>
                                     <span id="current-filter-display" class="badge bg-info mx-1">
                                         {{ date('F Y', strtotime(($filterMonthYear ?? date('Y-m')) . '-01')) }}
                                     </span>
                                     <br>
-                                    <span class="text-muted">Stok masuk dan terpakai dihitung berdasarkan transaksi pada bulan yang dipilih.</span>
+                                    <span class="text-muted">Stok masuk dan terpakai dihitung berdasarkan transaksi pada
+                                        bulan yang dipilih.</span>
                                 </small>
                             </div>
                         </div>
@@ -296,6 +296,7 @@
                                     <th>Stok Masuk <small class="text-muted d-block">Monthly</small></th>
                                     <th>Terpakai <small class="text-muted d-block">Monthly</small></th>
                                     <th>Defect</th>
+                                    <th>Stok Sisa</th>
                                     <th>Live Stock <small class="text-muted d-block">Calculated</small></th>
                                 </tr>
                             </thead>
@@ -463,6 +464,20 @@
                         }
                     },
                     {
+                        data: 'stok_sisa',
+                        name: 'stok_sisa',
+                        orderable: false,
+                        searchable: false,
+                        width: '8%',
+                        render: function(data, type, row) {
+                            if (type === 'display') {
+                                return `<span class="badge bg-info">${data || 0}</span>
+                                        <small class="text-muted d-block">Auto</small>`;
+                            }
+                            return data;
+                        }
+                    },
+                    {
                         data: 'live_stok_display',
                         name: 'live_stok_display',
                         orderable: false,
@@ -481,7 +496,10 @@
                     [2, 'asc']
                 ],
                 pageLength: 25,
-                lengthMenu: [[10, 25, 50, 100], [10, 25, 50, 100]],
+                lengthMenu: [
+                    [10, 25, 50, 100],
+                    [10, 25, 50, 100]
+                ],
                 dom: 'Blfrtip',
                 buttons: [{
                         extend: 'copy',
@@ -513,48 +531,49 @@
             console.log('DataTable initialized successfully');
 
             // Initialize the current filter display on page load
-            const initialMonthValue = $('#filter-month-year').val() || '{{ date("Y-m") }}';
+            const initialMonthValue = $('#filter-month-year').val() || '{{ date('Y-m') }}';
             updateCurrentFilterDisplay(initialMonthValue);
 
             // Apply filters when input/dropdown values change with debouncing
             let filterTimeout;
-            $('#filter-sku-induk, #filter-nama-barang, #filter-category, #filter-month-year').on('input change', function() {
-                const filterId = $(this).attr('id');
-                const filterValue = $(this).val();
-                
-                // Special handling for month filter - update display dynamically
-                if (filterId === 'filter-month-year') {
-                    updateCurrentFilterDisplay(filterValue);
-                }
-                
-                // Clear existing timeout
-                clearTimeout(filterTimeout);
-                
-                // Set new timeout to debounce filter changes
-                filterTimeout = setTimeout(function() {
-                    // Clear search before applying filters to prevent conflicts
-                    table.search('').draw();
-                    
-                    // Reload with new filters
-                    table.ajax.reload(null, false); // Don't reset paging
-                }, 300);
-            });
+            $('#filter-sku-induk, #filter-nama-barang, #filter-category, #filter-month-year').on('input change',
+                function() {
+                    const filterId = $(this).attr('id');
+                    const filterValue = $(this).val();
+
+                    // Special handling for month filter - update display dynamically
+                    if (filterId === 'filter-month-year') {
+                        updateCurrentFilterDisplay(filterValue);
+                    }
+
+                    // Clear existing timeout
+                    clearTimeout(filterTimeout);
+
+                    // Set new timeout to debounce filter changes
+                    filterTimeout = setTimeout(function() {
+                        // Clear search before applying filters to prevent conflicts
+                        table.search('').draw();
+
+                        // Reload with new filters
+                        table.ajax.reload(null, false); // Don't reset paging
+                    }, 300);
+                });
 
             // Clear filters function with search reset
             $('#clear-filters').on('click', function() {
                 // Clear DataTable search first
                 table.search('').draw();
-                
+
                 $('#filter-sku-induk').val('');
                 $('#filter-nama-barang').val('');
                 $('#filter-category').val('');
-                
+
                 // Reset month filter to current month
-                $('#filter-month-year').val('{{ date("Y-m") }}');
-                
+                $('#filter-month-year').val('{{ date('Y-m') }}');
+
                 // Update display to current month when clearing filters
-                updateCurrentFilterDisplay('{{ date("Y-m") }}');
-                
+                updateCurrentFilterDisplay('{{ date('Y-m') }}');
+
                 table.ajax.reload(null, false);
             });
 
@@ -601,15 +620,15 @@
                 const bahanBakuId = $(this).data('bahan-baku-id');
                 const field = $(this).data('field');
                 const key = `${bahanBakuId}_${field}`;
-                
+
                 modifiedFields.add(key);
-                
+
                 // Add visual indicator for modified fields
                 $(this).addClass('border-warning');
-                
+
                 // Update bulk update button state
                 updateBulkUpdateButton();
-                
+
                 // Calculate live stock for this row
                 calculateRowLiveStock(bahanBakuId);
             });
@@ -653,17 +672,21 @@
 
                 modifiedFields.forEach(key => {
                     const [bahanBakuId, field] = key.split('_');
-                    
+
                     if (!processedIds.has(bahanBakuId)) {
-                        const stokAwal = parseInt($(`input[data-bahan-baku-id="${bahanBakuId}"][data-field="stok_awal"]`).val()) || 0;
-                        const defect = parseInt($(`input[data-bahan-baku-id="${bahanBakuId}"][data-field="defect"]`).val()) || 0;
-                        
+                        const stokAwal = parseInt($(
+                            `input[data-bahan-baku-id="${bahanBakuId}"][data-field="stok_awal"]`
+                        ).val()) || 0;
+                        const defect = parseInt($(
+                            `input[data-bahan-baku-id="${bahanBakuId}"][data-field="defect"]`
+                        ).val()) || 0;
+
                         updates.push({
                             bahan_baku_id: parseInt(bahanBakuId),
                             stok_awal: stokAwal,
                             defect: defect
                         });
-                        
+
                         processedIds.add(bahanBakuId);
                     }
                 });
@@ -685,80 +708,86 @@
                 });
             });
 
-            $(document).on('change', '.stock-input[data-field="stok_awal"], .stock-input[data-field="defect"]', function() {
-                console.log('Manual input field changed, updating inventory...');
+            $(document).on('change', '.stock-input[data-field="stok_awal"], .stock-input[data-field="defect"]',
+                function() {
+                    console.log('Manual input field changed, updating inventory...');
 
-                const bahanBakuId = $(this).data('bahan-baku-id');
-                const updateButton = $(`.update-btn[data-id="${bahanBakuId}"]`);
+                    const bahanBakuId = $(this).data('bahan-baku-id');
+                    const updateButton = $(`.update-btn[data-id="${bahanBakuId}"]`);
 
-                // Get values from the input fields for the specific item
-                const stokAwal = parseInt($(`input[data-bahan-baku-id="${bahanBakuId}"][data-field="stok_awal"]`).val()) || 0;
-                const defect = parseInt($(`input[data-bahan-baku-id="${bahanBakuId}"][data-field="defect"]`).val()) || 0;
+                    // Get values from the input fields for the specific item
+                    const stokAwal = parseInt($(
+                        `input[data-bahan-baku-id="${bahanBakuId}"][data-field="stok_awal"]`).val()) || 0;
+                    const defect = parseInt($(`input[data-bahan-baku-id="${bahanBakuId}"][data-field="defect"]`)
+                        .val()) || 0;
 
-                // Temporarily disable the update button to prevent multiple submissions
-                updateButton.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Updating...');
+                    // Temporarily disable the update button to prevent multiple submissions
+                    updateButton.prop('disabled', true).html(
+                        '<i class="fas fa-spinner fa-spin"></i> Updating...');
 
-                // Prepare form data
-                const formData = new FormData();
-                formData.append('stok_awal', stokAwal);
-                formData.append('defect', defect);
-                formData.append('_method', 'PUT');
-                formData.append('_token', '{{ csrf_token() }}');
+                    // Prepare form data
+                    const formData = new FormData();
+                    formData.append('stok_awal', stokAwal);
+                    formData.append('defect', defect);
+                    formData.append('_method', 'PUT');
+                    formData.append('_token', '{{ csrf_token() }}');
 
-                $.ajax({
-                    url: `/inventory-bahan-baku/${bahanBakuId}`,
-                    method: 'POST',
-                    data: formData,
-                    processData: false,
-                    contentType: false,
-                    success: function(response) {
-                        if (response.success) {
-                            // Show success message
-                            Swal.fire({
-                                title: 'Berhasil!',
-                                text: response.message,
-                                icon: 'success',
-                                timer: 1500,
-                                showConfirmButton: false,
-                                toast: true,
-                                position: 'top-end'
-                            });
+                    $.ajax({
+                        url: `/inventory-bahan-baku/${bahanBakuId}`,
+                        method: 'POST',
+                        data: formData,
+                        processData: false,
+                        contentType: false,
+                        success: function(response) {
+                            if (response.success) {
+                                // Show success message
+                                Swal.fire({
+                                    title: 'Berhasil!',
+                                    text: response.message,
+                                    icon: 'success',
+                                    timer: 1500,
+                                    showConfirmButton: false,
+                                    toast: true,
+                                    position: 'top-end'
+                                });
 
-                            // Reload table to get updated dynamic values
-                            // This is optional if you're not using DataTables or similar
-                            // table.ajax.reload(null, false);
+                                // Reload table to get updated dynamic values
+                                // This is optional if you're not using DataTables or similar
+                                // table.ajax.reload(null, false);
+                            }
+                        },
+                        error: function(xhr) {
+                            if (xhr.status === 422) {
+                                // Validation errors
+                                const errors = xhr.responseJSON.errors;
+                                const errorMessages = Object.values(errors).flat();
+
+                                Swal.fire({
+                                    title: 'Mohon Periksa Input Anda',
+                                    html: errorMessages.join('<br>'),
+                                    icon: 'warning',
+                                    confirmButtonText: 'Saya Mengerti',
+                                    confirmButtonColor: '#3085d6'
+                                });
+                            } else {
+                                // Other errors
+                                Swal.fire({
+                                    title: 'Gagal Memperbarui',
+                                    text: xhr.responseJSON?.message ||
+                                        'Tidak dapat memperbarui inventory saat ini.',
+                                    icon: 'error',
+                                    confirmButtonText: 'OK',
+                                    confirmButtonColor: '#3085d6'
+                                });
+                            }
+                        },
+                        complete: function() {
+                            // Re-enable the button regardless of success or error
+                            updateButton.prop('disabled', false).html(
+                                '<i class="fas fa-save"></i> Update');
                         }
-                    },
-                    error: function(xhr) {
-                        if (xhr.status === 422) {
-                            // Validation errors
-                            const errors = xhr.responseJSON.errors;
-                            const errorMessages = Object.values(errors).flat();
-
-                            Swal.fire({
-                                title: 'Mohon Periksa Input Anda',
-                                html: errorMessages.join('<br>'),
-                                icon: 'warning',
-                                confirmButtonText: 'Saya Mengerti',
-                                confirmButtonColor: '#3085d6'
-                            });
-                        } else {
-                            // Other errors
-                            Swal.fire({
-                                title: 'Gagal Memperbarui',
-                                text: xhr.responseJSON?.message || 'Tidak dapat memperbarui inventory saat ini.',
-                                icon: 'error',
-                                confirmButtonText: 'OK',
-                                confirmButtonColor: '#3085d6'
-                            });
-                        }
-                    },
-                    complete: function() {
-                        // Re-enable the button regardless of success or error
-                        updateButton.prop('disabled', false).html('<i class="fas fa-save"></i> Update');
-                    }
+                    });
                 });
-            });
 
             // Function to perform bulk update
             function performBulkUpdate(updates, btn, originalText) {
@@ -776,9 +805,10 @@
                         if (response.success) {
                             const data = response.data;
                             let message = response.message;
-                            
+
                             if (data.error_count > 0) {
-                                message += `<br><small class="text-muted">Detail: ${data.success_count} berhasil, ${data.error_count} gagal</small>`;
+                                message +=
+                                    `<br><small class="text-muted">Detail: ${data.success_count} berhasil, ${data.error_count} gagal</small>`;
                             }
 
                             Swal.fire({
@@ -809,11 +839,11 @@
                     error: function(xhr) {
                         console.error('Bulk Update Error:', xhr);
                         let errorMessage = 'Terjadi kesalahan saat bulk update';
-                        
+
                         if (xhr.responseJSON && xhr.responseJSON.message) {
                             errorMessage = xhr.responseJSON.message;
                         }
-                        
+
                         Swal.fire({
                             title: 'Error!',
                             text: errorMessage,
@@ -830,9 +860,9 @@
             function updateCurrentFilterDisplay(monthValue) {
                 if (monthValue) {
                     const date = new Date(monthValue + '-01');
-                    const monthName = date.toLocaleDateString('id-ID', { 
-                        month: 'long', 
-                        year: 'numeric' 
+                    const monthName = date.toLocaleDateString('id-ID', {
+                        month: 'long',
+                        year: 'numeric'
                     });
                     $('#current-filter-display').text(monthName);
                 } else {
