@@ -294,45 +294,26 @@ class StockOpnameService
         \Log::info('StockOpname: Getting items by type', ['type' => $type]);
 
         try {
-            // Determine month window based on provided date (defaults to now)
-            $date = $date ?? Carbon::now();
-            $startOfMonth = $date->copy()->startOfMonth();
-            $endOfMonth = $date->copy()->endOfMonth();
-
             switch ($type) {
                 case 'bahan_baku':
-                    $inventories = InventoryBahanBaku::with('bahanBaku')
-                        ->whereBetween('updated_at', [$startOfMonth, $endOfMonth])
+
+                    // JANGAN filter created_at/updated_at; opname butuh daftar lengkap bahan baku
+                    $rawMaterials = \App\Models\BahanBaku::query()
+                        ->select('id', 'nama_barang', 'sku_induk', 'satuan')
+                        ->orderBy('nama_barang')
                         ->get();
-                    \Log::info('StockOpname: InventoryBahanBaku count', ['count' => $inventories->count()]);
 
-                    if ($inventories->isEmpty()) {
-                        Log::info('StockOpname: InventoryBahanBaku empty, using fallback to BahanBaku');
-                        $bahanBakus = \App\Models\BahanBaku::all();
-                        \Log::info('StockOpname: BahanBaku fallback count', ['count' => $bahanBakus->count()]);
+                    \Log::info('StockOpname: Raw material count for IBB opname', ['count' => $rawMaterials->count()]);
 
-                        return $bahanBakus->map(function ($bahanBaku) {
-                            return [
-                                'item_id' => $bahanBaku->id,
-                                'item_name' => $bahanBaku->nama_barang ?? 'Unknown',
-                                'item_sku' => $bahanBaku->sku_induk ?? '-',
-                                'stok_sistem' => 0,
-                                'satuan' => $bahanBaku->satuan ?? 'kg'
-                            ];
-                        });
-                    }
+                    return $rawMaterials->map(function ($rawMaterials) use ($date) {
+                        $stokSystem = $this->getIBBSystemStockSystemForMonth($rawMaterials->id);
 
-                    $validInventories = $inventories->filter(function ($inventory) {
-                        return $inventory->bahanBaku !== null;
-                    });
-
-                    return $validInventories->map(function ($inventory) {
                         return [
-                            'item_id' => $inventory->bahan_baku_id,
-                            'item_name' => $inventory->bahanBaku->nama_barang ?? 'Unknown',
-                            'item_sku' => $inventory->bahanBaku->sku_induk ?? '-',
-                            'stok_sistem' => $inventory->live_stok_gudang ?? 0,
-                            'satuan' => $inventory->bahanBaku->satuan ?? 'kg'
+                            'item_id' => $rawMaterials->id,
+                            'item_name' => $rawMaterials->nama_barang ?? 'Unknown',
+                            'item_sku' => $rawMaterials->sku_induk ?? '-',
+                            'stok_sistem' => $stokSystem,
+                            'satuan' => $rawMaterials->satuan ?? 'kg'
                         ];
                     });
 
@@ -392,6 +373,23 @@ class StockOpnameService
         return $stokSisaPrev + $masukMonth - $keluarMonth - $defMonth;
     }
 
+    private function getIBBSystemStockSystemForMonth(int $rawMaterialId): int
+    {
+        $ibb = InventoryBahanBaku::firstOrCreate(
+            ['bahan_baku_id' => $rawMaterialId],
+            ['stok_awal' => 0, 'stok_masuk' => 0, 'terpakai' => 0, 'defect' => 0, 'live_stok_gudang' => 0, 'satuan' => 'kg']
+        );
+
+        $ibb = $ibb->updateFromAllSources();
+
+        $stokSisaPrev = (int) $ibb->stok_sisa ?? 0; // hasil opname bulan lalu
+        $masukMonth   = (int) $ibb->stok_masuk ?? 0;        // produksi + purchase FG bulan ini
+        $keluarMonth  = (int) $ibb->terpakai ?? 0;       // sales bulan ini
+        $defMonth     = (int) $ibb->defect ?? 0; // kalau nanti ada pencatatan defective bulanan, isi di sini
+
+        return $stokSisaPrev + $ibb->stok_awal + $masukMonth - $keluarMonth - $defMonth;
+    }
+
     /**
      * Get current live stock for an item based on type and item_id
      * Sensitif konteks bulan opname:
@@ -408,8 +406,7 @@ class StockOpnameService
         try {
             switch ($type) {
                 case 'bahan_baku':
-                    $inventory = InventoryBahanBaku::where('bahan_baku_id', $itemId)->first();
-                    return $inventory ? (int) ($inventory->live_stok_gudang ?? 0) : 0;
+                    return $this->getIBBSystemStockSystemForMonth($itemId);
 
                 case 'finished_goods':
                     $month = $month ?? now();

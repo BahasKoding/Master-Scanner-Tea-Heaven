@@ -20,7 +20,7 @@ return new class extends Migration
             $table->integer('defect')->default(0);
             $table->integer('stok_sisa')->default(0); // dari stock opname bulan kemaren
             $table->integer('live_stok_gudang')->default(0);
-            $table->string('satuan');
+            $table->string('satuan')->default('kg');
             $table->timestamps();
         });
     }

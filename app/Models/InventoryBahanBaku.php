@@ -283,6 +283,7 @@ class InventoryBahanBaku extends Model
     {
         $this->updateStokMasukFromPurchases();
         $this->updateTerpakaiFromCatatanProduksi();
+        $this->updateStokSisaFromOpname();
         return $this;
     }
 

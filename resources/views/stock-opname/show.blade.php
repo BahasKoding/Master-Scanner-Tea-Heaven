@@ -34,6 +34,11 @@
             border-radius: 5px;
             margin-bottom: 20px;
         }
+
+        .loading-spinner {
+            margin-left: 0.5rem;
+            color: #4caf50;
+        }
     </style>
 @endsection
 
@@ -313,13 +318,6 @@
                                         <th width="12%">Selisih</th>
                                         <th width="8%">Satuan</th>
                                         <th width="12%">Status</th>
-                                        @if($stockOpname->status !== 'completed')
-                                        @if(in_array($stockOpname->type, ['bahan_baku', 'finished_goods']))
-                                        <th width="14%">Action</th>
-                                        @else
-                                        <th width="19%">Action</th>
-                                        @endif
-                                        @endif
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -387,16 +385,7 @@
                                                 @endif
                                             </span>
                                         </td>
-                                        @if($stockOpname->status !== 'completed')
-                                        <td class="text-center">
-                                            <button type="button" class="btn btn-sm btn-success update-item-btn" 
-                                                    data-item-id="{{ $item->id }}" 
-                                                    data-item-name="{{ $item->master_item_name }}"
-                                                    title="Update item ini">
-                                                <i class="fas fa-save me-1"></i>Update
-                                            </button>
-                                        </td>
-                                        @endif
+                                        <!-- Auto-save on change -->
                                     </tr>
                                     @endforeach
                                 </tbody>
@@ -453,6 +442,119 @@
 
     <!-- SweetAlert2 -->
     <script src="{{ URL::asset('build/js/plugins/sweetalert2.all.min.js') }}"></script>
+
+    <script>
+        // Set up our toast notification for real-time feedback
+        const Toast = Swal.mixin({
+            toast: true,
+            position: 'top-end',
+            showConfirmButton: false,
+            timer: 3000,
+            timerProgressBar: true,
+            didOpen: (toast) => {
+                toast.addEventListener('mouseenter', Swal.stopTimer)
+                toast.addEventListener('mouseleave', Swal.resumeTimer)
+            }
+        });
+
+        // Save timeout to prevent too many requests
+        let saveTimeout;
+
+        // Auto-save on input change with debounce
+        $('.stok-fisik-input').on('change', function() {
+            const input = $(this);
+            const itemId = input.data('item-id');
+            const stokFisik = input.val();
+            const itemName = input.closest('tr').find('td:nth-child(3)').text().trim();
+
+            // Clear any existing timeout
+            if (saveTimeout) {
+                clearTimeout(saveTimeout);
+            }
+
+            // Basic validation
+            if (!stokFisik || stokFisik === '') {
+                Toast.fire({
+                    icon: 'warning',
+                    title: 'Masukkan stok fisik terlebih dahulu'
+                });
+                input.focus();
+                return;
+            }
+
+            // Show loading state
+            const loadingSpinner = $('<i class="fas fa-spinner fa-spin loading-spinner"></i>');
+            input.after(loadingSpinner);
+            input.prop('disabled', true);
+
+            // Set a new timeout
+            saveTimeout = setTimeout(() => {
+                // Make the AJAX request
+                $.ajax({
+                    url: `/stock-opname/{{ $stockOpname->id }}/items/${itemId}`,
+                    method: 'PUT',
+                    data: {
+                        _token: '{{ csrf_token() }}',
+                        stok_fisik: parseFloat(stokFisik) || 0
+                    },
+                    success: function(response) {
+                        if (response.success) {
+                            // Update visual elements
+                            const tr = input.closest('tr');
+                            
+                            // Update selisih display
+                            const selisih = response.data.selisih;
+                            const selisihClass = selisih > 0 ? 'text-success' : (selisih < 0 ? 'text-danger' : 'text-muted');
+                            const selisihDisplay = tr.find('.selisih-display');
+                            selisihDisplay.html(`<span class="fw-bold ${selisihClass}">${selisih > 0 ? '+' : ''}${selisih}</span>`);
+                            
+                            // Update status badge
+                            const statusBadge = tr.find('.status-badge');
+                            let newBadgeHtml = '';
+                            if (selisih > 0) {
+                                newBadgeHtml = '<span class="badge bg-success">Surplus</span>';
+                            } else if (selisih < 0) {
+                                newBadgeHtml = '<span class="badge bg-danger">Kurang</span>';
+                            } else {
+                                newBadgeHtml = '<span class="badge bg-secondary">Sesuai</span>';
+                            }
+                            statusBadge.html(newBadgeHtml);
+
+                            // Show success notification
+                            Toast.fire({
+                                icon: 'success',
+                                title: `${itemName} berhasil diupdate`
+                            });
+
+                            // Update related data structures if any
+                            if (typeof updateDisplay === 'function') {
+                                updateDisplay();
+                            }
+                        } else {
+                            Toast.fire({
+                                icon: 'error',
+                                title: response.message || 'Gagal mengupdate data'
+                            });
+                        }
+                    },
+                    error: function(xhr) {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error!',
+                            text: xhr.responseJSON?.message || 'Terjadi kesalahan saat mengupdate data'
+                        });
+                        input.val(''); // Reset value on error
+                    },
+                    complete: function() {
+                        // Cleanup loading state
+                        loadingSpinner.remove();
+                        input.prop('disabled', false);
+                        input.focus();
+                    }
+                });
+            }, 500); // 500ms debounce delay
+        });
+    </script>
 
     <!-- XLSX library for Excel export -->
     <script src="{{ URL::asset('build/js/plugins/xlsx.full.min.js') }}"></script>

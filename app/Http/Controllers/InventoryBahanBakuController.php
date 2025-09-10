@@ -629,7 +629,7 @@ class InventoryBahanBakuController extends Controller
             ->addColumn('status_stock', function ($row) use ($filterMonthYear) {
                 $liveStock = $this->getLiveStock($row, $filterMonthYear);
                 if ($liveStock <= 10) {
-                    return '<span class="badge bg-danger">Low Stock</span>';
+                    return '<span class="badge bg-danger">Low Stock</span>';    
                 } elseif ($liveStock <= 30) {
                     return '<span class="badge bg-warning">Medium Stock</span>';
                 } else {
@@ -735,6 +735,7 @@ class InventoryBahanBakuController extends Controller
             $terpakai = $this->getTerpakai($row, $filterMonthYear);
             $defect = $row->defect ?? 0;
 
+            // return $stokAwal + $stokMasuk - $terpakai - $defect;
             return $stokAwal + $stokMasuk - $terpakai - $defect;
         } catch (\Exception $e) {
             Log::error('Error calculating live stock with monthly filter', [

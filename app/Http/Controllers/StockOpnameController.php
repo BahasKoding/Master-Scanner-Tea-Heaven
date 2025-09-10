@@ -63,17 +63,6 @@ class StockOpnameController extends Controller
 
             return DataTables::of($query)
                 ->addIndexColumn()
-                ->addColumn('action', function ($row) {
-                    $actions = '';
-                    if (auth()->user()->can('edit-stock-opname')) {
-                        if ($row->status !== 'completed') {
-                            $actions .= '<a href="' . route('stock-opname.show', $row->id) . '" class="btn btn-sm btn-primary me-1">Input Stok</a>';
-                        } else {
-                            $actions .= '<a href="' . route('stock-opname.show', $row->id) . '" class="btn btn-sm btn-info me-1">Lihat Detail</a>';
-                        }
-                    }
-                    return $actions;
-                })
                 ->editColumn('type', function ($row) {
                     $typeNames = [
                         'bahan_baku' => 'Bahan Baku',
@@ -111,7 +100,7 @@ class StockOpnameController extends Controller
                 ->orderColumn('DT_RowIndex', function ($query, $order) {
                     $query->orderBy('id', $order);
                 })
-                ->rawColumns(['action', 'status'])
+                ->rawColumns(['status'])
                 ->make(true);
         } catch (\Exception $e) {
             return response()->json([
