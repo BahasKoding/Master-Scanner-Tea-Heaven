@@ -111,7 +111,7 @@ class StockOpnameController extends Controller
                 ->orderColumn('DT_RowIndex', function ($query, $order) {
                     $query->orderBy('id', $order);
                 })
-                ->rawColumns(['status'])
+                ->rawColumns(['action', 'status'])
                 ->make(true);
         } catch (\Exception $e) {
             return response()->json([
