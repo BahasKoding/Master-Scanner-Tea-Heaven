@@ -36,13 +36,10 @@ class ProductionService
                 // 1. Create production record
                 $catatanProduksi = CatatanProduksi::create($data);
 
-                // 2. Update finished goods stock (stok masuk)
-                $this->stockService->updateStockFromProduction($catatanProduksi);
-
-                // 3. Update raw materials inventory (terpakai)
+                // 2. Update raw materials inventory (terpakai)
                 $this->updateRawMaterialsInventory($catatanProduksi, 'create');
 
-                // 5. Log comprehensive activity
+                // 3. Log comprehensive activity
                 $this->logProductionActivity('created', $catatanProduksi, $data);
 
                 return $catatanProduksi;
