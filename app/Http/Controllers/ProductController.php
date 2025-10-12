@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\Product;
+use App\Models\StockOpname;
+use App\Models\StockOpnameItem;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Yajra\DataTables\Facades\DataTables;
@@ -147,18 +149,38 @@ class ProductController extends Controller
             ], $this->getValidationMessages());
 
             $product = Product::create($validated);
-
+            
             // Get the category name for logging
             $categories = Product::getCategoryOptions();
             $categoryName = $categories[$validated['category_product']] ?? 'Unknown Category';
-
+            
             // Get the label name for logging
             $labels = Product::getLabelOptions();
             $labelName = isset($validated['label']) ? ($labels[$validated['label']] ?? '-') : '-';
+            
+            $existingOpname = StockOpname::where('status', 'draft')
+                ->whereYear('created_at', now()->year)
+                ->whereMonth('created_at', now()->month)
+                ->where('type', 'finished_goods') // Sesuaikan dengan type product
+                ->first();
 
+            // Jika ada stock opname di bulan ini, tambahkan product sebagai item
+            if ($existingOpname) {
+                StockOpnameItem::create([
+                    'opname_id' => $existingOpname->id,
+                    'item_id' => $product->id,
+                    'item_name' => $product->name_product,
+                    'item_sku' => $product->sku,
+                    'stok_sistem' => 0,
+                    'stok_fisik' => 0,
+                    'selisih' => 0,
+                    'satuan' => 'pcs',
+                ]);
+            }
+            
             // Log activity with category and label information
             addActivity('product', 'create', 'Pengguna membuat produk baru: ' . $product->name_product . ' dengan kategori: ' . $categoryName . ' dan label: ' . $labelName, $product->id);
-
+            
             return response()->json([
                 'success' => true,
                 'message' => 'Berhasil! Produk telah ditambahkan ke dalam sistem.',

@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\BahanBaku;
+use App\Models\StockOpname;
+use App\Models\StockOpnameItem;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Yajra\DataTables\Facades\DataTables;
@@ -140,6 +142,26 @@ class BahanBakuController extends Controller
             ], $this->getValidationMessages());
 
             $bahanBaku = BahanBaku::create($validated);
+
+            $existingOpname = StockOpname::where('status', 'draft')
+                ->whereYear('created_at', now()->year)
+                ->whereMonth('created_at', now()->month)
+                ->where('type', 'bahan_baku') // Tipe opname untuk bahan baku
+                ->first();
+
+            // Jika ada stock opname di bulan ini, tambahkan bahan baku sebagai item
+            if ($existingOpname) {
+                StockOpnameItem::create([
+                    'opname_id' => $existingOpname->id,
+                    'item_id' => $bahanBaku->id,
+                    'item_name' => $bahanBaku->nama_barang,
+                    'item_sku' => $bahanBaku->sku_induk,
+                    'stok_sistem' => 0,
+                    'stok_fisik' => 0,
+                    'selisih' => 0,
+                    'satuan' => $bahanBaku->satuan,
+                ]);
+            }
 
             // Log activity
             addActivity('bahan-baku', 'create', 'Pengguna membuat bahan baku baru: ' . $bahanBaku->nama_barang, $bahanBaku->id);
