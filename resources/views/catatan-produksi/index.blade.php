@@ -428,11 +428,11 @@
                                 <input type="text" id="filter-nama" class="form-control form-control-sm"
                                     placeholder="Filter berdasarkan nama">
                             </div>
-                            <div class="col-md-3 col-sm-6 col-12 mb-2">
-                                <label for="filter-packaging" class="form-label small filter-label">Packaging</label>
+                            {{-- <div class="col-md-3 col-sm-6 col-12 mb-2">
+                                <label for="filter-packaging" class="form-label small filter-label">Packaging</label> --}}
                                 <input type="text" id="filter-packaging" class="form-control form-control-sm"
                                     placeholder="Filter berdasarkan packaging">
-                            </div>
+                            {{-- </div> --}}
                             <div class="col-md-3 col-sm-6 col-12 mb-2">
                                 <label for="filter-label" class="form-label small filter-label">Label Produk</label>
                                 <select id="filter-label" class="form-select form-select-sm">
@@ -564,11 +564,11 @@
                         </div>
 
                         <div class="row mb-4">
-                            <div class="col-lg-6 col-md-12 col-12 mb-3">
-                                <label class="form-label">Packaging <span class="text-danger">*</span></label>
-                                <input type="text" class="form-control" name="packaging" required>
-                                <small class="text-muted">Kemasan produk (akan otomatis terisi sesuai produk)</small>
-                            </div>
+                            {{-- <div class="col-lg-6 col-md-12 col-12 mb-3">
+                                <label class="form-label">Packaging <span class="text-danger">*</span></label> --}}
+                                <input type="hidden" class="form-control" name="packaging" required>
+                                {{-- <small class="text-muted">Kemasan produk (akan otomatis terisi sesuai produk)</small>
+                            </div> --}}
                             <div class="col-lg-6 col-md-12 col-12 mb-3">
                                 <label class="form-label">Quantity <span class="text-danger">*</span></label>
                                 <input type="number" class="form-control" name="quantity" required min="1">
@@ -704,12 +704,12 @@
                         </div>
 
                         <div class="row mb-4">
-                            <div class="col-lg-6 col-md-12 col-12 mb-3">
-                                <label class="form-label">Packaging <span class="text-danger">*</span></label>
-                                <input type="text" class="form-control" name="packaging" id="edit_packaging"
+                            {{-- <div class="col-lg-6 col-md-12 col-12 mb-3">
+                                <label class="form-label">Packaging <span class="text-danger">*</span></label> --}}
+                                <input type="hidden" class="form-control" name="packaging" id="edit_packaging"
                                     required>
-                                <small class="text-muted">Kemasan produk (dapat diubah sesuai kebutuhan)</small>
-                            </div>
+                                {{-- <small class="text-muted">Kemasan produk (dapat diubah sesuai kebutuhan)</small>
+                            </div> --}}
                             <div class="col-lg-6 col-md-12 col-12 mb-3">
                                 <label class="form-label">Quantity <span class="text-danger">*</span></label>
                                 <input type="number" class="form-control" name="quantity" id="edit_quantity" required
