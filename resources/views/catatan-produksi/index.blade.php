@@ -428,11 +428,11 @@
                                 <input type="text" id="filter-nama" class="form-control form-control-sm"
                                     placeholder="Filter berdasarkan nama">
                             </div>
-                            {{-- <div class="col-md-3 col-sm-6 col-12 mb-2">
-                                <label for="filter-packaging" class="form-label small filter-label">Packaging</label> --}}
+                            <div class="col-md-3 col-sm-6 col-12 mb-2">
+                                <label for="filter-packaging" class="form-label small filter-label">Packaging</label>
                                 <input type="text" id="filter-packaging" class="form-control form-control-sm"
                                     placeholder="Filter berdasarkan packaging">
-                            {{-- </div> --}}
+                            </div>
                             <div class="col-md-3 col-sm-6 col-12 mb-2">
                                 <label for="filter-label" class="form-label small filter-label">Label Produk</label>
                                 <select id="filter-label" class="form-select form-select-sm">
